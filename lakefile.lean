@@ -4,7 +4,7 @@ open Lake DSL
 package afferentDemos where
   version := v!"0.1.0"
 
-require afferent from git "https://github.com/nathanial/afferent" @ "v0.0.2"
+require afferent from git "https://github.com/nathanial/afferent" @ "v0.0.3"
 require crucible from git "https://github.com/nathanial/crucible" @ "v0.0.1"
 
 -- Link arguments for Metal/macOS (inherited from Afferent)
@@ -27,6 +27,9 @@ def commonLinkArgs : Array String := #[
 @[default_target]
 lean_lib AfferentDemos where
   roots := #[`AfferentDemos]
+
+lean_lib Demos where
+  roots := #[`Demos]
 
 lean_lib AfferentDemosTests where
   roots := #[`AfferentDemosTests]
