@@ -225,28 +225,37 @@ def unifiedDemo : IO Unit := do
 
       if displayMode == 1 then
         -- Grid performance test: squares spinning in a grid
-        c ← renderGridTest (c.resetTransform) t fontMedium gridParticles halfSize
+        c ← run' c do
+          resetTransform
+          renderGridTestM t fontMedium gridParticles halfSize
       else if displayMode == 2 then
         -- Triangle performance test: triangles spinning in a grid
-        c ← renderTriangleTest (c.resetTransform) t fontMedium gridParticles halfSize
+        c ← run' c do
+          resetTransform
+          renderTriangleTestM t fontMedium gridParticles halfSize
       else if displayMode == 3 then
         -- Circle performance test: bouncing circles
         bouncingState ← bouncingState.updateBouncingAndWriteCircles dt circleRadius circleBuffer
-        c ← run' (c.resetTransform) do
+        c ← run' c do
+          resetTransform
           setFillColor Color.white
           fillTextXY s!"Circles: {bouncingState.count} dynamic circles [fused] (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
-        Render.Dynamic.drawCirclesFromBuffer c.ctx.renderer circleBuffer bouncingState.count.toUInt32 t bouncingState.screenWidth bouncingState.screenHeight
+          let renderer ← getRenderer
+          Render.Dynamic.drawCirclesFromBuffer renderer circleBuffer bouncingState.count.toUInt32 t bouncingState.screenWidth bouncingState.screenHeight
       else if displayMode == 4 then
         -- Sprite performance test: bouncing textured sprites (Bunnymark)
         -- Physics runs in Lean, rendering uses FloatBuffer for zero-copy GPU upload
         spriteState ← spriteState.updateBouncingAndWriteSprites dt spriteHalfSize spriteBuffer
-        c ← run' (c.resetTransform) do
+        c ← run' c do
+          resetTransform
           setFillColor Color.white
           fillTextXY s!"Sprites: {spriteState.count} textured sprites [fused] (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
-        Render.Dynamic.drawSpritesFromBuffer c.ctx.renderer spriteTexture spriteBuffer spriteState.count.toUInt32 spriteHalfSize spriteState.screenWidth spriteState.screenHeight
+          let renderer ← getRenderer
+          Render.Dynamic.drawSpritesFromBuffer renderer spriteTexture spriteBuffer spriteState.count.toUInt32 spriteHalfSize spriteState.screenWidth spriteState.screenHeight
       else if displayMode == 5 then
         -- Full-size Layout demo
-        c ← run' (c.resetTransform) do
+        c ← run' c do
+          resetTransform
           save
           translate layoutOffsetX layoutOffsetY
           scale layoutScale layoutScale
@@ -258,7 +267,8 @@ def unifiedDemo : IO Unit := do
           fillTextXY "CSS Flexbox Layout Demo (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
       else if displayMode == 6 then
         -- Full-size CSS Grid demo
-        c ← run' (c.resetTransform) do
+        c ← run' c do
+          resetTransform
           save
           translate layoutOffsetX layoutOffsetY
           scale layoutScale layoutScale
@@ -270,7 +280,8 @@ def unifiedDemo : IO Unit := do
           fillTextXY "CSS Grid Layout Demo (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
       else if displayMode == 7 then
         -- Widget system demo (using Arbor)
-        c ← run' (c.resetTransform) do
+        c ← run' c do
+          resetTransform
           renderWidgetShapesDebugM fontRegistry fontMediumId fontSmallId physWidthF physHeightF screenScale
           setFillColor Color.white
           fillTextXY "Widget System Demo (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
@@ -292,7 +303,8 @@ def unifiedDemo : IO Unit := do
         | none => pure ()
 
         -- Render
-        c ← run' (c.resetTransform) do
+        c ← run' c do
+          resetTransform
           renderInteractiveDebugM fontRegistry fontMediumId fontSmallId physWidthF physHeightF counterState screenScale
           setFillColor Color.white
           fillTextXY "Interactive Counter Demo - Click the buttons! (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
@@ -336,9 +348,11 @@ def unifiedDemo : IO Unit := do
         fpsCamera := fpsCamera.update dt wDown sDown aDown dDown eDown qDown dx dy
 
         -- Render with camera (use current drawable size for correct aspect ratio on resize).
-        let (currentW, currentH) ← c.ctx.getCurrentSize
-        renderSpinningCubesWithCamera c.ctx.renderer t currentW currentH fpsCamera
-        c ← run' (c.resetTransform) do
+        c ← run' c do
+          let (currentW, currentH) ← getCurrentSize
+          let renderer ← getRenderer
+          renderSpinningCubesWithCamera renderer t currentW currentH fpsCamera
+          resetTransform
           setFillColor Color.white
           if locked then
             fillTextXY "3D Spinning Cubes - WASD+Q/E to move, mouse to look, Escape to release (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
@@ -382,9 +396,11 @@ def unifiedDemo : IO Unit := do
         seascapeCamera := seascapeCamera.update dt wDown sDown aDown dDown eDown qDown dx dy
 
         -- Render seascape (use current drawable size for correct aspect ratio on resize).
-        let (currentW, currentH) ← c.ctx.getCurrentSize
-        renderSeascape c.ctx.renderer t currentW currentH seascapeCamera
-        c ← run' (c.resetTransform) do
+        c ← run' c do
+          let (currentW, currentH) ← getCurrentSize
+          let renderer ← getRenderer
+          renderSeascape renderer t currentW currentH seascapeCamera
+          resetTransform
           setFillColor Color.white
           if locked then
             fillTextXY "Seascape - WASD+Q/E to move, mouse to look, Escape to release (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
@@ -396,13 +412,15 @@ def unifiedDemo : IO Unit := do
             (20 * screenScale) (55 * screenScale) fontSmall
       else if displayMode == 11 then
         -- Path Features demo: non-convex polygons, arcTo, transformed arcs
-        c ← run' (c.resetTransform) do
+        c ← run' c do
+          resetTransform
           renderPathFeaturesM screenScale fontSmall
           setFillColor Color.white
           fillTextXY "Path Features Demo - Non-convex, arcTo, transforms (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
       else if displayMode == 12 then
         -- Shape Gallery: flip through labeled shapes with arrow keys
-        c ← run' (c.resetTransform) do
+        c ← run' c do
+          resetTransform
           renderShapeGalleryM shapeGalleryIndex physWidthF physHeightF screenScale fontLarge fontSmall
           setFillColor Color.white
           fillTextXY "Shape Gallery (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
@@ -423,7 +441,8 @@ def unifiedDemo : IO Unit := do
         Worldmap.render c.ctx.renderer mapState
 
         -- Render UI overlay
-        c ← run' (c.resetTransform) do
+        c ← run' c do
+          resetTransform
           setFillColor Color.white
           fillTextXY "Worldmap Demo - drag to pan, scroll to zoom (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
           -- Show coordinates
@@ -433,16 +452,18 @@ def unifiedDemo : IO Unit := do
           fillTextXY s!"lat={lat} lon={lon} zoom={zoom}" (20 * screenScale) (55 * screenScale) fontSmall
       else
         -- Normal demo mode: grid of demos using Trellis layout
-        let (currentW, currentH) ← c.ctx.getCurrentSize
-        c ← run' (c.resetTransform) do
+        c ← run' c do
+          resetTransform
+          let (currentW, currentH) ← getCurrentSize
           renderDemoGridM screenScale currentW currentH fontSmall fonts t
 
       -- Render FPS counter in top-right corner (after all other rendering)
       -- Use current drawable size for proper positioning after resize
-      let (fpsW, _) ← c.ctx.getCurrentSize
       let fpsText := s!"{displayFps.toUInt32} FPS"
       let (textWidth, _) ← fontSmall.measureText fpsText
-      c ← run' (c.resetTransform) do
+      c ← run' c do
+        resetTransform
+        let (fpsW, _) ← getCurrentSize
         setFillColor (Color.hsva 0.0 0.0 0.0 0.6)
         fillRectXYWH (fpsW - textWidth - 20 * screenScale) (5 * screenScale) (textWidth + 15 * screenScale) (25 * screenScale)
         setFillColor Color.white

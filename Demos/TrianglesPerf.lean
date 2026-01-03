@@ -3,16 +3,16 @@
 -/
 import Afferent
 
-open Afferent
+open Afferent CanvasM
 
 namespace Demos
 
 /-- Render grid of spinning triangles using unified Dynamic module. -/
-def renderTriangleTest (c : Canvas) (t : Float) (font : Font) (particles : Render.Dynamic.ParticleState)
-    (halfSize : Float) : IO Canvas := do
-  let c := c.setFillColor Color.white
-  let c ← c.fillTextXY s!"Triangles: {particles.count} dynamic triangles (Space to advance)" 20 30 font
-  Render.Dynamic.drawTrianglesAnimated c.ctx.renderer particles halfSize t 2.0
-  pure c
+def renderTriangleTestM (t : Float) (font : Font) (particles : Render.Dynamic.ParticleState)
+    (halfSize : Float) : CanvasM Unit := do
+  setFillColor Color.white
+  fillTextXY s!"Triangles: {particles.count} dynamic triangles (Space to advance)" 20 30 font
+  let renderer ← getRenderer
+  Render.Dynamic.drawTrianglesAnimated renderer particles halfSize t 2.0
 
 end Demos
