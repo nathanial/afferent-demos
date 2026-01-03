@@ -4,8 +4,14 @@ open Lake DSL
 package afferentDemos where
   version := v!"0.1.0"
 
-require afferent from git "https://github.com/nathanial/afferent" @ "v0.0.3"
-require crucible from git "https://github.com/nathanial/crucible" @ "v0.0.1"
+-- require afferent from git "https://github.com/nathanial/afferent" @ "v0.0.3"
+require afferent from "../afferent"
+-- require crucible from git "https://github.com/nathanial/crucible" @ "v0.0.1"
+require crucible from "../../testing/crucible"
+-- require wisp from git "https://github.com/nathanial/wisp" @ "v0.0.1"
+require wisp from "../../network/wisp"
+-- require cellar from git "https://github.com/nathanial/cellar" @ "v0.0.1"
+require cellar from "../../data/cellar"
 
 -- Link arguments for Metal/macOS (inherited from Afferent)
 def commonLinkArgs : Array String := #[
@@ -21,7 +27,8 @@ def commonLinkArgs : Array String := #[
   "-lfreetype",
   "-lassimp",
   "-lz",
-  "-lc++"
+  "-lc++",
+  "-lcurl"
 ]
 
 @[default_target]
@@ -30,6 +37,9 @@ lean_lib AfferentDemos where
 
 lean_lib Demos where
   roots := #[`Demos]
+
+lean_lib Worldmap where
+  roots := #[`Worldmap]
 
 lean_lib AfferentDemosTests where
   roots := #[`AfferentDemosTests]

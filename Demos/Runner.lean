@@ -22,6 +22,8 @@ import Demos.DemoGrid
 import Demos.Seascape
 import Demos.PathFeatures
 import Demos.ShapeGallery
+import Worldmap
+import Wisp
 
 set_option maxRecDepth 1024
 
@@ -33,6 +35,8 @@ namespace Demos
 def unifiedDemo : IO Unit := do
   IO.println "Unified Visual Demo (with Animations!)"
   IO.println "--------------------------------------"
+  -- Wisp requires explicit global init before any HTTP requests (worldmap tiles).
+  Wisp.FFI.globalInit
 
   -- Query the actual screen scale factor (e.g., 1.5 for 150%, 2.0 for Retina)
   let screenScale ← FFI.getScreenScale
@@ -136,7 +140,7 @@ def unifiedDemo : IO Unit := do
         | none => 0
     | none => 0
 
-  let mut displayMode : Nat := startMode % 12
+  let mut displayMode : Nat := startMode % 14
   let mut msaaEnabled : Bool := true
   let mut lastTime := startTime
   let mut bouncingState := bouncingParticles
@@ -155,6 +159,14 @@ def unifiedDemo : IO Unit := do
   -- Shape gallery state (mode 12)
   let mut shapeGalleryIndex : Nat := 0
 
+  -- Worldmap state (mode 13)
+  let diskConfig : Worldmap.TileDiskCacheConfig := {
+    cacheDir := "./tile_cache"
+    tilesetName := "carto-dark-2x"
+    maxSizeBytes := Worldmap.defaultDiskCacheSizeBytes
+  }
+  let mut mapState ← Worldmap.MapState.init 37.7749 (-122.4194) 12 (physWidth.toNat : Int) (physHeight.toNat : Int) diskConfig
+
   while !(← c.shouldClose) do
     c.pollEvents
 
@@ -164,7 +176,7 @@ def unifiedDemo : IO Unit := do
       -- Release pointer lock when leaving mode 9 or 10
       if displayMode == 9 || displayMode == 10 then
         FFI.Window.setPointerLock c.ctx.window false
-      displayMode := (displayMode + 1) % 13
+      displayMode := (displayMode + 1) % 14
       c.clearKey
       -- Disable MSAA for throughput-heavy benchmarks and the seascape demo.
       -- (Seascape is usually fill-rate bound; MSAA can be a big hit at Retina resolutions.)
@@ -183,7 +195,8 @@ def unifiedDemo : IO Unit := do
       | 9 => IO.println "Switched to 3D SPINNING CUBES demo"
       | 10 => IO.println "Switched to SEASCAPE demo (Gerstner waves)"
       | 11 => IO.println "Switched to PATH FEATURES demo (non-convex, arcTo, transforms)"
-      | _ => IO.println "Switched to SHAPE GALLERY (arrow keys to navigate)"
+      | 12 => IO.println "Switched to SHAPE GALLERY (arrow keys to navigate)"
+      | _ => IO.println "Switched to WORLDMAP demo (drag to pan, scroll to zoom)"
 
     -- Arrow key navigation for shape gallery (mode 12)
     if displayMode == 12 then
@@ -393,6 +406,31 @@ def unifiedDemo : IO Unit := do
           renderShapeGalleryM shapeGalleryIndex physWidthF physHeightF screenScale fontLarge fontSmall
           setFillColor Color.white
           fillTextXY "Shape Gallery (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
+      else if displayMode == 13 then
+        -- Worldmap demo: tile-based map viewer
+        -- Keep viewport size in sync with the drawable (handles Retina + resize).
+        let (w, h) ← FFI.Window.getSize c.ctx.window
+        mapState := mapState.updateScreenSize w.toNat h.toNat
+        -- Handle input (pan/zoom)
+        mapState ← Worldmap.handleInput c.ctx.window mapState
+        mapState := Worldmap.updateZoomAnimation mapState
+        Worldmap.cancelStaleTasks mapState
+        mapState ← Worldmap.updateTileCache mapState
+
+        -- Render tiles
+        -- Reset any leftover scissor from other demos before drawing tiles.
+        c.ctx.resetScissor
+        Worldmap.render c.ctx.renderer mapState
+
+        -- Render UI overlay
+        c ← run' (c.resetTransform) do
+          setFillColor Color.white
+          fillTextXY "Worldmap Demo - drag to pan, scroll to zoom (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
+          -- Show coordinates
+          let lat := mapState.viewport.centerLat
+          let lon := mapState.viewport.centerLon
+          let zoom := mapState.displayZoom
+          fillTextXY s!"lat={lat} lon={lon} zoom={zoom}" (20 * screenScale) (55 * screenScale) fontSmall
       else
         -- Normal demo mode: grid of demos using Trellis layout
         let (currentW, currentH) ← c.ctx.getCurrentSize
@@ -423,6 +461,8 @@ def unifiedDemo : IO Unit := do
   fontHuge.destroy
   layoutFont.destroy
   canvas.destroy
+  Wisp.FFI.globalCleanup
+  Wisp.HTTP.Client.shutdown
 
 /-- Main entry point - runs all demos -/
 def main : IO Unit := do
