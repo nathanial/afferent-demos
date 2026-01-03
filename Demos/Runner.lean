@@ -22,6 +22,8 @@ import Demos.DemoGrid
 import Demos.Seascape
 import Demos.PathFeatures
 import Demos.ShapeGallery
+import Demos.LineCaps
+import Demos.DashedLines
 import Worldmap
 import Wisp
 
@@ -140,7 +142,7 @@ def unifiedDemo : IO Unit := do
         | none => 0
     | none => 0
 
-  let mut displayMode : Nat := startMode % 14
+  let mut displayMode : Nat := startMode % 16
   let mut msaaEnabled : Bool := true
   let mut lastTime := startTime
   let mut bouncingState := bouncingParticles
@@ -176,7 +178,7 @@ def unifiedDemo : IO Unit := do
       -- Release pointer lock when leaving mode 9 or 10
       if displayMode == 9 || displayMode == 10 then
         FFI.Window.setPointerLock c.ctx.window false
-      displayMode := (displayMode + 1) % 14
+      displayMode := (displayMode + 1) % 16
       c.clearKey
       -- Disable MSAA for throughput-heavy benchmarks and the seascape demo.
       -- (Seascape is usually fill-rate bound; MSAA can be a big hit at Retina resolutions.)
@@ -450,6 +452,22 @@ def unifiedDemo : IO Unit := do
           let lon := mapState.viewport.centerLon
           let zoom := mapState.displayZoom
           fillTextXY s!"lat={lat} lon={lon} zoom={zoom}" (20 * screenScale) (55 * screenScale) fontSmall
+      else if displayMode == 14 then
+        -- Line Caps and Joins demo
+        c ← run' c do
+          resetTransform
+          scale screenScale screenScale
+          renderLineCapsM fontSmall
+          setFillColor Color.white
+          fillTextXY "Line Caps & Joins (Space to advance)" 20 30 fontMedium
+      else if displayMode == 15 then
+        -- Dashed Lines demo
+        c ← run' c do
+          resetTransform
+          scale screenScale screenScale
+          renderDashedLinesM fontSmall
+          setFillColor Color.white
+          fillTextXY "Dashed Lines (Space to advance)" 20 30 fontMedium
       else
         -- Normal demo mode: grid of demos using Trellis layout
         c ← run' c do

@@ -14,4 +14,6 @@ import Demos.CirclesPerf
 import Demos.SpritesPerf
 import Demos.Layout
 import Demos.ShapeGallery
+import Demos.LineCaps
+import Demos.DashedLines
 import Demos.Runner
