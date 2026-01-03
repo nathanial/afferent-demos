@@ -12,6 +12,7 @@ import Demos.GridPerf
 import Demos.TrianglesPerf
 import Demos.CirclesPerf
 import Demos.SpritesPerf
+import Demos.LinesPerf
 import Demos.Layout
 import Demos.ShapeGallery
 import Demos.LineCaps

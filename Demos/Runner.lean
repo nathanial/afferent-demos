@@ -15,6 +15,7 @@ import Demos.GridPerf
 import Demos.TrianglesPerf
 import Demos.CirclesPerf
 import Demos.SpritesPerf
+import Demos.LinesPerf
 import Demos.Widgets
 import Demos.Interactive
 import Demos.SpinningCubes
@@ -101,6 +102,11 @@ def unifiedDemo : IO Unit := do
   let gridParticles := Render.Dynamic.ParticleState.createGrid gridCols gridRows gridStartX gridStartY gridSpacing physWidthF physHeightF
   IO.println s!"Created {gridParticles.count} grid particles"
 
+  -- Line segments for 100k-line GPU stroke perf
+  let (lineSegments, lineCount) := Demos.buildLineSegments physWidthF physHeightF
+  let lineWidth := 1.0 * screenScale
+  IO.println s!"Prepared {lineCount} line segments"
+
   -- Bouncing circles using Dynamic.ParticleState
   let bouncingParticles := Render.Dynamic.ParticleState.create 1000000 physWidthF physHeightF 42
   IO.println s!"Created {bouncingParticles.count} bouncing circles"
@@ -124,7 +130,7 @@ def unifiedDemo : IO Unit := do
   let (fontReg2, fontMediumId) := fontReg1.register fontMedium "medium"
   let fontRegistry := fontReg2.setDefault fontMedium
 
-  -- Display modes: 0 = demo, 1 = grid squares, 2 = triangles, 3 = circles, 4 = sprites
+  -- Display modes: 0 = demo, 1 = grid squares, 2 = triangles, 3 = circles, 4 = sprites, 16 = lines
   let startTime ← IO.monoMsNow
   let mut c := canvas
   let startMode :=
@@ -142,7 +148,7 @@ def unifiedDemo : IO Unit := do
         | none => 0
     | none => 0
 
-  let mut displayMode : Nat := startMode % 16
+  let mut displayMode : Nat := startMode % 17
   let mut msaaEnabled : Bool := true
   let mut lastTime := startTime
   let mut bouncingState := bouncingParticles
@@ -178,11 +184,11 @@ def unifiedDemo : IO Unit := do
       -- Release pointer lock when leaving mode 9 or 10
       if displayMode == 9 || displayMode == 10 then
         FFI.Window.setPointerLock c.ctx.window false
-      displayMode := (displayMode + 1) % 16
+      displayMode := (displayMode + 1) % 17
       c.clearKey
       -- Disable MSAA for throughput-heavy benchmarks and the seascape demo.
       -- (Seascape is usually fill-rate bound; MSAA can be a big hit at Retina resolutions.)
-      msaaEnabled := displayMode != 4 && displayMode != 10
+      msaaEnabled := displayMode != 4 && displayMode != 10 && displayMode != 16
       FFI.Renderer.setMSAAEnabled c.ctx.renderer msaaEnabled
       match displayMode with
       | 0 => IO.println "Switched to DEMO mode"
@@ -198,7 +204,10 @@ def unifiedDemo : IO Unit := do
       | 10 => IO.println "Switched to SEASCAPE demo (Gerstner waves)"
       | 11 => IO.println "Switched to PATH FEATURES demo (non-convex, arcTo, transforms)"
       | 12 => IO.println "Switched to SHAPE GALLERY (arrow keys to navigate)"
-      | _ => IO.println "Switched to WORLDMAP demo (drag to pan, scroll to zoom)"
+      | 13 => IO.println "Switched to WORLDMAP demo (drag to pan, scroll to zoom)"
+      | 14 => IO.println "Switched to LINE CAPS & JOINS demo"
+      | 15 => IO.println "Switched to DASHED LINES demo"
+      | _ => IO.println "Switched to 100k LINES performance test"
 
     -- Arrow key navigation for shape gallery (mode 12)
     if displayMode == 12 then
@@ -468,6 +477,11 @@ def unifiedDemo : IO Unit := do
           renderDashedLinesM fontSmall
           setFillColor Color.white
           fillTextXY "Dashed Lines (Space to advance)" 20 30 fontMedium
+      else if displayMode == 16 then
+        -- 100k Lines performance test (single draw call)
+        c ← run' c do
+          resetTransform
+          renderLinesPerfM t lineSegments lineCount lineWidth fontMedium
       else
         -- Normal demo mode: grid of demos using Trellis layout
         c ← run' c do
