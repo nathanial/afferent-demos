@@ -170,9 +170,9 @@ def unifiedDemo : IO Unit := do
   while !(← c.shouldClose) do
     c.pollEvents
 
-    -- Check for Space key (key code 49) to cycle through modes
+    -- Check for Space key to cycle through modes
     let keyCode ← c.getKeyCode
-    if keyCode == 49 then  -- Space bar
+    if keyCode == FFI.Key.space then
       -- Release pointer lock when leaving mode 9 or 10
       if displayMode == 9 || displayMode == 10 then
         FFI.Window.setPointerLock c.ctx.window false
@@ -200,10 +200,10 @@ def unifiedDemo : IO Unit := do
 
     -- Arrow key navigation for shape gallery (mode 12)
     if displayMode == 12 then
-      if keyCode == 124 then  -- Right arrow
+      if keyCode == FFI.Key.right then
         shapeGalleryIndex := (shapeGalleryIndex + 1) % Demos.shapeGalleryCount
         c.clearKey
-      else if keyCode == 123 then  -- Left arrow
+      else if keyCode == FFI.Key.left then
         shapeGalleryIndex := if shapeGalleryIndex == 0 then Demos.shapeGalleryCount - 1 else shapeGalleryIndex - 1
         c.clearKey
 
@@ -314,7 +314,7 @@ def unifiedDemo : IO Unit := do
         -- - Escape toggles capture/release
         -- - Left click captures (when not captured)
         let mut locked ← FFI.Window.getPointerLock c.ctx.window
-        if keyCode == 53 then  -- Escape
+        if keyCode == FFI.Key.escape then
           FFI.Window.setPointerLock c.ctx.window (!locked)
           locked := !locked
           c.clearKey
@@ -331,12 +331,12 @@ def unifiedDemo : IO Unit := do
 
         -- Check movement keys (WASD + Q/E) using continuous key state.
         -- Movement works even when not pointer-locked; mouse-look only when locked.
-        let wDown ← FFI.Window.isKeyDown c.ctx.window 13  -- W
-        let aDown ← FFI.Window.isKeyDown c.ctx.window 0   -- A
-        let sDown ← FFI.Window.isKeyDown c.ctx.window 1   -- S
-        let dDown ← FFI.Window.isKeyDown c.ctx.window 2   -- D
-        let qDown ← FFI.Window.isKeyDown c.ctx.window 12  -- Q
-        let eDown ← FFI.Window.isKeyDown c.ctx.window 14  -- E
+        let wDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.w
+        let aDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.a
+        let sDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.s
+        let dDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.d
+        let qDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.q
+        let eDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.e
 
         let (dx, dy) ←
           if locked then
@@ -364,7 +364,7 @@ def unifiedDemo : IO Unit := do
       else if displayMode == 10 then
         -- Seascape demo with Gerstner waves and FPS camera
         let mut locked ← FFI.Window.getPointerLock c.ctx.window
-        if keyCode == 53 then  -- Escape
+        if keyCode == FFI.Key.escape then
           FFI.Window.setPointerLock c.ctx.window (!locked)
           locked := !locked
           c.clearKey
@@ -379,12 +379,12 @@ def unifiedDemo : IO Unit := do
           | none => pure ()
 
         -- Check movement keys (WASD + Q/E)
-        let wDown ← FFI.Window.isKeyDown c.ctx.window 13  -- W
-        let aDown ← FFI.Window.isKeyDown c.ctx.window 0   -- A
-        let sDown ← FFI.Window.isKeyDown c.ctx.window 1   -- S
-        let dDown ← FFI.Window.isKeyDown c.ctx.window 2   -- D
-        let qDown ← FFI.Window.isKeyDown c.ctx.window 12  -- Q
-        let eDown ← FFI.Window.isKeyDown c.ctx.window 14  -- E
+        let wDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.w
+        let aDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.a
+        let sDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.s
+        let dDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.d
+        let qDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.q
+        let eDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.e
 
         let (dx, dy) ←
           if locked then
