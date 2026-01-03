@@ -65,7 +65,7 @@ def buildLineSegments (screenWidth screenHeight : Float) : Array Float × Nat :=
   return (segments, total)
 
 /-- Render 100k line segments using GPU stroke extrusion (single draw call). -/
-def renderLinesPerfM (t : Float) (segments : Array Float) (lineCount : Nat) (lineWidth : Float)
+def renderLinesPerfM (t : Float) (buffer : FFI.Buffer) (lineCount : Nat) (lineWidth : Float)
     (font : Font) : CanvasM Unit := do
   setFillColor Color.white
   fillTextXY s!"Lines: {lineCount} GPU stroke segments (Space to advance)" 20 30 font
@@ -75,7 +75,10 @@ def renderLinesPerfM (t : Float) (segments : Array Float) (lineCount : Nat) (lin
   let centerX := w / 2.0
   let centerY := h / 2.0
   let rotation := t * 0.35
-  let buffer ← FFI.Buffer.createStrokeSegment renderer segments
+  let tform :=
+    Transform.concat
+      (Transform.concat (Transform.translate (-centerX) (-centerY)) (Transform.rotate rotation))
+      (Transform.translate centerX centerY)
   renderer.drawStrokePath
     buffer
     lineCount.toUInt32
@@ -84,11 +87,10 @@ def renderLinesPerfM (t : Float) (segments : Array Float) (lineCount : Nat) (lin
     w h
     10.0
     0 0
-    centerX centerY rotation
+    tform.a tform.b tform.c tform.d tform.tx tform.ty
     #[]
     0
     0.0
     0.85 0.9 1.0 1.0
-  FFI.Buffer.destroy buffer
 
 end Demos

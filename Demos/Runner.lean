@@ -105,6 +105,7 @@ def unifiedDemo : IO Unit := do
   -- Line segments for 100k-line GPU stroke perf
   let (lineSegments, lineCount) := Demos.buildLineSegments physWidthF physHeightF
   let lineWidth := 1.0 * screenScale
+  let lineBuffer ← FFI.Buffer.createStrokeSegmentPersistent canvas.ctx.renderer lineSegments
   IO.println s!"Prepared {lineCount} line segments"
 
   -- Bouncing circles using Dynamic.ParticleState
@@ -186,6 +187,8 @@ def unifiedDemo : IO Unit := do
         FFI.Window.setPointerLock c.ctx.window false
       displayMode := (displayMode + 1) % 17
       c.clearKey
+      c := c.resetState
+      c.ctx.resetScissor
       -- Disable MSAA for throughput-heavy benchmarks and the seascape demo.
       -- (Seascape is usually fill-rate bound; MSAA can be a big hit at Retina resolutions.)
       msaaEnabled := displayMode != 4 && displayMode != 10 && displayMode != 16
@@ -481,7 +484,7 @@ def unifiedDemo : IO Unit := do
         -- 100k Lines performance test (single draw call)
         c ← run' c do
           resetTransform
-          renderLinesPerfM t lineSegments lineCount lineWidth fontMedium
+          renderLinesPerfM t lineBuffer lineCount lineWidth fontMedium
       else
         -- Normal demo mode: grid of demos using Trellis layout
         c ← run' c do
@@ -513,6 +516,7 @@ def unifiedDemo : IO Unit := do
   fontLarge.destroy
   fontHuge.destroy
   layoutFont.destroy
+  FFI.Buffer.destroy lineBuffer
   canvas.destroy
   Wisp.FFI.globalCleanup
   Wisp.HTTP.Client.shutdown
