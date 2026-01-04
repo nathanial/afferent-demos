@@ -7,12 +7,11 @@ open Afferent CanvasM
 
 namespace Demos
 
-/-- Render grid of spinning triangles using unified Dynamic module. -/
+/-- Render grid of spinning triangles using Canvas's integrated dynamic rendering. -/
 def renderTriangleTestM (t : Float) (font : Font) (particles : Render.Dynamic.ParticleState)
-    (halfSize : Float) (buffer : FFI.FloatBuffer) : CanvasM Unit := do
+    (halfSize : Float) : CanvasM Unit := do
   setFillColor Color.white
   fillTextXY s!"Triangles: {particles.count} dynamic triangles (Space to advance)" 20 30 font
-  let renderer ← getRenderer
-  Render.Dynamic.drawTrianglesAnimated renderer particles buffer halfSize t 2.0
+  fillDynamicTrianglesAnimated particles halfSize t 2.0
 
 end Demos

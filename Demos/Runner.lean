@@ -101,7 +101,6 @@ def unifiedDemo : IO Unit := do
   let gridStartY := (physHeightF - (gridRows.toFloat - 1) * gridSpacing) / 2.0
   let gridParticles := Render.Dynamic.ParticleState.createGrid gridCols gridRows gridStartX gridStartY gridSpacing physWidthF physHeightF
   IO.println s!"Created {gridParticles.count} grid particles"
-  let gridInstanceBuffer ← gridParticles.createInstanceBuffer
 
   -- Line segments for 100k-line GPU stroke perf
   let (lineSegments, lineCount) := Demos.buildLineSegments physWidthF physHeightF
@@ -113,11 +112,9 @@ def unifiedDemo : IO Unit := do
   let bouncingParticles := Render.Dynamic.ParticleState.create 1000000 physWidthF physHeightF 42
   IO.println s!"Created {bouncingParticles.count} bouncing circles"
 
-  -- Sprite particles for Bunnymark-style benchmark (Lean physics, FloatBuffer rendering)
+  -- Sprite particles for Bunnymark-style benchmark
   let spriteParticles := Render.Dynamic.ParticleState.create 1000000 physWidthF physHeightF 123
-  let spriteBuffer ← spriteParticles.createSpriteBuffer
-  let circleBuffer ← bouncingParticles.createInstanceBuffer
-  IO.println s!"Created {spriteParticles.count} bouncing sprites (Lean physics, FloatBuffer rendering)"
+  IO.println s!"Created {spriteParticles.count} bouncing sprites"
 
   -- No GPU upload needed! Dynamic module sends positions each frame.
   IO.println "Using unified Dynamic rendering - CPU positions, GPU color/NDC."
@@ -279,31 +276,28 @@ def unifiedDemo : IO Unit := do
         -- Grid performance test: squares spinning in a grid
         c ← run' c do
           resetTransform
-          renderGridTestM t fontMedium gridParticles halfSize gridInstanceBuffer
+          renderGridTestM t fontMedium gridParticles halfSize
       else if displayMode == 2 then
         -- Triangle performance test: triangles spinning in a grid
         c ← run' c do
           resetTransform
-          renderTriangleTestM t fontMedium gridParticles halfSize gridInstanceBuffer
+          renderTriangleTestM t fontMedium gridParticles halfSize
       else if displayMode == 3 then
         -- Circle performance test: bouncing circles
-        bouncingState ← bouncingState.updateBouncingAndWriteCircles dt circleRadius circleBuffer
+        bouncingState := bouncingState.updateBouncing dt circleRadius
         c ← run' c do
           resetTransform
           setFillColor Color.white
-          fillTextXY s!"Circles: {bouncingState.count} dynamic circles [fused] (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
-          let renderer ← getRenderer
-          Render.Dynamic.drawCirclesFromBuffer renderer circleBuffer bouncingState.count.toUInt32 t bouncingState.screenWidth bouncingState.screenHeight
+          fillTextXY s!"Circles: {bouncingState.count} dynamic circles (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
+          fillDynamicCircles bouncingState circleRadius t
       else if displayMode == 4 then
         -- Sprite performance test: bouncing textured sprites (Bunnymark)
-        -- Physics runs in Lean, rendering uses FloatBuffer for zero-copy GPU upload
-        spriteState ← spriteState.updateBouncingAndWriteSprites dt spriteHalfSize spriteBuffer
+        spriteState := spriteState.updateBouncing dt spriteHalfSize
         c ← run' c do
           resetTransform
           setFillColor Color.white
-          fillTextXY s!"Sprites: {spriteState.count} textured sprites [fused] (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
-          let renderer ← getRenderer
-          Render.Dynamic.drawSpritesFromBuffer renderer spriteTexture spriteBuffer spriteState.count.toUInt32 spriteHalfSize spriteState.screenWidth spriteState.screenHeight
+          fillTextXY s!"Sprites: {spriteState.count} textured sprites (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
+          fillDynamicSprites spriteTexture spriteState spriteHalfSize
       else if displayMode == 5 then
         -- Full-size Layout demo
         c ← run' c do
