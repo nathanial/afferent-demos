@@ -27,6 +27,7 @@ import Demos.LineCaps
 import Demos.DashedLines
 import Worldmap
 import Wisp
+import Init.Data.FloatArray
 
 set_option maxRecDepth 1024
 
@@ -122,6 +123,40 @@ def unifiedDemo : IO Unit := do
   -- No GPU upload needed! Dynamic module sends positions each frame.
   IO.println "Using unified Dynamic rendering - CPU positions, GPU color/NDC."
 
+  -- Orbital instanced demo parameters (CPU orbit, GPU instancing)
+  let orbitalCount : Nat := 50000
+  let minRadius : Float := 20.0 * screenScale
+  let maxRadius : Float := (min physWidthF physHeightF) * 0.45
+  let speedMin : Float := 0.3
+  let speedMax : Float := 1.6
+  let sizeMin : Float := 1.0 * screenScale
+  let sizeMax : Float := 3.5 * screenScale
+  let twoPi : Float := 6.283185307
+  let orbitalParams : FloatArray := Id.run do
+    let mut arr := FloatArray.emptyWithCapacity (orbitalCount * 5)
+    let mut s := 4242
+    for i in [:orbitalCount] do
+      s := (s * 1103515245 + 12345) % (2^31)
+      let phase := (s.toFloat / 2147483648.0) * twoPi
+      s := (s * 1103515245 + 12345) % (2^31)
+      let radius := minRadius + (s.toFloat / 2147483648.0) * (maxRadius - minRadius)
+      s := (s * 1103515245 + 12345) % (2^31)
+      let baseSpeed := speedMin + (s.toFloat / 2147483648.0) * (speedMax - speedMin)
+      s := (s * 1103515245 + 12345) % (2^31)
+      let dir : Float := if s % 2 == 0 then 1.0 else -1.0
+      let speed := baseSpeed * dir
+      s := (s * 1103515245 + 12345) % (2^31)
+      let size := sizeMin + (s.toFloat / 2147483648.0) * (sizeMax - sizeMin)
+      let hue := i.toFloat / orbitalCount.toFloat
+      arr := arr.push phase
+      arr := arr.push radius
+      arr := arr.push speed
+      arr := arr.push hue
+      arr := arr.push size
+    arr
+  let orbitalBuffer ← FFI.FloatBuffer.create (orbitalCount.toUSize * 8)
+  IO.println s!"Prepared {orbitalCount} orbital instances"
+
   -- Layout demo labels are drawn in screen pixels (not scaled with the demo), so size is stable.
   let layoutLabelPt : Float := 12.0
   let layoutFontPx : UInt32 := (max 8.0 (layoutLabelPt * screenScale)).toUInt32
@@ -132,7 +167,7 @@ def unifiedDemo : IO Unit := do
   let (fontReg2, fontMediumId) := fontReg1.register fontMedium "medium"
   let fontRegistry := fontReg2.setDefault fontMedium
 
-  -- Display modes: 0 = demo, 1 = grid squares, 2 = triangles, 3 = circles, 4 = sprites, 16 = lines, 17 = texture matrix
+  -- Display modes: 0 = demo, 1 = grid squares, 2 = triangles, 3 = circles, 4 = sprites, 16 = lines, 17 = texture matrix, 18 = orbital instanced
   let startTime ← IO.monoMsNow
   let mut c := canvas
   let startMode :=
@@ -150,7 +185,7 @@ def unifiedDemo : IO Unit := do
         | none => 0
     | none => 0
 
-  let mut displayMode : Nat := startMode % 18
+  let mut displayMode : Nat := startMode % 19
   let mut msaaEnabled : Bool := true
   let mut lastTime := startTime
   let mut bouncingState := bouncingParticles
@@ -186,13 +221,13 @@ def unifiedDemo : IO Unit := do
       -- Release pointer lock when leaving mode 9 or 10
       if displayMode == 9 || displayMode == 10 then
         FFI.Window.setPointerLock c.ctx.window false
-      displayMode := (displayMode + 1) % 18
+      displayMode := (displayMode + 1) % 19
       c.clearKey
       c := c.resetState
       c.ctx.resetScissor
       -- Disable MSAA for throughput-heavy benchmarks and the seascape demo.
       -- (Seascape is usually fill-rate bound; MSAA can be a big hit at Retina resolutions.)
-      msaaEnabled := displayMode != 4 && displayMode != 10 && displayMode != 16
+      msaaEnabled := displayMode != 4 && displayMode != 10 && displayMode != 16 && displayMode != 18
       FFI.Renderer.setMSAAEnabled c.ctx.renderer msaaEnabled
       match displayMode with
       | 0 => IO.println "Switched to DEMO mode"
@@ -212,7 +247,9 @@ def unifiedDemo : IO Unit := do
       | 14 => IO.println "Switched to LINE CAPS & JOINS demo"
       | 15 => IO.println "Switched to DASHED LINES demo"
       | 16 => IO.println "Switched to 100k LINES performance test"
-      | _ => IO.println "Switched to TEXTURE MATRIX demo (u_matrix scaling)"
+      | 17 => IO.println "Switched to TEXTURE MATRIX demo (u_matrix scaling)"
+      | 18 => IO.println "Switched to ORBITAL instanced demo"
+      | _ => IO.println "Switched to DEMO mode"
 
     -- Arrow key navigation for shape gallery (mode 12)
     if displayMode == 12 then
@@ -515,6 +552,45 @@ def unifiedDemo : IO Unit := do
           FFI.Renderer.drawSpritesMatrix renderer spriteTexture scaledData 1 wF hF a' 0.0 0.0 d' tx' ty'
           setFillColor Color.white
           fillTextXY "left: screen-space  |  right: u_matrix scale" (20 * screenScale) (60 * screenScale) fontSmall
+      else if displayMode == 18 then
+        -- Orbital instanced demo: CPU orbit, GPU instancing
+        c ← run' c do
+          resetTransform
+          setFillColor Color.white
+          fillTextXY s!"Orbital: {orbitalCount} instanced rects (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
+          let renderer ← getRenderer
+          let (wF, hF) ← getCurrentSize
+          let centerX := wF * 0.5
+          let centerY := hF * 0.5
+          let a := 2.0 / wF
+          let d := -2.0 / hF
+          let tx := -1.0
+          let ty := 1.0
+          let sizeModeScreen : UInt32 := 1
+          let colorModeHSV : UInt32 := 1
+          let hueSpeed : Float := 0.2
+          for i in [:orbitalCount] do
+            let base := i * 5
+            let phase := orbitalParams.get! base
+            let radius := orbitalParams.get! (base + 1)
+            let speed := orbitalParams.get! (base + 2)
+            let hue := orbitalParams.get! (base + 3)
+            let size := orbitalParams.get! (base + 4)
+            let angle := phase + t * speed
+            let x := centerX + radius * Float.cos angle
+            let y := centerY + radius * Float.sin angle
+            let rot := angle
+            let bufIndex : USize := (i * 8).toUSize
+            FFI.FloatBuffer.setVec8 orbitalBuffer bufIndex x y rot size hue 0.0 0.0 1.0
+          FFI.Renderer.drawInstancedRectsBuffer
+            renderer
+            orbitalBuffer
+            orbitalCount.toUInt32
+            a 0.0 0.0 d tx ty
+            wF hF
+            sizeModeScreen
+            t hueSpeed
+            colorModeHSV
       else
         -- Normal demo mode: grid of demos using Trellis layout
         c ← run' c do
@@ -547,6 +623,7 @@ def unifiedDemo : IO Unit := do
   fontHuge.destroy
   layoutFont.destroy
   FFI.Buffer.destroy lineBuffer
+  FFI.FloatBuffer.destroy orbitalBuffer
   canvas.destroy
   Wisp.FFI.globalCleanup
   Wisp.HTTP.Client.shutdown
