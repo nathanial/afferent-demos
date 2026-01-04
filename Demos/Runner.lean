@@ -101,7 +101,7 @@ def unifiedDemo : IO Unit := do
   let gridStartY := (physHeightF - (gridRows.toFloat - 1) * gridSpacing) / 2.0
   let gridParticles := Render.Dynamic.ParticleState.createGrid gridCols gridRows gridStartX gridStartY gridSpacing physWidthF physHeightF
   IO.println s!"Created {gridParticles.count} grid particles"
-  let gridInstanceBuffer ← FFI.FloatBuffer.create (gridParticles.count.toUSize * 8)  -- 8 floats per instance
+  let gridInstanceBuffer ← gridParticles.createInstanceBuffer
 
   -- Line segments for 100k-line GPU stroke perf
   let (lineSegments, lineCount) := Demos.buildLineSegments physWidthF physHeightF
@@ -115,8 +115,8 @@ def unifiedDemo : IO Unit := do
 
   -- Sprite particles for Bunnymark-style benchmark (Lean physics, FloatBuffer rendering)
   let spriteParticles := Render.Dynamic.ParticleState.create 1000000 physWidthF physHeightF 123
-  let spriteBuffer ← FFI.FloatBuffer.create (spriteParticles.count.toUSize * 5)  -- 5 floats per sprite
-  let circleBuffer ← FFI.FloatBuffer.create (bouncingParticles.count.toUSize * 8)  -- 8 floats per circle
+  let spriteBuffer ← spriteParticles.createSpriteBuffer
+  let circleBuffer ← bouncingParticles.createInstanceBuffer
   IO.println s!"Created {spriteParticles.count} bouncing sprites (Lean physics, FloatBuffer rendering)"
 
   -- No GPU upload needed! Dynamic module sends positions each frame.
