@@ -111,7 +111,7 @@ instance : Demo .demoGrid where
   init := fun _ => pure ()
   step := fun c env s => do
     let (currentW, currentH) ← c.ctx.getCurrentSize
-    let c ← renderDemoGridFrame c env.screenScale currentW currentH env.fontSmall env.fonts env.t
+    let c ← renderDemoGridFrame c env.screenScale currentW currentH env.fontSmall env.fonts env.fontRegistry env.fontSmallId env.t
     pure (c, s)
 
 instance : Demo .gridPerf where

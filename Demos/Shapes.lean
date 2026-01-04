@@ -1,141 +1,207 @@
 /-
-  Shapes Demo - Basic shapes, stars, hearts, bezier curves
+  Shapes Demo - Rendered via Arbor widgets using path render commands.
 -/
 import Afferent
+import Afferent.Widget
+import Arbor
+import Trellis
 
-open Afferent CanvasM Linalg
+open Arbor
+open Trellis (EdgeInsets)
 
 namespace Demos
 
-/-- Render shapes demo content to canvas using CanvasM -/
-def renderShapesM : CanvasM Unit := do
-  -- Row 1: Basic rectangles
-  setFillColor Color.red
-  fillRectXYWH 50 30 120 80
-  setFillColor Color.green
-  fillRectXYWH 200 30 120 80
-  setFillColor Color.blue
-  fillRectXYWH 350 30 120 80
+structure ShapeDef where
+  label : String
+  color : Arbor.Color
+  path : Arbor.Rect → Arbor.Path
+  stroke : Option (Arbor.Color × Float) := none
 
-  -- Row 1: Circles
-  setFillColor Color.yellow
-  fillCircle ⟨550, 70⟩ 40
-  setFillColor Color.cyan
-  fillCircle ⟨650, 70⟩ 40
-  setFillColor Color.magenta
-  fillCircle ⟨750, 70⟩ 40
+def rectCenter (r : Arbor.Rect) : Arbor.Point :=
+  { x := r.origin.x + r.size.width / 2, y := r.origin.y + r.size.height / 2 }
 
-  -- Row 1: Rounded rectangle
-  setFillColor Color.white
-  fillRoundedRect (Rect.mk' 820 30 130 80) 15
+def minSide (r : Arbor.Rect) : Float :=
+  min r.size.width r.size.height
 
-  -- Row 2: Stars
-  setFillColor Color.yellow
-  fillPath (Path.star ⟨100, 200⟩ 50 25 5)
-  setFillColor Color.orange
-  fillPath (Path.star ⟨220, 200⟩ 45 25 6)
-  setFillColor Color.red
-  fillPath (Path.star ⟨340, 200⟩ 40 25 8)
+def insetRect (r : Arbor.Rect) (pad : Float) : Arbor.Rect :=
+  Rect.mk' (r.origin.x + pad) (r.origin.y + pad)
+    (max 1.0 (r.size.width - pad * 2)) (max 1.0 (r.size.height - pad * 2))
 
-  -- Row 2: Regular polygons
-  setFillColor Color.green
-  fillPath (Path.polygon ⟨480, 200⟩ 45 3)
-  setFillColor Color.cyan
-  fillPath (Path.polygon ⟨600, 200⟩ 45 5)
-  setFillColor Color.blue
-  fillPath (Path.polygon ⟨720, 200⟩ 45 6)
-  setFillColor Color.purple
-  fillPath (Path.polygon ⟨850, 200⟩ 45 8)
+def layoutRectToRect (r : Trellis.LayoutRect) : Arbor.Rect :=
+  Rect.mk' r.x r.y r.width r.height
 
-  -- Row 3: Hearts and ellipses
-  setFillColor Color.red
-  fillPath (Path.heart ⟨100, 350⟩ 80)
-  setFillColor Color.magenta
-  fillPath (Path.heart ⟨230, 350⟩ 60)
-  setFillColor Color.orange
-  fillEllipse ⟨380, 350⟩ 70 40
-  setFillColor Color.green
-  fillEllipse ⟨520, 350⟩ 40 60
+/-- Create a custom spec that draws a single shape inside its layout rect. -/
+def shapeSpec (shape : ShapeDef) (size : Float) : CustomSpec :=
+  { measure := fun _ _ => (size, size)
+    collect := fun layout =>
+      let rect := layoutRectToRect layout.borderRect
+      let pad := min rect.size.width rect.size.height * 0.12
+      let inner := insetRect rect pad
+      let path := shape.path inner
+      let base : RenderCommands := #[RenderCommand.fillPath path shape.color]
+      match shape.stroke with
+      | some (strokeColor, strokeWidth) =>
+        base.push (RenderCommand.strokePath path strokeColor strokeWidth)
+      | none => base }
 
-  -- Row 3: Pie slices
-  setFillColor Color.red
-  fillPath (Path.pie ⟨680, 350⟩ 60 0 Float.halfPi)
-  setFillColor Color.green
-  fillPath (Path.pie ⟨680, 350⟩ 60 Float.halfPi Float.pi)
-  setFillColor Color.blue
-  fillPath (Path.pie ⟨680, 350⟩ 60 Float.pi (Float.pi * 1.5))
-  setFillColor Color.yellow
-  fillPath (Path.pie ⟨680, 350⟩ 60 (Float.pi * 1.5) Float.twoPi)
+/-- Build a labeled card for a single shape. -/
+def shapeCard (labelFont : FontId) (shape : ShapeDef) : WidgetBuilder := do
+  let cardWidth : Float := 140.0
+  let labelMaxWidth : Float := cardWidth - 16.0
+  let cardStyle : BoxStyle := {
+    backgroundColor := some (Afferent.Color.gray 0.15)
+    borderColor := some (Afferent.Color.gray 0.35)
+    borderWidth := 1
+    cornerRadius := 10
+    padding := EdgeInsets.uniform 8
+    minWidth := some cardWidth
+    minHeight := some 120
+  }
+  column (gap := 6) (style := cardStyle) #[(
+    custom (shapeSpec shape 90) { minWidth := some 90, minHeight := some 90 }
+  ), (
+    text' shape.label labelFont (Afferent.Color.gray 0.85) .center (some labelMaxWidth)
+  )]
 
-  -- Row 3: Semicircle
-  setFillColor Color.purple
-  fillPath (Path.semicircle ⟨850, 350⟩ 50 0)
+/-- Shapes rendered as cards in a grid. -/
+def shapesWidget (labelFont : FontId) : WidgetBuilder := do
+  let shapes : Array ShapeDef := #[
+    { label := "Rect (red)", color := Afferent.Color.red, path := fun r => Path.rectangle r },
+    { label := "Rect (green)", color := Afferent.Color.green, path := fun r => Path.rectangle r },
+    { label := "Rect (blue)", color := Afferent.Color.blue, path := fun r => Path.rectangle r },
+    { label := "Circle (yellow)", color := Afferent.Color.yellow, path := fun r => Path.circle (rectCenter r) (minSide r / 2) },
+    { label := "Circle (cyan)", color := Afferent.Color.cyan, path := fun r => Path.circle (rectCenter r) (minSide r / 2) },
+    { label := "Circle (magenta)", color := Afferent.Color.magenta, path := fun r => Path.circle (rectCenter r) (minSide r / 2) },
+    { label := "Rounded Rect", color := Afferent.Color.white, path := fun r => Path.roundedRect r (minSide r * 0.15) },
 
-  -- Row 4: Bezier curves
-  let banner := Path.empty
-    |>.moveTo ⟨50, 480⟩
-    |>.lineTo ⟨200, 480⟩
-    |>.quadraticCurveTo ⟨250, 530⟩ ⟨200, 580⟩
-    |>.lineTo ⟨50, 580⟩
-    |>.quadraticCurveTo ⟨0, 530⟩ ⟨50, 480⟩
-    |>.closePath
-  setFillColor Color.cyan
-  fillPath banner
+    { label := "Star (5)", color := Afferent.Color.yellow, path := fun r =>
+        Path.star (rectCenter r) (minSide r * 0.5) (minSide r * 0.22) 5 },
+    { label := "Star (6)", color := Afferent.Color.orange, path := fun r =>
+        Path.star (rectCenter r) (minSide r * 0.48) (minSide r * 0.25) 6 },
+    { label := "Star (8)", color := Afferent.Color.red, path := fun r =>
+        Path.star (rectCenter r) (minSide r * 0.46) (minSide r * 0.24) 8 },
 
-  let teardrop := Path.empty
-    |>.moveTo ⟨350, 480⟩
-    |>.bezierCurveTo ⟨420, 450⟩ ⟨420, 600⟩ ⟨350, 580⟩
-    |>.bezierCurveTo ⟨280, 600⟩ ⟨280, 450⟩ ⟨350, 480⟩
-    |>.closePath
-  setFillColor Color.orange
-  fillPath teardrop
+    { label := "Polygon (3)", color := Afferent.Color.green, path := fun r =>
+        Path.polygon (rectCenter r) (minSide r * 0.48) 3 },
+    { label := "Polygon (5)", color := Afferent.Color.cyan, path := fun r =>
+        Path.polygon (rectCenter r) (minSide r * 0.48) 5 },
+    { label := "Polygon (6)", color := Afferent.Color.blue, path := fun r =>
+        Path.polygon (rectCenter r) (minSide r * 0.48) 6 },
+    { label := "Polygon (8)", color := Afferent.Color.purple, path := fun r =>
+        Path.polygon (rectCenter r) (minSide r * 0.48) 8 },
 
-  -- Row 4: Arc paths
-  setFillColor Color.green
-  fillPath (Path.arcPath ⟨550, 530⟩ 50 0 (Float.pi * 1.5) |>.closePath)
+    { label := "Heart (large)", color := Afferent.Color.red, path := fun r =>
+        Path.heart (rectCenter r) (minSide r * 0.9) },
+    { label := "Heart (small)", color := Afferent.Color.magenta, path := fun r =>
+        Path.heart (rectCenter r) (minSide r * 0.7) },
+    { label := "Ellipse (wide)", color := Afferent.Color.orange, path := fun r =>
+        Path.ellipse (rectCenter r) (r.size.width / 2) (r.size.height * 0.35) },
+    { label := "Ellipse (tall)", color := Afferent.Color.green, path := fun r =>
+        Path.ellipse (rectCenter r) (r.size.width * 0.35) (r.size.height / 2) },
 
-  -- Row 4: More rounded rectangles
-  setFillColor Color.red
-  fillRoundedRect (Rect.mk' 650 470 100 80) 5
-  setFillColor Color.blue
-  fillRoundedRect (Rect.mk' 780 470 100 80) 30
+    { label := "Pie 0-90", color := Afferent.Color.red, path := fun r =>
+        Path.pie (rectCenter r) (minSide r * 0.5) 0 (Path.halfPi) },
+    { label := "Pie 90-180", color := Afferent.Color.green, path := fun r =>
+        Path.pie (rectCenter r) (minSide r * 0.5) (Path.halfPi) (Path.pi) },
+    { label := "Pie 180-270", color := Afferent.Color.blue, path := fun r =>
+        Path.pie (rectCenter r) (minSide r * 0.5) (Path.pi) (Path.pi * 1.5) },
+    { label := "Pie 270-360", color := Afferent.Color.yellow, path := fun r =>
+        Path.pie (rectCenter r) (minSide r * 0.5) (Path.pi * 1.5) (Path.twoPi) },
 
-  -- Row 5: Custom triangle
-  setFillColor Color.yellow
-  fillPath (Path.triangle ⟨100, 650⟩ ⟨180, 750⟩ ⟨20, 750⟩)
+    { label := "Semicircle", color := Afferent.Color.purple, path := fun r =>
+        Path.semicircle (rectCenter r) (minSide r * 0.5) 0.0 },
 
-  -- Row 5: Equilateral triangles
-  setFillColor Color.green
-  fillPath (Path.equilateralTriangle ⟨280, 700⟩ 50)
-  setFillColor Color.cyan
-  fillPath (Path.equilateralTriangle ⟨380, 700⟩ 40)
+    { label := "Banner", color := Afferent.Color.cyan, path := fun r =>
+        let x := r.origin.x
+        let y := r.origin.y
+        let w := r.size.width
+        let h := r.size.height
+        let top := y + h * 0.2
+        let bottom := y + h * 0.8
+        let mid := y + h * 0.5
+        Path.empty
+          |>.moveTo ⟨x, top⟩
+          |>.lineTo ⟨x + w, top⟩
+          |>.quadraticCurveTo ⟨x + w * 1.05, mid⟩ ⟨x + w, bottom⟩
+          |>.lineTo ⟨x, bottom⟩
+          |>.quadraticCurveTo ⟨x - w * 0.05, mid⟩ ⟨x, top⟩
+          |>.closePath },
 
-  -- Row 5: Speech bubble
-  let bubble := Path.empty
-    |>.moveTo ⟨500, 650⟩
-    |>.lineTo ⟨700, 650⟩
-    |>.bezierCurveTo ⟨730, 650⟩ ⟨730, 680⟩ ⟨730, 700⟩
-    |>.lineTo ⟨730, 730⟩
-    |>.bezierCurveTo ⟨730, 760⟩ ⟨700, 760⟩ ⟨670, 760⟩
-    |>.lineTo ⟨570, 760⟩
-    |>.lineTo ⟨550, 790⟩
-    |>.lineTo ⟨560, 760⟩
-    |>.lineTo ⟨530, 760⟩
-    |>.bezierCurveTo ⟨500, 760⟩ ⟨470, 760⟩ ⟨470, 730⟩
-    |>.lineTo ⟨470, 700⟩
-    |>.bezierCurveTo ⟨470, 670⟩ ⟨470, 650⟩ ⟨500, 650⟩
-    |>.closePath
-  setFillColor Color.white
-  fillPath bubble
+    { label := "Teardrop", color := Afferent.Color.orange, path := fun r =>
+        let x := r.origin.x
+        let y := r.origin.y
+        let w := r.size.width
+        let h := r.size.height
+        let cx := x + w / 2
+        let top := y + h * 0.1
+        let bottom := y + h * 0.9
+        Path.empty
+          |>.moveTo ⟨cx, top⟩
+          |>.bezierCurveTo ⟨x + w * 0.95, y + h * 0.25⟩ ⟨x + w * 0.85, bottom⟩ ⟨cx, bottom⟩
+          |>.bezierCurveTo ⟨x + w * 0.15, bottom⟩ ⟨x + w * 0.05, y + h * 0.25⟩ ⟨cx, top⟩
+          |>.closePath },
 
-  -- Row 5: Diamond shape
-  let diamond := Path.empty
-    |>.moveTo ⟨850, 650⟩
-    |>.lineTo ⟨900, 700⟩
-    |>.lineTo ⟨850, 760⟩
-    |>.lineTo ⟨800, 700⟩
-    |>.closePath
-  setFillColor Color.cyan
-  fillPath diamond
+    { label := "Arc Wedge", color := Afferent.Color.green, path := fun r =>
+        Path.arcPath (rectCenter r) (minSide r * 0.5) 0 (Path.pi * 1.5) |>.closePath },
+
+    { label := "Rounded (small)", color := Afferent.Color.red, path := fun r => Path.roundedRect r (minSide r * 0.06) },
+    { label := "Rounded (large)", color := Afferent.Color.blue, path := fun r => Path.roundedRect r (minSide r * 0.35) },
+
+    { label := "Triangle", color := Afferent.Color.yellow, path := fun r =>
+        let x := r.origin.x
+        let y := r.origin.y
+        let w := r.size.width
+        let h := r.size.height
+        Path.triangle ⟨x + w * 0.5, y⟩ ⟨x + w, y + h⟩ ⟨x, y + h⟩ },
+
+    { label := "Equilateral (L)", color := Afferent.Color.green, path := fun r =>
+        Path.equilateralTriangle (rectCenter r) (minSide r * 0.55) },
+    { label := "Equilateral (S)", color := Afferent.Color.cyan, path := fun r =>
+        Path.equilateralTriangle (rectCenter r) (minSide r * 0.4) },
+
+    { label := "Speech Bubble", color := Afferent.Color.white, path := fun r =>
+        let x := r.origin.x
+        let y := r.origin.y
+        let w := r.size.width
+        let h := r.size.height
+        let tailW := w * 0.2
+        let tailH := h * 0.18
+        let tailX := x + w * 0.55
+        let tailY := y + h * 0.75
+        Path.empty
+          |>.moveTo ⟨x + w * 0.1, y + h * 0.05⟩
+          |>.lineTo ⟨x + w * 0.9, y + h * 0.05⟩
+          |>.bezierCurveTo ⟨x + w, y + h * 0.05⟩ ⟨x + w, y + h * 0.25⟩ ⟨x + w, y + h * 0.35⟩
+          |>.lineTo ⟨x + w, y + h * 0.65⟩
+          |>.bezierCurveTo ⟨x + w, y + h * 0.75⟩ ⟨x + w * 0.9, y + h * 0.75⟩ ⟨x + w * 0.8, y + h * 0.75⟩
+          |>.lineTo ⟨tailX + tailW * 0.1, tailY⟩
+          |>.lineTo ⟨tailX, tailY + tailH⟩
+          |>.lineTo ⟨tailX - tailW * 0.1, tailY⟩
+          |>.lineTo ⟨x + w * 0.2, y + h * 0.75⟩
+          |>.bezierCurveTo ⟨x + w * 0.1, y + h * 0.75⟩ ⟨x, y + h * 0.65⟩ ⟨x, y + h * 0.55⟩
+          |>.lineTo ⟨x, y + h * 0.35⟩
+          |>.bezierCurveTo ⟨x, y + h * 0.25⟩ ⟨x + w * 0.1, y + h * 0.05⟩ ⟨x + w * 0.1, y + h * 0.05⟩
+          |>.closePath },
+
+    { label := "Diamond", color := Afferent.Color.cyan, path := fun r =>
+        let x := r.origin.x
+        let y := r.origin.y
+        let w := r.size.width
+        let h := r.size.height
+        Path.empty
+          |>.moveTo ⟨x + w * 0.5, y⟩
+          |>.lineTo ⟨x + w, y + h * 0.5⟩
+          |>.lineTo ⟨x + w * 0.5, y + h⟩
+          |>.lineTo ⟨x, y + h * 0.5⟩
+          |>.closePath }
+  ]
+
+  let cards := shapes.map (shapeCard labelFont)
+  grid 6 10 { padding := EdgeInsets.uniform 10 } cards
+
+/-- Render shapes demo content to canvas using Arbor widgets. -/
+def renderShapesM (reg : Afferent.FontRegistry) (labelFont : FontId) : Afferent.CanvasM Unit := do
+  let widget := Arbor.build (shapesWidget labelFont)
+  Afferent.Widget.renderArborWidget reg widget 1000 800
 
 end Demos

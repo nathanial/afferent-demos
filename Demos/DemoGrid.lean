@@ -4,6 +4,7 @@
 -/
 import Afferent
 import Afferent.Layout
+import Arbor
 import Demos.Shapes
 import Demos.Transforms
 import Demos.Strokes
@@ -21,21 +22,22 @@ structure CellConfig where
   bg : Color
   label : String
   scale : Float
-  render : Float → Fonts → CanvasM Unit
+  render : Float → Fonts → Afferent.FontRegistry → Arbor.FontId → CanvasM Unit
 
 /-- Get cell configuration by index (0-5, left-to-right, top-to-bottom) -/
 def getCellConfig (idx : Nat) : CellConfig :=
   match idx with
-  | 0 => ⟨Color.hsva 0.667 0.25 0.20 1.0, "Shapes",     0.45, fun _ _ => renderShapesM⟩
-  | 1 => ⟨Color.hsva 0.0   0.25 0.20 1.0, "Transforms", 0.60, fun _ _ => renderTransformsM⟩
-  | 2 => ⟨Color.hsva 0.333 0.25 0.20 1.0, "Strokes",    0.51, fun _ _ => renderStrokesM⟩
-  | 3 => ⟨Color.hsva 0.125 0.4  0.20 1.0, "Gradients",  0.51, fun _ _ => renderGradientsM⟩
-  | 4 => ⟨Color.hsva 0.767 0.25 0.20 1.0, "Text",       0.51, fun _ fonts => renderTextM fonts⟩
-  | _ => ⟨Color.hsva 0.75  0.25 0.20 1.0, "Animations", 0.45, fun t _ => renderAnimationsM t⟩
+  | 0 => ⟨Color.hsva 0.667 0.25 0.20 1.0, "Shapes",     0.45, fun _ _ reg fontId => renderShapesM reg fontId⟩
+  | 1 => ⟨Color.hsva 0.0   0.25 0.20 1.0, "Transforms", 0.60, fun _ _ _ _ => renderTransformsM⟩
+  | 2 => ⟨Color.hsva 0.333 0.25 0.20 1.0, "Strokes",    0.51, fun _ _ _ _ => renderStrokesM⟩
+  | 3 => ⟨Color.hsva 0.125 0.4  0.20 1.0, "Gradients",  0.51, fun _ _ _ _ => renderGradientsM⟩
+  | 4 => ⟨Color.hsva 0.767 0.25 0.20 1.0, "Text",       0.51, fun _ fonts _ _ => renderTextM fonts⟩
+  | _ => ⟨Color.hsva 0.75  0.25 0.20 1.0, "Animations", 0.45, fun t _ _ _ => renderAnimationsM t⟩
 
 /-- Render the normal demo mode: 2x3 grid of demo cells using Trellis layout -/
 def renderDemoGridM (screenScale : Float) (screenWidth screenHeight : Float)
-    (fontSmall : Font) (fonts : Fonts) (t : Float) : CanvasM Unit := do
+    (fontSmall : Font) (fonts : Fonts) (fontRegistry : Afferent.FontRegistry)
+    (fontSmallId : Arbor.FontId) (t : Float) : CanvasM Unit := do
   -- Create 2x3 grid with cells that stretch to fill viewport
   -- 2 columns (1fr each), 3 rows (1fr each)
   let props := GridContainer.withTemplate
@@ -80,13 +82,14 @@ def renderDemoGridM (screenScale : Float) (screenWidth screenHeight : Float)
         -- Clip to cell bounds (now transform-aware - will be offset by translate)
         clip (Rect.mk' 0 0 rect.width rect.height)
         scale (config.scale * screenScale) (config.scale * screenScale)
-        config.render t fonts
+        config.render t fonts fontRegistry fontSmallId
         popClip
 
 def renderDemoGridFrame (c : Canvas) (screenScale screenWidth screenHeight : Float)
-    (fontSmall : Font) (fonts : Fonts) (t : Float) : IO Canvas := do
+    (fontSmall : Font) (fonts : Fonts) (fontRegistry : Afferent.FontRegistry)
+    (fontSmallId : Arbor.FontId) (t : Float) : IO Canvas := do
   run' c do
     resetTransform
-    renderDemoGridM screenScale screenWidth screenHeight fontSmall fonts t
+    renderDemoGridM screenScale screenWidth screenHeight fontSmall fonts fontRegistry fontSmallId t
 
 end Demos
