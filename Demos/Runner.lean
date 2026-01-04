@@ -101,6 +101,7 @@ def unifiedDemo : IO Unit := do
   let gridStartY := (physHeightF - (gridRows.toFloat - 1) * gridSpacing) / 2.0
   let gridParticles := Render.Dynamic.ParticleState.createGrid gridCols gridRows gridStartX gridStartY gridSpacing physWidthF physHeightF
   IO.println s!"Created {gridParticles.count} grid particles"
+  let gridInstanceBuffer ← FFI.FloatBuffer.create (gridParticles.count.toUSize * 8)  -- 8 floats per instance
 
   -- Line segments for 100k-line GPU stroke perf
   let (lineSegments, lineCount) := Demos.buildLineSegments physWidthF physHeightF
@@ -115,7 +116,7 @@ def unifiedDemo : IO Unit := do
   -- Sprite particles for Bunnymark-style benchmark (Lean physics, FloatBuffer rendering)
   let spriteParticles := Render.Dynamic.ParticleState.create 1000000 physWidthF physHeightF 123
   let spriteBuffer ← FFI.FloatBuffer.create (spriteParticles.count.toUSize * 5)  -- 5 floats per sprite
-  let circleBuffer ← FFI.FloatBuffer.create (bouncingParticles.count.toUSize * 4)  -- 4 floats per circle
+  let circleBuffer ← FFI.FloatBuffer.create (bouncingParticles.count.toUSize * 8)  -- 8 floats per circle
   IO.println s!"Created {spriteParticles.count} bouncing sprites (Lean physics, FloatBuffer rendering)"
 
   -- No GPU upload needed! Dynamic module sends positions each frame.
@@ -241,12 +242,12 @@ def unifiedDemo : IO Unit := do
         -- Grid performance test: squares spinning in a grid
         c ← run' c do
           resetTransform
-          renderGridTestM t fontMedium gridParticles halfSize
+          renderGridTestM t fontMedium gridParticles halfSize gridInstanceBuffer
       else if displayMode == 2 then
         -- Triangle performance test: triangles spinning in a grid
         c ← run' c do
           resetTransform
-          renderTriangleTestM t fontMedium gridParticles halfSize
+          renderTriangleTestM t fontMedium gridParticles halfSize gridInstanceBuffer
       else if displayMode == 3 then
         -- Circle performance test: bouncing circles
         bouncingState ← bouncingState.updateBouncingAndWriteCircles dt circleRadius circleBuffer

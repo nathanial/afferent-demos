@@ -10,10 +10,10 @@ namespace Demos
 /-- Render grid spinning squares using unified Dynamic module.
     Static grid positions, GPU does color + NDC conversion. -/
 def renderGridTestM (t : Float) (font : Font) (particles : Render.Dynamic.ParticleState)
-    (halfSize : Float) : CanvasM Unit := do
+    (halfSize : Float) (buffer : FFI.FloatBuffer) : CanvasM Unit := do
   setFillColor Color.white
   fillTextXY s!"Grid: {particles.count} dynamic squares (Space to advance)" 20 30 font
   let renderer ← getRenderer
-  Render.Dynamic.drawRectsAnimated renderer particles halfSize t 3.0
+  Render.Dynamic.drawRectsAnimated renderer particles buffer halfSize t 3.0
 
 end Demos
