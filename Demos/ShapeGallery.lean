@@ -27,14 +27,13 @@ def simpleShape (name : String) (pathFn : Point → Float → Path) : ShapeEntry
 def transformedShape (name : String) (pathFn : Point → Float → Path)
     (rotation : Float) (scaleX scaleY : Float) : ShapeEntry :=
   ⟨name, fun c s => do
-    save
-    translate c.x c.y
-    rotate rotation
-    scale scaleX scaleY
-    let origin := Point.mk 0 0
-    fillPath (pathFn origin s)
-    strokePath (pathFn origin s)
-    restore⟩
+    saved do
+      translate c.x c.y
+      rotate rotation
+      scale scaleX scaleY
+      let origin := Point.mk 0 0
+      fillPath (pathFn origin s)
+      strokePath (pathFn origin s)⟩
 
 /-- All shapes available in the gallery -/
 def shapeGalleryShapes : Array ShapeEntry := #[

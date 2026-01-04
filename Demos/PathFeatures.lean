@@ -150,46 +150,42 @@ def renderPathFeaturesM (screenScale : Float) (font : Font) : CanvasM Unit := do
   fillTextXY "1:1" (685 * screenScale) (235 * screenScale) font
 
   -- Circle under 2:1 horizontal scale → becomes ellipse
-  save
-  translate (850 * screenScale) (180 * screenScale)
-  scale 2.0 1.0
-  setFillColor Color.red
-  fillCircle ⟨0, 0⟩ (25 * screenScale)
-  restore
+  saved do
+    translate (850 * screenScale) (180 * screenScale)
+    scale 2.0 1.0
+    setFillColor Color.red
+    fillCircle ⟨0, 0⟩ (25 * screenScale)
   setFillColor Color.white
   fillTextXY "2:1" (825 * screenScale) (235 * screenScale) font
 
   -- Circle under 1:2 vertical scale → becomes tall ellipse
-  save
-  translate (700 * screenScale) (330 * screenScale)
-  scale 1.0 2.0
-  setFillColor Color.green
-  fillCircle ⟨0, 0⟩ (25 * screenScale)
-  restore
+  saved do
+    translate (700 * screenScale) (330 * screenScale)
+    scale 1.0 2.0
+    setFillColor Color.green
+    fillCircle ⟨0, 0⟩ (25 * screenScale)
   setFillColor Color.white
   fillTextXY "1:2" (685 * screenScale) (410 * screenScale) font
 
   -- Pie slice under rotation
-  save
-  translate (830 * screenScale) (320 * screenScale)
-  rotate (Float.pi / 6)
-  setFillColor Color.orange
-  fillPath (Path.pie ⟨0, 0⟩ (35 * screenScale) 0 Float.halfPi)
-  restore
+  saved do
+    translate (830 * screenScale) (320 * screenScale)
+    rotate (Float.pi / 6)
+    setFillColor Color.orange
+    fillPath (Path.pie ⟨0, 0⟩ (35 * screenScale) 0 Float.halfPi)
   setFillColor Color.white
   fillTextXY "30deg" (800 * screenScale) (380 * screenScale) font
 
   -- Arc under non-uniform scale + rotation
-  save
-  translate (770 * screenScale) (480 * screenScale)
-  rotate (Float.pi / 4)
-  scale 1.5 0.75
-  setFillColor Color.cyan
-  fillPath (Path.arcPath ⟨0, 0⟩ (35 * screenScale) 0 (Float.pi * 1.5) false)
-  setStrokeColor Color.white
-  setLineWidth (2 * screenScale)
-  strokePath (Path.arcPath ⟨0, 0⟩ (35 * screenScale) 0 (Float.pi * 1.5) false)
-  restore
+  saved do
+    translate (770 * screenScale) (480 * screenScale)
+    rotate (Float.pi / 4)
+    scale 1.5 0.75
+    setFillColor Color.cyan
+    fillPath (Path.arcPath ⟨0, 0⟩ (35 * screenScale) 0 (Float.pi * 1.5) false)
+    setStrokeColor Color.white
+    setLineWidth (2 * screenScale)
+    strokePath (Path.arcPath ⟨0, 0⟩ (35 * screenScale) 0 (Float.pi * 1.5) false)
   setFillColor Color.white
   fillTextXY "45+scale" (730 * screenScale) (550 * screenScale) font
 

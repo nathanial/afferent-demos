@@ -308,11 +308,10 @@ def unifiedDemo : IO Unit := do
         -- Full-size Layout demo
         c ← run' c do
           resetTransform
-          save
-          translate layoutOffsetX layoutOffsetY
-          scale layoutScale layoutScale
-          renderLayoutShapesM
-          restore
+          saved do
+            translate layoutOffsetX layoutOffsetY
+            scale layoutScale layoutScale
+            renderLayoutShapesM
           -- Draw labels in screen space to avoid texture upscaling artifacts.
           renderLayoutLabelsMappedM layoutFont layoutOffsetX layoutOffsetY layoutScale
           setFillColor Color.white
@@ -321,11 +320,10 @@ def unifiedDemo : IO Unit := do
         -- Full-size CSS Grid demo
         c ← run' c do
           resetTransform
-          save
-          translate layoutOffsetX layoutOffsetY
-          scale layoutScale layoutScale
-          renderGridShapesM
-          restore
+          saved do
+            translate layoutOffsetX layoutOffsetY
+            scale layoutScale layoutScale
+            renderGridShapesM
           -- Draw labels in screen space to avoid texture upscaling artifacts.
           renderGridLabelsMappedM layoutFont layoutOffsetX layoutOffsetY layoutScale
           setFillColor Color.white
