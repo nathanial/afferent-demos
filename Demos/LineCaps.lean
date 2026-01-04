@@ -90,4 +90,13 @@ def renderLineCapsM (font : Font) : CanvasM Unit := do
   strokePath (cornerPath joinX3 joinY1)
   fillTextXY "Bevel" (joinX3 + 25) (joinY1 + 90) font
 
+def renderLineCapsDemoFrame (c : Canvas) (screenScale : Float) (fontSmall fontMedium : Font)
+    : IO Canvas := do
+  run' c do
+    resetTransform
+    scale screenScale screenScale
+    renderLineCapsM fontSmall
+    setFillColor Color.white
+    fillTextXY "Line Caps & Joins (Space to advance)" 20 30 fontMedium
+
 end Demos

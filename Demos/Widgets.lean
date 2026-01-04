@@ -114,4 +114,12 @@ def renderWidgetShapesDebugM (reg : FontRegistry) (fontId : FontId) (smallFontId
   let widget := widgetDemo fontId smallFontId screenScale
   Afferent.Widget.renderArborWidgetDebug reg widget width height
 
+def renderWidgetDemoFrame (c : Canvas) (reg : FontRegistry) (fontId : FontId) (smallFontId : FontId)
+    (width height screenScale : Float) (fontMedium : Font) : IO Canvas := do
+  run' c do
+    resetTransform
+    renderWidgetShapesDebugM reg fontId smallFontId width height screenScale
+    setFillColor Color.white
+    fillTextXY "Widget System Demo (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
+
 end Demos

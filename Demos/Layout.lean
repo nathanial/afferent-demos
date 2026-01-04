@@ -228,4 +228,16 @@ def renderLayoutM (font : Font) : CanvasM Unit := do
   renderLayoutShapesM
   renderLayoutLabelsM font
 
+def renderLayoutDemoFrame (c : Canvas) (layoutFont : Font) (fontMedium : Font)
+    (offsetX offsetY layoutScale screenScale : Float) : IO Canvas := do
+  run' c do
+    resetTransform
+    saved do
+      translate offsetX offsetY
+      scale layoutScale layoutScale
+      renderLayoutShapesM
+    renderLayoutLabelsMappedM layoutFont offsetX offsetY layoutScale
+    setFillColor Color.white
+    fillTextXY "CSS Flexbox Layout Demo (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
+
 end Demos

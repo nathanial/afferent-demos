@@ -189,4 +189,14 @@ def renderPathFeaturesM (screenScale : Float) (font : Font) : CanvasM Unit := do
   setFillColor Color.white
   fillTextXY "45+scale" (730 * screenScale) (550 * screenScale) font
 
+def renderPathFeaturesDemoFrame (c : Canvas) (screenScale : Float) (fontSmall fontMedium : Font)
+    : IO Canvas := do
+  run' c do
+    resetTransform
+    renderPathFeaturesM screenScale fontSmall
+    setFillColor Color.white
+    fillTextXY
+      "Path Features Demo - Non-convex, arcTo, transforms (Space to advance)"
+      (20 * screenScale) (30 * screenScale) fontMedium
+
 end Demos

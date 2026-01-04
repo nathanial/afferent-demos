@@ -90,4 +90,13 @@ def renderDashedLinesM (font : Font) : CanvasM Unit := do
   strokeRoundedRect (Rect.mk' 480 (shapeY + 30) 120 80) 15
   fillTextXY "Rounded" 510 (shapeY + 130) font
 
+def renderDashedLinesDemoFrame (c : Canvas) (screenScale : Float) (fontSmall fontMedium : Font)
+    : IO Canvas := do
+  run' c do
+    resetTransform
+    scale screenScale screenScale
+    renderDashedLinesM fontSmall
+    setFillColor Color.white
+    fillTextXY "Dashed Lines (Space to advance)" 20 30 fontMedium
+
 end Demos

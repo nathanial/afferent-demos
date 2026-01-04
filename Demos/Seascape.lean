@@ -6,7 +6,7 @@
 import Afferent
 import Assimptor
 
-open Afferent Afferent.FFI Afferent.Render Assimptor
+open Afferent Afferent.FFI Afferent.Render Assimptor CanvasM
 open Linalg
 
 namespace Demos
@@ -759,5 +759,58 @@ def seascapeCamera : FPSCamera :=
   , pitch := -0.15   -- Slightly angled down
   , moveSpeed := 10.0
   , lookSensitivity := 0.003 }
+
+def stepSeascapeDemoFrame (c : Canvas) (t dt : Float) (keyCode : UInt16) (screenScale : Float)
+    (fontMedium fontSmall : Afferent.Font) (camera : FPSCamera) : IO (Canvas × FPSCamera) := do
+  let mut seascapeCamera := camera
+  let mut locked ← FFI.Window.getPointerLock c.ctx.window
+  if keyCode == FFI.Key.escape then
+    FFI.Window.setPointerLock c.ctx.window (!locked)
+    locked := !locked
+    c.clearKey
+  else if !locked then
+    let click ← FFI.Window.getClick c.ctx.window
+    match click with
+    | some ce =>
+      FFI.Window.clearClick c.ctx.window
+      if ce.button == 0 then
+        FFI.Window.setPointerLock c.ctx.window true
+        locked := true
+    | none => pure ()
+
+  let wDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.w
+  let aDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.a
+  let sDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.s
+  let dDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.d
+  let qDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.q
+  let eDown ← FFI.Window.isKeyDown c.ctx.window FFI.Key.e
+
+  let (dx, dy) ←
+    if locked then
+      FFI.Window.getMouseDelta c.ctx.window
+    else
+      pure (0.0, 0.0)
+
+  seascapeCamera := seascapeCamera.update dt wDown sDown aDown dDown eDown qDown dx dy
+
+  let c ← run' c do
+    let (currentW, currentH) ← getCurrentSize
+    let renderer ← getRenderer
+    renderSeascape renderer t currentW currentH seascapeCamera
+    resetTransform
+    setFillColor Color.white
+    if locked then
+      fillTextXY
+        "Seascape - WASD+Q/E to move, mouse to look, Escape to release (Space to advance)"
+        (20 * screenScale) (30 * screenScale) fontMedium
+    else
+      fillTextXY
+        "Seascape - WASD+Q/E to move, click or Escape to capture mouse (Space to advance)"
+        (20 * screenScale) (30 * screenScale) fontMedium
+
+    fillTextXY
+      (s!"pos=({seascapeCamera.x},{seascapeCamera.y},{seascapeCamera.z}) yaw={seascapeCamera.yaw} pitch={seascapeCamera.pitch}")
+      (20 * screenScale) (55 * screenScale) fontSmall
+  pure (c, seascapeCamera)
 
 end Demos

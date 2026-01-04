@@ -83,4 +83,10 @@ def renderDemoGridM (screenScale : Float) (screenWidth screenHeight : Float)
         config.render t fonts
         popClip
 
+def renderDemoGridFrame (c : Canvas) (screenScale screenWidth screenHeight : Float)
+    (fontSmall : Font) (fonts : Fonts) (t : Float) : IO Canvas := do
+  run' c do
+    resetTransform
+    renderDemoGridM screenScale screenWidth screenHeight fontSmall fonts t
+
 end Demos

@@ -14,4 +14,10 @@ def renderTriangleTestM (t : Float) (font : Font) (particles : Render.Dynamic.Pa
   fillTextXY s!"Triangles: {particles.count} dynamic triangles (Space to advance)" 20 30 font
   fillDynamicTrianglesAnimated particles halfSize t 2.0
 
+def renderTrianglesPerfFrame (c : Canvas) (t : Float) (font : Font)
+    (particles : Render.Dynamic.ParticleState) (halfSize : Float) : IO Canvas := do
+  run' c do
+    resetTransform
+    renderTriangleTestM t font particles halfSize
+
 end Demos

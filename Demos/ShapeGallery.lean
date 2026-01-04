@@ -185,4 +185,12 @@ def renderShapeGalleryM (idx : Nat) (screenW screenH : Float) (screenScale : Flo
   setFillColor (Color.gray 0.5)
   fillTextXY navText ((screenW - navWidth) / 2) (screenH - 40 * screenScale) fontSmall
 
+def renderShapeGalleryDemoFrame (c : Canvas) (idx : Nat) (screenW screenH screenScale : Float)
+    (fontLarge fontSmall fontMedium : Font) : IO Canvas := do
+  run' c do
+    resetTransform
+    renderShapeGalleryM idx screenW screenH screenScale fontLarge fontSmall
+    setFillColor Color.white
+    fillTextXY "Shape Gallery (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
+
 end Demos

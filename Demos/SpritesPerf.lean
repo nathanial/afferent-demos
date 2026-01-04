@@ -19,4 +19,17 @@ def renderSpriteTestFastM (font : Font) (particles : Render.Dynamic.ParticleStat
   let renderer ← getRenderer
   Render.Dynamic.drawSpritesFromBuffer renderer texture spriteBuffer particles.count.toUInt32 halfSize particles.screenWidth particles.screenHeight
 
+def stepSpritesPerfFrame (c : Canvas) (dt : Float) (font : Font)
+    (particles : Render.Dynamic.ParticleState) (texture : FFI.Texture) (halfSize : Float)
+    (screenScale : Float) : IO (Canvas × Render.Dynamic.ParticleState) := do
+  let nextParticles := particles.updateBouncing dt halfSize
+  let c ← run' c do
+    resetTransform
+    setFillColor Color.white
+    fillTextXY
+      s!"Sprites: {nextParticles.count} textured sprites (Space to advance)"
+      (20 * screenScale) (30 * screenScale) font
+    fillDynamicSprites texture nextParticles halfSize
+  pure (c, nextParticles)
+
 end Demos

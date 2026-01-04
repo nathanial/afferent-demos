@@ -240,4 +240,16 @@ def renderGridM (font : Font) : CanvasM Unit := do
   renderGridShapesM
   renderGridLabelsM font
 
+def renderCssGridDemoFrame (c : Canvas) (gridFont : Font) (fontMedium : Font)
+    (offsetX offsetY gridScale screenScale : Float) : IO Canvas := do
+  run' c do
+    resetTransform
+    saved do
+      translate offsetX offsetY
+      scale gridScale gridScale
+      renderGridShapesM
+    renderGridLabelsMappedM gridFont offsetX offsetY gridScale
+    setFillColor Color.white
+    fillTextXY "CSS Grid Layout Demo (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
+
 end Demos

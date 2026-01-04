@@ -93,4 +93,10 @@ def renderLinesPerfM (t : Float) (buffer : FFI.Buffer) (lineCount : Nat) (lineWi
     0.0
     0.85 0.9 1.0 1.0
 
+def renderLinesPerfFrame (c : Canvas) (t : Float) (buffer : FFI.Buffer) (lineCount : Nat)
+    (lineWidth : Float) (font : Font) : IO Canvas := do
+  run' c do
+    resetTransform
+    renderLinesPerfM t buffer lineCount lineWidth font
+
 end Demos
