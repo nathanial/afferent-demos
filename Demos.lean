@@ -7,7 +7,6 @@ import Demos.Strokes
 import Demos.Gradients
 import Demos.Text
 import Demos.Animations
-import Demos.Collimator
 import Demos.GridPerf
 import Demos.TrianglesPerf
 import Demos.CirclesPerf

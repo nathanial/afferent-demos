@@ -10,7 +10,6 @@ import Demos.Text
 import Demos.Animations
 import Demos.Layout
 import Demos.Grid
-import Demos.Collimator
 import Demos.GridPerf
 import Demos.TrianglesPerf
 import Demos.CirclesPerf
@@ -633,9 +632,6 @@ def main : IO Unit := do
   IO.println "Afferent - 2D Vector Graphics Library"
   IO.println "======================================"
   IO.println ""
-
-  -- Run collimator demo first
-  collimatorDemo
 
   -- Run unified visual demo (single window with all demos)
   unifiedDemo

@@ -7,23 +7,6 @@ open Afferent CanvasM Linalg
 
 namespace Demos
 
-/-- HSV to RGB color conversion (h in [0,1], s,v in [0,1]) -/
-def hsvToRgb (h s v : Float) : Color :=
-  let h6 := h * 6.0
-  let i := h6.floor
-  let f := h6 - i
-  let p := v * (1.0 - s)
-  let q := v * (1.0 - s * f)
-  let t := v * (1.0 - s * (1.0 - f))
-  let mod := (i.toUInt32 % 6).toNat
-  match mod with
-  | 0 => Color.rgb v t p
-  | 1 => Color.rgb q v p
-  | 2 => Color.rgb p v t
-  | 3 => Color.rgb p q v
-  | 4 => Color.rgb t p v
-  | _ => Color.rgb v p q
-
 /-- Render psychedelic animation cell using CanvasM -/
 def renderAnimationsM (t : Float) : CanvasM Unit := do
   -- Spinning star cluster
@@ -36,7 +19,7 @@ def renderAnimationsM (t : Float) : CanvasM Unit := do
     translate (dist * Float.cos angle) (dist * Float.sin angle)
     rotate (t * 4.0 + i.toFloat)
     let hue := (t * 0.5 + i.toFloat / 7.0) - (t * 0.5 + i.toFloat / 7.0).floor
-    setFillColor (hsvToRgb hue 1.0 1.0)
+    setFillColor (Color.hsv hue 1.0 1.0)
     fillPath (Path.star ⟨0, 0⟩ (20 + 10 * Float.sin (t * 5.0)) 10 5)
     restore
   restore
@@ -51,7 +34,7 @@ def renderAnimationsM (t : Float) : CanvasM Unit := do
     let x := 80 * Float.cos (angle + t)
     let y := 80 * Float.sin (angle + t)
     let hue := (i.toFloat / 12.0 + t * 0.3) - (i.toFloat / 12.0 + t * 0.3).floor
-    setFillColor (hsvToRgb hue 1.0 1.0)
+    setFillColor (Color.hsv hue 1.0 1.0)
     fillCircle ⟨x, y⟩ radius
   restore
 
@@ -62,7 +45,7 @@ def renderAnimationsM (t : Float) : CanvasM Unit := do
     let rowOffset := row.toFloat * 0.5
     setLineWidth (2 + row.toFloat)
     let hue := (row.toFloat / 5.0 + t * 0.2) - (row.toFloat / 5.0 + t * 0.2).floor
-    setStrokeColor (hsvToRgb hue 1.0 1.0)
+    setStrokeColor (Color.hsv hue 1.0 1.0)
     let mut path := Path.empty
     path := path.moveTo ⟨0, row.toFloat * 50⟩
     for i in [:20] do
@@ -78,7 +61,7 @@ def renderAnimationsM (t : Float) : CanvasM Unit := do
   rotate (t * 1.5)
   let sides := 3 + ((t * 0.5).floor.toUInt32 % 6).toNat
   let hue := (t * 0.4) - (t * 0.4).floor
-  setFillColor (hsvToRgb hue 0.8 0.9)
+  setFillColor (Color.hsv hue 0.8 0.9)
   fillPath (Path.polygon ⟨0, 0⟩ (40 + 20 * Float.sin t) sides)
   restore
 
@@ -92,7 +75,7 @@ def renderAnimationsM (t : Float) : CanvasM Unit := do
     let y := 40 * Float.sin angle
     let alpha := 1.0 - i.toFloat * 0.12
     let hue := (trailT * 0.3) - (trailT * 0.3).floor
-    let color := hsvToRgb hue 1.0 1.0
+    let color := Color.hsv hue 1.0 1.0
     setFillColor (Color.rgba color.r color.g color.b alpha)
     save
     translate x y
@@ -113,7 +96,7 @@ def renderAnimationsM (t : Float) : CanvasM Unit := do
     translate x (-bounce)
     rotate rotation
     let hue := (t * 0.5 + i.toFloat / 6.0) - (t * 0.5 + i.toFloat / 6.0).floor
-    setFillColor (hsvToRgb hue 0.9 1.0)
+    setFillColor (Color.hsv hue 0.9 1.0)
     fillRectXYWH (-15) (-15) 30 30
     restore
   restore
