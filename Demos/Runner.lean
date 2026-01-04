@@ -2,32 +2,9 @@
   Demo Runner - Main orchestration for all demos
 -/
 import Afferent
-import Demos.Shapes
-import Demos.Transforms
-import Demos.Strokes
-import Demos.Gradients
 import Demos.Text
-import Demos.Animations
-import Demos.Layout
-import Demos.Grid
-import Demos.GridPerf
-import Demos.TrianglesPerf
-import Demos.CirclesPerf
-import Demos.SpritesPerf
-import Demos.LinesPerf
-import Demos.Widgets
-import Demos.Interactive
-import Demos.SpinningCubes
-import Demos.DemoGrid
-import Demos.Seascape
-import Demos.PathFeatures
-import Demos.ShapeGallery
-import Demos.LineCaps
-import Demos.DashedLines
-import Demos.TextureMatrix
-import Demos.OrbitalInstanced
-import Demos.WorldmapDemo
-import Worldmap
+import Demos.Demo
+import Demos.DemoRegistry
 import Wisp
 import Init.Data.FloatArray
 
@@ -111,14 +88,6 @@ def unifiedDemo : IO Unit := do
   let lineBuffer ← FFI.Buffer.createStrokeSegmentPersistent canvas.ctx.renderer lineSegments
   IO.println s!"Prepared {lineCount} line segments"
 
-  -- Bouncing circles using Dynamic.ParticleState
-  let bouncingParticles := Render.Dynamic.ParticleState.create 1000000 physWidthF physHeightF 42
-  IO.println s!"Created {bouncingParticles.count} bouncing circles"
-
-  -- Sprite particles for Bunnymark-style benchmark
-  let spriteParticles := Render.Dynamic.ParticleState.create 1000000 physWidthF physHeightF 123
-  IO.println s!"Created {spriteParticles.count} bouncing sprites"
-
   -- No GPU upload needed! Dynamic module sends positions each frame.
   IO.println "Using unified Dynamic rendering - CPU positions, GPU color/NDC."
 
@@ -184,32 +153,51 @@ def unifiedDemo : IO Unit := do
         | none => 0
     | none => 0
 
-  let mut displayMode : Nat := startMode % 19
-  let mut msaaEnabled : Bool := true
+  let mkEnv := fun (t dt : Float) (keyCode : UInt16) => {
+    screenScale := screenScale
+    t := t
+    dt := dt
+    keyCode := keyCode
+    fontSmall := fontSmall
+    fontMedium := fontMedium
+    fontLarge := fontLarge
+    fontHuge := fontHuge
+    layoutFont := layoutFont
+    fonts := fonts
+    fontRegistry := fontRegistry
+    fontMediumId := fontMediumId
+    fontSmallId := fontSmallId
+    spriteTexture := spriteTexture
+    halfSize := halfSize
+    circleRadius := circleRadius
+    spriteHalfSize := spriteHalfSize
+    gridParticles := gridParticles
+    lineBuffer := lineBuffer
+    lineCount := lineCount
+    lineWidth := lineWidth
+    orbitalCount := orbitalCount
+    orbitalParams := orbitalParams
+    orbitalBuffer := orbitalBuffer
+    physWidthF := physWidthF
+    physHeightF := physHeightF
+    physWidth := physWidth
+    physHeight := physHeight
+    layoutOffsetX := layoutOffsetX
+    layoutOffsetY := layoutOffsetY
+    layoutScale := layoutScale
+  }
+
+  let initEnv := mkEnv 0.0 0.0 0
+  let mut demos ← buildDemoList initEnv
+  let mut displayMode : Nat := startMode % demos.size
+  let mut msaaEnabled : Bool := AnyDemo.msaaEnabled (demos[displayMode]!)
+  FFI.Renderer.setMSAAEnabled c.ctx.renderer msaaEnabled
   let mut lastTime := startTime
-  let mut bouncingState := bouncingParticles
-  let mut spriteState := spriteParticles
   -- FPS counter (smoothed over multiple frames)
   let mut frameCount : Nat := 0
   let mut fpsAccumulator : Float := 0.0
   let mut displayFps : Float := 0.0
-  -- FPS camera for 3D demo (mode 9)
-  let mut fpsCamera : Render.FPSCamera := default
-  -- Seascape camera (mode 10)
-  let mut seascapeCamera : Render.FPSCamera := Demos.seascapeCamera
   let mut framesLeft : Nat := exitAfterFrames
-  -- Interactive counter demo state (mode 8)
-  let mut counterState : Demos.CounterState := Demos.CounterState.initial
-  -- Shape gallery state (mode 12)
-  let mut shapeGalleryIndex : Nat := 0
-
-  -- Worldmap state (mode 13)
-  let diskConfig : Worldmap.TileDiskCacheConfig := {
-    cacheDir := "./tile_cache"
-    tilesetName := "carto-dark-2x"
-    maxSizeBytes := Worldmap.defaultDiskCacheSizeBytes
-  }
-  let mut mapState ← Worldmap.MapState.init 37.7749 (-122.4194) 12 (physWidth.toNat : Int) (physHeight.toNat : Int) diskConfig
 
   while !(← c.shouldClose) do
     c.pollEvents
@@ -217,47 +205,16 @@ def unifiedDemo : IO Unit := do
     -- Check for Space key to cycle through modes
     let keyCode ← c.getKeyCode
     if keyCode == FFI.Key.space then
-      -- Release pointer lock when leaving mode 9 or 10
-      if displayMode == 9 || displayMode == 10 then
-        FFI.Window.setPointerLock c.ctx.window false
-      displayMode := (displayMode + 1) % 19
+      let exitEnv := mkEnv 0.0 0.0 keyCode
+      let currentDemo ← AnyDemo.onExit (demos[displayMode]!) c exitEnv
+      demos := demos.set! displayMode currentDemo
+      displayMode := (displayMode + 1) % demos.size
       c.clearKey
       c := c.resetState
       c.ctx.resetScissor
-      -- Disable MSAA for throughput-heavy benchmarks and the seascape demo.
-      -- (Seascape is usually fill-rate bound; MSAA can be a big hit at Retina resolutions.)
-      msaaEnabled := displayMode != 4 && displayMode != 10 && displayMode != 16 && displayMode != 18
+      msaaEnabled := AnyDemo.msaaEnabled (demos[displayMode]!)
       FFI.Renderer.setMSAAEnabled c.ctx.renderer msaaEnabled
-      match displayMode with
-      | 0 => IO.println "Switched to DEMO mode"
-      | 1 => IO.println "Switched to GRID (squares) performance test"
-      | 2 => IO.println "Switched to TRIANGLES performance test"
-      | 3 => IO.println "Switched to CIRCLES (bouncing) performance test"
-      | 4 => IO.println "Switched to SPRITES (Bunnymark) performance test"
-      | 5 => IO.println "Switched to LAYOUT demo (full-size)"
-      | 6 => IO.println "Switched to CSS GRID demo (full-size)"
-      | 7 => IO.println "Switched to WIDGET demo (full-size)"
-      | 8 => IO.println "Switched to INTERACTIVE demo (click the buttons!)"
-      | 9 => IO.println "Switched to 3D SPINNING CUBES demo"
-      | 10 => IO.println "Switched to SEASCAPE demo (Gerstner waves)"
-      | 11 => IO.println "Switched to PATH FEATURES demo (non-convex, arcTo, transforms)"
-      | 12 => IO.println "Switched to SHAPE GALLERY (arrow keys to navigate)"
-      | 13 => IO.println "Switched to WORLDMAP demo (drag to pan, scroll to zoom)"
-      | 14 => IO.println "Switched to LINE CAPS & JOINS demo"
-      | 15 => IO.println "Switched to DASHED LINES demo"
-      | 16 => IO.println "Switched to 100k LINES performance test"
-      | 17 => IO.println "Switched to TEXTURE MATRIX demo (u_matrix scaling)"
-      | 18 => IO.println "Switched to ORBITAL instanced demo"
-      | _ => IO.println "Switched to DEMO mode"
-
-    -- Arrow key navigation for shape gallery (mode 12)
-    if displayMode == 12 then
-      if keyCode == FFI.Key.right then
-        shapeGalleryIndex := (shapeGalleryIndex + 1) % Demos.shapeGalleryCount
-        c.clearKey
-      else if keyCode == FFI.Key.left then
-        shapeGalleryIndex := if shapeGalleryIndex == 0 then Demos.shapeGalleryCount - 1 else shapeGalleryIndex - 1
-        c.clearKey
+      IO.println s!"Switched to {AnyDemo.name (demos[displayMode]!)}"
 
     let ok ← c.beginFrame Color.darkGray
     if ok then
@@ -275,62 +232,11 @@ def unifiedDemo : IO Unit := do
         fpsAccumulator := 0.0
         frameCount := 0
 
-      if displayMode == 1 then
-        c ← renderGridPerfFrame c t fontMedium gridParticles halfSize
-      else if displayMode == 2 then
-        c ← renderTrianglesPerfFrame c t fontMedium gridParticles halfSize
-      else if displayMode == 3 then
-        let (c', nextParticles) ←
-          stepCirclesPerfFrame c dt t fontMedium bouncingState circleRadius screenScale
-        c := c'
-        bouncingState := nextParticles
-      else if displayMode == 4 then
-        let (c', nextParticles) ←
-          stepSpritesPerfFrame c dt fontMedium spriteState spriteTexture spriteHalfSize screenScale
-        c := c'
-        spriteState := nextParticles
-      else if displayMode == 5 then
-        c ← renderLayoutDemoFrame c layoutFont fontMedium layoutOffsetX layoutOffsetY layoutScale screenScale
-      else if displayMode == 6 then
-        c ← renderCssGridDemoFrame c layoutFont fontMedium layoutOffsetX layoutOffsetY layoutScale screenScale
-      else if displayMode == 7 then
-        c ← renderWidgetDemoFrame c fontRegistry fontMediumId fontSmallId physWidthF physHeightF screenScale fontMedium
-      else if displayMode == 8 then
-        let (c', nextState) ←
-          stepInteractiveDemoFrame c fontRegistry fontMediumId fontSmallId physWidthF physHeightF screenScale counterState fontMedium
-        c := c'
-        counterState := nextState
-      else if displayMode == 9 then
-        let (c', nextCamera) ←
-          stepSpinningCubesFrame c t dt keyCode screenScale fontMedium fontSmall fpsCamera
-        c := c'
-        fpsCamera := nextCamera
-      else if displayMode == 10 then
-        let (c', nextCamera) ←
-          stepSeascapeDemoFrame c t dt keyCode screenScale fontMedium fontSmall seascapeCamera
-        c := c'
-        seascapeCamera := nextCamera
-      else if displayMode == 11 then
-        c ← renderPathFeaturesDemoFrame c screenScale fontSmall fontMedium
-      else if displayMode == 12 then
-        c ← renderShapeGalleryDemoFrame c shapeGalleryIndex physWidthF physHeightF screenScale fontLarge fontSmall fontMedium
-      else if displayMode == 13 then
-        let (c', nextState) ← stepWorldmapDemoFrame c mapState screenScale fontMedium fontSmall
-        c := c'
-        mapState := nextState
-      else if displayMode == 14 then
-        c ← renderLineCapsDemoFrame c screenScale fontSmall fontMedium
-      else if displayMode == 15 then
-        c ← renderDashedLinesDemoFrame c screenScale fontSmall fontMedium
-      else if displayMode == 16 then
-        c ← renderLinesPerfFrame c t lineBuffer lineCount lineWidth fontMedium
-      else if displayMode == 17 then
-        c ← renderTextureMatrixDemoFrame c t screenScale fontMedium fontSmall spriteTexture
-      else if displayMode == 18 then
-        c ← renderOrbitalInstancedDemoFrame c t screenScale fontMedium orbitalCount orbitalParams orbitalBuffer
-      else
-        let (currentW, currentH) ← c.ctx.getCurrentSize
-        c ← renderDemoGridFrame c screenScale currentW currentH fontSmall fonts t
+      let env := mkEnv t dt keyCode
+      let demo := demos[displayMode]!
+      let (c', nextDemo) ← AnyDemo.step demo c env
+      c := c'
+      demos := demos.set! displayMode nextDemo
 
       -- Render FPS counter in top-right corner (after all other rendering)
       -- Use current drawable size for proper positioning after resize
