@@ -14,6 +14,327 @@ open Afferent CanvasM
 
 namespace Demos
 
+private structure FontPack where
+  registry : FontRegistry
+  smallId : Afferent.Arbor.FontId
+  mediumId : Afferent.Arbor.FontId
+  largeId : Afferent.Arbor.FontId
+  hugeId : Afferent.Arbor.FontId
+
+private structure LoadingState where
+  fontSmall : Option Font := none
+  fontMedium : Option Font := none
+  fontLarge : Option Font := none
+  fontHuge : Option Font := none
+  layoutFont : Option Font := none
+  fontPack : Option FontPack := none
+  spriteTexture : Option FFI.Texture := none
+  lineSegments : Option (Array Float × Nat) := none
+  lineBuffer : Option FFI.Buffer := none
+  gridParticles : Option Render.Dynamic.ParticleState := none
+  orbitalParams : Option FloatArray := none
+  orbitalBuffer : Option FFI.FloatBuffer := none
+
+private structure LoadedAssets where
+  screenScale : Float
+  fontSmall : Font
+  fontMedium : Font
+  fontLarge : Font
+  fontHuge : Font
+  layoutFont : Font
+  fontPack : FontPack
+  spriteTexture : FFI.Texture
+  halfSize : Float
+  circleRadius : Float
+  spriteHalfSize : Float
+  gridParticles : Render.Dynamic.ParticleState
+  lineBuffer : FFI.Buffer
+  lineCount : Nat
+  lineWidth : Float
+  orbitalCount : Nat
+  orbitalParams : FloatArray
+  orbitalBuffer : FFI.FloatBuffer
+  physWidthF : Float
+  physHeightF : Float
+  physWidth : UInt32
+  physHeight : UInt32
+  layoutOffsetX : Float
+  layoutOffsetY : Float
+  layoutScale : Float
+
+private structure RunningState where
+  assets : LoadedAssets
+  demos : Array AnyDemo
+  displayMode : Nat
+  msaaEnabled : Bool
+  frameCount : Nat
+  fpsAccumulator : Float
+  displayFps : Float
+  framesLeft : Nat
+
+private inductive AppState where
+  | loading (state : LoadingState)
+  | running (state : RunningState)
+
+private def loadingStepsTotal : Nat := 12
+
+private def loadingStepsDone (s : LoadingState) : Nat :=
+  (if s.fontSmall.isSome then 1 else 0) +
+  (if s.fontMedium.isSome then 1 else 0) +
+  (if s.fontLarge.isSome then 1 else 0) +
+  (if s.fontHuge.isSome then 1 else 0) +
+  (if s.layoutFont.isSome then 1 else 0) +
+  (if s.fontPack.isSome then 1 else 0) +
+  (if s.spriteTexture.isSome then 1 else 0) +
+  (if s.lineSegments.isSome then 1 else 0) +
+  (if s.lineBuffer.isSome then 1 else 0) +
+  (if s.gridParticles.isSome then 1 else 0) +
+  (if s.orbitalParams.isSome then 1 else 0) +
+  (if s.orbitalBuffer.isSome then 1 else 0)
+
+private def loadingProgress (s : LoadingState) : Float :=
+  (loadingStepsDone s).toFloat / (loadingStepsTotal.toFloat)
+
+private def loadingStatus (s : LoadingState) : String :=
+  if s.fontSmall.isNone || s.fontMedium.isNone || s.fontLarge.isNone || s.fontHuge.isNone then
+    "Loading fonts..."
+  else if s.layoutFont.isNone then
+    "Preparing layout font..."
+  else if s.fontPack.isNone then
+    "Registering fonts..."
+  else if s.spriteTexture.isNone then
+    "Loading sprites..."
+  else if s.lineSegments.isNone then
+    "Generating lines..."
+  else if s.lineBuffer.isNone then
+    "Uploading line buffer..."
+  else if s.gridParticles.isNone then
+    "Generating particles..."
+  else if s.orbitalParams.isNone then
+    "Preparing orbitals..."
+  else if s.orbitalBuffer.isNone then
+    "Uploading orbitals..."
+  else
+    "Finalizing..."
+
+private def buildOrbitalParams (orbitalCount : Nat)
+    (minRadius maxRadius speedMin speedMax sizeMin sizeMax : Float) : FloatArray := Id.run do
+  let twoPi : Float := 6.283185307
+  let mut arr := FloatArray.emptyWithCapacity (orbitalCount * 5)
+  let mut s := 4242
+  for i in [:orbitalCount] do
+    s := (s * 1103515245 + 12345) % (2^31)
+    let phase := (s.toFloat / 2147483648.0) * twoPi
+    s := (s * 1103515245 + 12345) % (2^31)
+    let radius := minRadius + (s.toFloat / 2147483648.0) * (maxRadius - minRadius)
+    s := (s * 1103515245 + 12345) % (2^31)
+    let baseSpeed := speedMin + (s.toFloat / 2147483648.0) * (speedMax - speedMin)
+    s := (s * 1103515245 + 12345) % (2^31)
+    let dir : Float := if s % 2 == 0 then 1.0 else -1.0
+    let speed := baseSpeed * dir
+    s := (s * 1103515245 + 12345) % (2^31)
+    let size := sizeMin + (s.toFloat / 2147483648.0) * (sizeMax - sizeMin)
+    let hue := i.toFloat / orbitalCount.toFloat
+    arr := arr.push phase
+    arr := arr.push radius
+    arr := arr.push speed
+    arr := arr.push hue
+    arr := arr.push size
+  arr
+
+private def renderLoading (c : Canvas) (t : Float) (screenScale : Float)
+    (progress : Float) (label : String) (font? : Option Font) : IO Canvas := do
+  let c' ← run' c do
+    resetTransform
+    let (w, h) ← getCurrentSize
+    setFillColor (Color.gray 0.12)
+    fillRectXYWH 0 0 w h
+    let barW := min (w * 0.6) (420.0 * screenScale)
+    let barH := max (h * 0.02) (12.0 * screenScale)
+    let x := (w - barW) / 2.0
+    let y := (h - barH) / 2.0
+    setFillColor (Color.gray 0.22)
+    fillRectXYWH x y barW barH
+    let hue := (t * 0.08) - (t * 0.08).floor
+    setFillColor (Color.hsva hue 0.55 0.9 1.0)
+    fillRectXYWH x y (barW * progress) barH
+    let radius := min w h * 0.08
+    let angle := t * 2.2
+    let dotSize := max (6.0 * screenScale) (barH * 0.6)
+    let dotX := w * 0.5 + Float.cos angle * radius
+    let dotY := h * 0.5 - Float.sin angle * radius
+    setFillColor (Color.gray 0.8)
+    fillRectXYWH (dotX - dotSize / 2) (dotY - dotSize / 2) dotSize dotSize
+    if let some font := font? then
+      let (textW, _) ← measureText label font
+      setFillColor (Color.gray 0.75)
+      fillTextXY label ((w - textW) / 2.0) (y - 12.0 * screenScale) font
+  pure c'
+
+private def advanceLoading (s0 : LoadingState) (screenScale : Float) (canvas : Canvas)
+    (lineRef : IO.Ref (Option (Array Float × Nat)))
+    (gridRef : IO.Ref (Option Render.Dynamic.ParticleState))
+    (orbitalRef : IO.Ref (Option FloatArray))
+    (orbitalCount : Nat) : IO LoadingState := do
+  let mut s := s0
+  if s.lineSegments.isNone then
+    if let some segs ← lineRef.get then
+      s := { s with lineSegments := some segs }
+  if s.gridParticles.isNone then
+    if let some grid ← gridRef.get then
+      s := { s with gridParticles := some grid }
+  if s.orbitalParams.isNone then
+    if let some params ← orbitalRef.get then
+      s := { s with orbitalParams := some params }
+
+  if s.fontSmall.isNone then
+    let fontSmall ← Font.load "/System/Library/Fonts/Monaco.ttf" (16 * screenScale).toUInt32
+    return { s with fontSmall := some fontSmall }
+  if s.fontMedium.isNone then
+    let fontMedium ← Font.load "/System/Library/Fonts/Monaco.ttf" (24 * screenScale).toUInt32
+    return { s with fontMedium := some fontMedium }
+  if s.fontLarge.isNone then
+    let fontLarge ← Font.load "/System/Library/Fonts/Monaco.ttf" (36 * screenScale).toUInt32
+    return { s with fontLarge := some fontLarge }
+  if s.fontHuge.isNone then
+    let fontHuge ← Font.load "/System/Library/Fonts/Monaco.ttf" (48 * screenScale).toUInt32
+    return { s with fontHuge := some fontHuge }
+  if s.layoutFont.isNone then
+    let layoutLabelPt : Float := 12.0
+    let layoutFontPx : UInt32 := (max 8.0 (layoutLabelPt * screenScale)).toUInt32
+    let layoutFont ← Font.load "/System/Library/Fonts/Monaco.ttf" layoutFontPx
+    return { s with layoutFont := some layoutFont }
+  if s.fontPack.isNone then
+    match s.fontSmall, s.fontMedium, s.fontLarge, s.fontHuge with
+    | some fontSmall, some fontMedium, some fontLarge, some fontHuge =>
+        let (reg1, fontSmallId) := FontRegistry.empty.register fontSmall "small"
+        let (reg2, fontMediumId) := reg1.register fontMedium "medium"
+        let (reg3, fontLargeId) := reg2.register fontLarge "large"
+        let (reg4, fontHugeId) := reg3.register fontHuge "huge"
+        let registry := reg4.setDefault fontMedium
+        return { s with fontPack := some {
+          registry := registry
+          smallId := fontSmallId
+          mediumId := fontMediumId
+          largeId := fontLargeId
+          hugeId := fontHugeId
+        } }
+    | _, _, _, _ => return s
+  if s.spriteTexture.isNone then
+    let spriteTexture ← FFI.Texture.load "nibble.png"
+    return { s with spriteTexture := some spriteTexture }
+  if s.lineBuffer.isNone then
+    match s.lineSegments with
+    | some (segments, _) =>
+        let lineBuffer ← FFI.Buffer.createStrokeSegmentPersistent canvas.ctx.renderer segments
+        return { s with lineBuffer := some lineBuffer }
+    | none => pure ()
+  if s.orbitalBuffer.isNone then
+    match s.orbitalParams with
+    | some _ =>
+        let orbitalBuffer ← FFI.FloatBuffer.create (orbitalCount.toUSize * 8)
+        return { s with orbitalBuffer := some orbitalBuffer }
+    | none => pure ()
+  return s
+
+private def toLoadedAssets (s : LoadingState)
+    (screenScale halfSize circleRadius spriteHalfSize : Float)
+    (lineWidth : Float)
+    (orbitalCount : Nat)
+    (physWidthF physHeightF : Float)
+    (physWidth physHeight : UInt32)
+    (layoutOffsetX layoutOffsetY layoutScale : Float)
+    : Option LoadedAssets :=
+  match s.fontSmall, s.fontMedium, s.fontLarge, s.fontHuge, s.layoutFont,
+        s.fontPack, s.spriteTexture, s.gridParticles, s.lineSegments,
+        s.lineBuffer, s.orbitalParams, s.orbitalBuffer with
+  | some fontSmall, some fontMedium, some fontLarge, some fontHuge, some layoutFont,
+    some fontPack, some spriteTexture, some gridParticles, some (_, lineCount),
+    some lineBuffer, some orbitalParams, some orbitalBuffer =>
+      some {
+        screenScale
+        fontSmall
+        fontMedium
+        fontLarge
+        fontHuge
+        layoutFont
+        fontPack
+        spriteTexture
+        halfSize
+        circleRadius
+        spriteHalfSize
+        gridParticles
+        lineBuffer
+        lineCount
+        lineWidth
+        orbitalCount
+        orbitalParams
+        orbitalBuffer
+        physWidthF
+        physHeightF
+        physWidth
+        physHeight
+        layoutOffsetX
+        layoutOffsetY
+        layoutScale
+      }
+  | _, _, _, _, _, _, _, _, _, _, _, _ => none
+
+private def cleanupLoading (s : LoadingState) : IO Unit := do
+  if let some font := s.fontSmall then font.destroy
+  if let some font := s.fontMedium then font.destroy
+  if let some font := s.fontLarge then font.destroy
+  if let some font := s.fontHuge then font.destroy
+  if let some font := s.layoutFont then font.destroy
+  if let some tex := s.spriteTexture then FFI.Texture.destroy tex
+  if let some buf := s.lineBuffer then FFI.Buffer.destroy buf
+  if let some buf := s.orbitalBuffer then FFI.FloatBuffer.destroy buf
+
+private def cleanupAssets (a : LoadedAssets) : IO Unit := do
+  a.fontSmall.destroy
+  a.fontMedium.destroy
+  a.fontLarge.destroy
+  a.fontHuge.destroy
+  a.layoutFont.destroy
+  FFI.Texture.destroy a.spriteTexture
+  FFI.Buffer.destroy a.lineBuffer
+  FFI.FloatBuffer.destroy a.orbitalBuffer
+
+private def mkEnvFromAssets (a : LoadedAssets) (t dt : Float) (keyCode : UInt16) : DemoEnv := {
+  screenScale := a.screenScale
+  t := t
+  dt := dt
+  keyCode := keyCode
+  fontSmall := a.fontSmall
+  fontMedium := a.fontMedium
+  fontLarge := a.fontLarge
+  fontHuge := a.fontHuge
+  layoutFont := a.layoutFont
+  fontRegistry := a.fontPack.registry
+  fontMediumId := a.fontPack.mediumId
+  fontSmallId := a.fontPack.smallId
+  fontLargeId := a.fontPack.largeId
+  fontHugeId := a.fontPack.hugeId
+  spriteTexture := a.spriteTexture
+  halfSize := a.halfSize
+  circleRadius := a.circleRadius
+  spriteHalfSize := a.spriteHalfSize
+  gridParticles := a.gridParticles
+  lineBuffer := a.lineBuffer
+  lineCount := a.lineCount
+  lineWidth := a.lineWidth
+  orbitalCount := a.orbitalCount
+  orbitalParams := a.orbitalParams
+  orbitalBuffer := a.orbitalBuffer
+  physWidthF := a.physWidthF
+  physHeightF := a.physHeightF
+  physWidth := a.physWidth
+  physHeight := a.physHeight
+  layoutOffsetX := a.layoutOffsetX
+  layoutOffsetY := a.layoutOffsetY
+  layoutScale := a.layoutScale
+}
+
 /-- Unified visual demo - runs all demos in a grid layout -/
 def unifiedDemo : IO Unit := do
   IO.println "Unified Visual Demo (with Animations!)"
@@ -37,45 +358,6 @@ def unifiedDemo : IO Unit := do
   -- Create canvas at physical resolution
   let canvas ← Canvas.create physWidth physHeight "Afferent - Visual Demos (LSD Disco Party Edition)"
 
-  -- Kick an initial frame so the window isn't blank during heavy startup work.
-  let kickInitialFrame (attempts : Nat) : IO Unit := do
-    for _ in [:attempts] do
-      canvas.pollEvents
-      let ok ← canvas.beginFrame Color.darkGray
-      if ok then
-        let c' ← run' canvas do
-          resetTransform
-          let (w, h) ← getCurrentSize
-          let barW := min (w * 0.6) (360.0 * screenScale)
-          let barH := max (h * 0.02) (12.0 * screenScale)
-          let x := (w - barW) / 2.0
-          let y := (h - barH) / 2.0
-          setFillColor (Color.gray 0.2)
-          fillRectXYWH x y barW barH
-          setFillColor (Color.gray 0.7)
-          fillRectXYWH x y (barW * 0.35) barH
-        discard (c'.endFrame)
-        return
-      else
-        IO.sleep 10
-  kickInitialFrame 50
-
-  IO.println "Loading fonts..."
-  -- Font sizes scaled for physical resolution
-  let fontSmall ← Font.load "/System/Library/Fonts/Monaco.ttf" (16 * screenScale).toUInt32
-  let fontMedium ← Font.load "/System/Library/Fonts/Monaco.ttf" (24 * screenScale).toUInt32
-  let fontLarge ← Font.load "/System/Library/Fonts/Monaco.ttf" (36 * screenScale).toUInt32
-  let fontHuge ← Font.load "/System/Library/Fonts/Monaco.ttf" (48 * screenScale).toUInt32
-
-  IO.println "Loading sprite texture..."
-  let spriteTexture ← FFI.Texture.load "nibble.png"
-  let (texWidth, texHeight) ← FFI.Texture.getSize spriteTexture
-  IO.println s!"Loaded nibble.png: {texWidth}x{texHeight}"
-
-  IO.println "Rendering animated demo... (close window to exit)"
-  IO.println "Press SPACE to toggle performance test mode (10000 spinning squares)"
-
-  -- Pre-compute particle data ONCE at startup using unified Dynamic module
   -- Sizes scaled for physical resolution
   let halfSize := 1.5 * screenScale
   let circleRadius := 2.0 * screenScale
@@ -101,17 +383,8 @@ def unifiedDemo : IO Unit := do
   let gridSpacing := 2.0 * screenScale
   let gridStartX := (physWidthF - (gridCols.toFloat - 1) * gridSpacing) / 2.0
   let gridStartY := (physHeightF - (gridRows.toFloat - 1) * gridSpacing) / 2.0
-  let gridParticles := Render.Dynamic.ParticleState.createGrid gridCols gridRows gridStartX gridStartY gridSpacing physWidthF physHeightF
-  IO.println s!"Created {gridParticles.count} grid particles"
 
-  -- Line segments for 100k-line GPU stroke perf
-  let (lineSegments, lineCount) := Demos.buildLineSegments physWidthF physHeightF
   let lineWidth := 1.0 * screenScale
-  let lineBuffer ← FFI.Buffer.createStrokeSegmentPersistent canvas.ctx.renderer lineSegments
-  IO.println s!"Prepared {lineCount} line segments"
-
-  -- No GPU upload needed! Dynamic module sends positions each frame.
-  IO.println "Using unified Dynamic rendering - CPU positions, GPU color/NDC."
 
   -- Orbital instanced demo parameters (CPU orbit, GPU instancing)
   let orbitalCount : Nat := 50000
@@ -121,46 +394,25 @@ def unifiedDemo : IO Unit := do
   let speedMax : Float := 1.6
   let sizeMin : Float := 1.0 * screenScale
   let sizeMax : Float := 3.5 * screenScale
-  let twoPi : Float := 6.283185307
-  let orbitalParams : FloatArray := Id.run do
-    let mut arr := FloatArray.emptyWithCapacity (orbitalCount * 5)
-    let mut s := 4242
-    for i in [:orbitalCount] do
-      s := (s * 1103515245 + 12345) % (2^31)
-      let phase := (s.toFloat / 2147483648.0) * twoPi
-      s := (s * 1103515245 + 12345) % (2^31)
-      let radius := minRadius + (s.toFloat / 2147483648.0) * (maxRadius - minRadius)
-      s := (s * 1103515245 + 12345) % (2^31)
-      let baseSpeed := speedMin + (s.toFloat / 2147483648.0) * (speedMax - speedMin)
-      s := (s * 1103515245 + 12345) % (2^31)
-      let dir : Float := if s % 2 == 0 then 1.0 else -1.0
-      let speed := baseSpeed * dir
-      s := (s * 1103515245 + 12345) % (2^31)
-      let size := sizeMin + (s.toFloat / 2147483648.0) * (sizeMax - sizeMin)
-      let hue := i.toFloat / orbitalCount.toFloat
-      arr := arr.push phase
-      arr := arr.push radius
-      arr := arr.push speed
-      arr := arr.push hue
-      arr := arr.push size
-    arr
-  let orbitalBuffer ← FFI.FloatBuffer.create (orbitalCount.toUSize * 8)
-  IO.println s!"Prepared {orbitalCount} orbital instances"
 
-  -- Layout demo labels are drawn in screen pixels (not scaled with the demo), so size is stable.
-  let layoutLabelPt : Float := 12.0
-  let layoutFontPx : UInt32 := (max 8.0 (layoutLabelPt * screenScale)).toUInt32
-  let layoutFont ← Font.load "/System/Library/Fonts/Monaco.ttf" layoutFontPx
+  -- Background tasks for heavy CPU work.
+  let gridRef ← IO.mkRef (none : Option Render.Dynamic.ParticleState)
+  let _ ← IO.asTask (prio := .dedicated) do
+    let gridParticles := Render.Dynamic.ParticleState.createGrid
+      gridCols gridRows gridStartX gridStartY gridSpacing physWidthF physHeightF
+    gridRef.set (some gridParticles)
 
-  -- Create font registry for Arbor widget system
-  let (fontReg1, fontSmallId) := FontRegistry.empty.register fontSmall "small"
-  let (fontReg2, fontMediumId) := fontReg1.register fontMedium "medium"
-  let (fontReg3, fontLargeId) := fontReg2.register fontLarge "large"
-  let (fontReg4, fontHugeId) := fontReg3.register fontHuge "huge"
-  let fontRegistry := fontReg4.setDefault fontMedium
+  let lineRef ← IO.mkRef (none : Option (Array Float × Nat))
+  let _ ← IO.asTask (prio := .dedicated) do
+    let lineSegments := Demos.buildLineSegments physWidthF physHeightF
+    lineRef.set (some lineSegments)
+
+  let orbitalRef ← IO.mkRef (none : Option FloatArray)
+  let _ ← IO.asTask (prio := .dedicated) do
+    let params := buildOrbitalParams orbitalCount minRadius maxRadius speedMin speedMax sizeMin sizeMax
+    orbitalRef.set (some params)
 
   -- Display modes: 0 = demo, 1 = grid squares, 2 = triangles, 3 = circles, 4 = sprites, 16 = lines, 17 = texture matrix, 18 = orbital instanced
-  let startTime ← IO.monoMsNow
   let startMode :=
     match (← IO.getEnv "AFFERENT_START_MODE") with
     | some s =>
@@ -176,125 +428,117 @@ def unifiedDemo : IO Unit := do
         | none => 0
     | none => 0
 
-  let mkEnv := fun (t dt : Float) (keyCode : UInt16) => {
-    screenScale := screenScale
-    t := t
-    dt := dt
-    keyCode := keyCode
-    fontSmall := fontSmall
-    fontMedium := fontMedium
-    fontLarge := fontLarge
-    fontHuge := fontHuge
-    layoutFont := layoutFont
-    fontRegistry := fontRegistry
-    fontMediumId := fontMediumId
-    fontSmallId := fontSmallId
-    fontLargeId := fontLargeId
-    fontHugeId := fontHugeId
-    spriteTexture := spriteTexture
-    halfSize := halfSize
-    circleRadius := circleRadius
-    spriteHalfSize := spriteHalfSize
-    gridParticles := gridParticles
-    lineBuffer := lineBuffer
-    lineCount := lineCount
-    lineWidth := lineWidth
-    orbitalCount := orbitalCount
-    orbitalParams := orbitalParams
-    orbitalBuffer := orbitalBuffer
-    physWidthF := physWidthF
-    physHeightF := physHeightF
-    physWidth := physWidth
-    physHeight := physHeight
-    layoutOffsetX := layoutOffsetX
-    layoutOffsetY := layoutOffsetY
-    layoutScale := layoutScale
-  }
+  let startTime ← IO.monoMsNow
 
-  let renderLoop : IO Canvas := do
-    let initEnv := mkEnv 0.0 0.0 0
-    let mut demos ← buildDemoList initEnv
-    let mut displayMode : Nat := startMode % demos.size
+  let renderLoop : IO (Canvas × AppState) := do
     let mut c := canvas
-    let mut msaaEnabled : Bool := AnyDemo.msaaEnabled (demos[displayMode]!)
-    FFI.Renderer.setMSAAEnabled c.ctx.renderer msaaEnabled
+    let mut state : AppState := .loading {}
     let mut lastTime := startTime
-    -- FPS counter (smoothed over multiple frames)
-    let mut frameCount : Nat := 0
-    let mut fpsAccumulator : Float := 0.0
-    let mut displayFps : Float := 0.0
-    let mut framesLeft : Nat := exitAfterFrames
-
     while !(← c.shouldClose) do
-      -- Check for Space key to cycle through modes
-      let keyCode ← c.getKeyCode
-      if keyCode == FFI.Key.space then
-        let exitEnv := mkEnv 0.0 0.0 keyCode
-        let currentDemo ← AnyDemo.onExit (demos[displayMode]!) c exitEnv
-        demos := demos.set! displayMode currentDemo
-        displayMode := (displayMode + 1) % demos.size
-        c.clearKey
-        c := c.resetState
-        c.ctx.resetScissor
-        msaaEnabled := AnyDemo.msaaEnabled (demos[displayMode]!)
-        FFI.Renderer.setMSAAEnabled c.ctx.renderer msaaEnabled
-        IO.println s!"Switched to {AnyDemo.name (demos[displayMode]!)}"
-
       let ok ← c.beginFrame Color.darkGray
       if ok then
         let now ← IO.monoMsNow
         let t := (now - startTime).toFloat / 1000.0  -- Elapsed seconds
         let dt := (now - lastTime).toFloat / 1000.0  -- Delta time
         lastTime := now
+        match state with
+        | .loading ls =>
+            let ls ← advanceLoading ls screenScale c lineRef gridRef orbitalRef orbitalCount
+            let progress := loadingProgress ls
+            let label := loadingStatus ls
+            c ← renderLoading c t screenScale progress label ls.fontSmall
+            match toLoadedAssets ls screenScale halfSize circleRadius spriteHalfSize lineWidth orbitalCount
+                physWidthF physHeightF physWidth physHeight layoutOffsetX layoutOffsetY layoutScale with
+            | some assets =>
+                let initEnv := mkEnvFromAssets assets 0.0 0.0 0
+                let mut demos ← buildDemoList initEnv
+                let displayMode : Nat := startMode % demos.size
+                let msaaEnabled : Bool := AnyDemo.msaaEnabled (demos[displayMode]!)
+                FFI.Renderer.setMSAAEnabled c.ctx.renderer msaaEnabled
+                IO.println "Rendering animated demo... (close window to exit)"
+                IO.println "Press SPACE to toggle performance test mode (10000 spinning squares)"
+                state := .running {
+                  assets := assets
+                  demos := demos
+                  displayMode := displayMode
+                  msaaEnabled := msaaEnabled
+                  frameCount := 0
+                  fpsAccumulator := 0.0
+                  displayFps := 0.0
+                  framesLeft := exitAfterFrames
+                }
+            | none =>
+                state := .loading ls
+            c ← c.endFrame
+        | .running rs =>
+            let mut rs := rs
+            -- Check for Space key to cycle through modes
+            let keyCode ← c.getKeyCode
+            if keyCode == FFI.Key.space then
+              let exitEnv := mkEnvFromAssets rs.assets 0.0 0.0 keyCode
+              let currentDemo ← AnyDemo.onExit (rs.demos[rs.displayMode]!) c exitEnv
+              rs := { rs with demos := rs.demos.set! rs.displayMode currentDemo }
+              rs := { rs with displayMode := (rs.displayMode + 1) % rs.demos.size }
+              c.clearKey
+              c := c.resetState
+              c.ctx.resetScissor
+              rs := { rs with msaaEnabled := AnyDemo.msaaEnabled (rs.demos[rs.displayMode]!) }
+              FFI.Renderer.setMSAAEnabled c.ctx.renderer rs.msaaEnabled
+              IO.println s!"Switched to {AnyDemo.name (rs.demos[rs.displayMode]!)}"
 
-        -- Update FPS counter (update display every 10 frames for stability)
-        frameCount := frameCount + 1
-        if dt > 0.0 then
-          fpsAccumulator := fpsAccumulator + (1.0 / dt)
-        if frameCount >= 10 then
-          displayFps := fpsAccumulator / frameCount.toFloat
-          fpsAccumulator := 0.0
-          frameCount := 0
+            let env := mkEnvFromAssets rs.assets t dt keyCode
+            let demo := rs.demos[rs.displayMode]!
+            let (c', nextDemo) ← AnyDemo.step demo c env
+            c := c'
+            rs := { rs with demos := rs.demos.set! rs.displayMode nextDemo }
 
-        let env := mkEnv t dt keyCode
-        let demo := demos[displayMode]!
-        let (c', nextDemo) ← AnyDemo.step demo c env
-        c := c'
-        demos := demos.set! displayMode nextDemo
+            -- Update FPS counter (update display every 10 frames for stability)
+            rs := { rs with frameCount := rs.frameCount + 1 }
+            if dt > 0.0 then
+              rs := { rs with fpsAccumulator := rs.fpsAccumulator + (1.0 / dt) }
+            if rs.frameCount >= 10 then
+              let displayFps := rs.fpsAccumulator / rs.frameCount.toFloat
+              rs := {
+                rs with
+                displayFps := displayFps
+                fpsAccumulator := 0.0
+                frameCount := 0
+              }
 
-        -- Render FPS counter in top-right corner (after all other rendering)
-        -- Use current drawable size for proper positioning after resize
-        let fpsText := s!"{displayFps.toUInt32} FPS"
-        let (textWidth, _) ← fontSmall.measureText fpsText
-        c ← run' c do
-          resetTransform
-          let (fpsW, _) ← getCurrentSize
-          setFillColor (Color.hsva 0.0 0.0 0.0 0.6)
-          fillRectXYWH (fpsW - textWidth - 20 * screenScale) (5 * screenScale) (textWidth + 15 * screenScale) (25 * screenScale)
-          setFillColor Color.white
-          fillTextXY fpsText (fpsW - textWidth - 12 * screenScale) (22 * screenScale) fontSmall
+            -- Render FPS counter in top-right corner (after all other rendering)
+            -- Use current drawable size for proper positioning after resize
+            let fpsText := s!"{rs.displayFps.toUInt32} FPS"
+            let (textWidth, _) ← rs.assets.fontSmall.measureText fpsText
+            c ← run' c do
+              resetTransform
+              let (fpsW, _) ← getCurrentSize
+              let s := rs.assets.screenScale
+              setFillColor (Color.hsva 0.0 0.0 0.0 0.6)
+              fillRectXYWH (fpsW - textWidth - 20 * s) (5 * s) (textWidth + 15 * s) (25 * s)
+              setFillColor Color.white
+              fillTextXY fpsText (fpsW - textWidth - 12 * s) (22 * s) rs.assets.fontSmall
 
-        c ← c.endFrame
-        if framesLeft != 0 then
-          framesLeft := framesLeft - 1
-          if framesLeft == 0 then
-            break
-    pure c
+            c ← c.endFrame
+
+            if rs.framesLeft != 0 then
+              let framesLeft := rs.framesLeft - 1
+              rs := { rs with framesLeft := framesLeft }
+              if framesLeft == 0 then
+                state := .running rs
+                break
+            state := .running rs
+    pure (c, state)
 
   let renderTask ← IO.asTask (prio := .dedicated) renderLoop
   canvas.ctx.window.runEventLoop
-  let c ← match renderTask.get with
-    | .ok c => pure c
+  let (c, state) ← match renderTask.get with
+    | .ok result => pure result
     | .error err => throw err
 
   IO.println "Cleaning up..."
-  fontSmall.destroy
-  fontMedium.destroy
-  fontLarge.destroy
-  fontHuge.destroy
-  layoutFont.destroy
-  FFI.Buffer.destroy lineBuffer
-  FFI.FloatBuffer.destroy orbitalBuffer
+  match state with
+  | .loading ls => cleanupLoading ls
+  | .running rs => cleanupAssets rs.assets
   c.destroy
   Wisp.FFI.globalCleanup
   Wisp.HTTP.Client.shutdown
