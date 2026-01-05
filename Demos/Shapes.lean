@@ -5,6 +5,7 @@ import Afferent
 import Afferent.Widget
 import Afferent.Arbor
 import Trellis
+import Demos.Card
 
 open Afferent.Arbor
 open Trellis (EdgeInsets)
@@ -17,51 +18,17 @@ structure ShapeDef where
   path : Afferent.Arbor.Rect → Afferent.Arbor.Path
   stroke : Option (Afferent.Arbor.Color × Float) := none
 
-def rectCenter (r : Afferent.Arbor.Rect) : Afferent.Arbor.Point :=
-  { x := r.origin.x + r.size.width / 2, y := r.origin.y + r.size.height / 2 }
-
-def minSide (r : Afferent.Arbor.Rect) : Float :=
-  min r.size.width r.size.height
-
-def insetRect (r : Afferent.Arbor.Rect) (pad : Float) : Afferent.Arbor.Rect :=
-  Rect.mk' (r.origin.x + pad) (r.origin.y + pad)
-    (max 1.0 (r.size.width - pad * 2)) (max 1.0 (r.size.height - pad * 2))
-
-def layoutRectToRect (r : Trellis.LayoutRect) : Afferent.Arbor.Rect :=
-  Rect.mk' r.x r.y r.width r.height
-
-/-- Create a custom spec that draws a single shape inside its layout rect. -/
-def shapeSpec (shape : ShapeDef) (size : Float) : CustomSpec :=
-  { measure := fun _ _ => (size, size)
-    collect := fun layout =>
-      let rect := layoutRectToRect layout.borderRect
-      let pad := min rect.size.width rect.size.height * 0.12
-      let inner := insetRect rect pad
-      let path := shape.path inner
-      let base : RenderCommands := #[RenderCommand.fillPath path shape.color]
-      match shape.stroke with
-      | some (strokeColor, strokeWidth) =>
-        base.push (RenderCommand.strokePath path strokeColor strokeWidth)
-      | none => base }
+def shapeCommands (shape : ShapeDef) (rect : Rect) : RenderCommands :=
+  let path := shape.path rect
+  let base : RenderCommands := #[RenderCommand.fillPath path shape.color]
+  match shape.stroke with
+  | some (strokeColor, strokeWidth) =>
+    base.push (RenderCommand.strokePath path strokeColor strokeWidth)
+  | none => base
 
 /-- Build a labeled card for a single shape. -/
 def shapeCard (labelFont : FontId) (shape : ShapeDef) : WidgetBuilder := do
-  let cardWidth : Float := 140.0
-  let labelMaxWidth : Float := cardWidth - 16.0
-  let cardStyle : BoxStyle := {
-    backgroundColor := some (Afferent.Color.gray 0.15)
-    borderColor := some (Afferent.Color.gray 0.35)
-    borderWidth := 1
-    cornerRadius := 10
-    padding := EdgeInsets.uniform 8
-    minWidth := some cardWidth
-    minHeight := some 120
-  }
-  column (gap := 6) (style := cardStyle) #[(
-    custom (shapeSpec shape 90) { minWidth := some 90, minHeight := some 90 }
-  ), (
-    text' shape.label labelFont (Afferent.Color.gray 0.85) .center (some labelMaxWidth)
-  )]
+  demoCard labelFont shape.label (shapeCommands shape)
 
 /-- Shapes rendered as cards in a grid. -/
 def shapesWidget (labelFont : FontId) : WidgetBuilder := do

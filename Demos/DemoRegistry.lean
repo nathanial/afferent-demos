@@ -3,6 +3,7 @@
 -/
 import Demos.Demo
 import Demos.DemoGrid
+import Demos.Card
 import Demos.GridPerf
 import Demos.TrianglesPerf
 import Demos.CirclesPerf
@@ -111,7 +112,14 @@ instance : Demo .demoGrid where
   init := fun _ => pure ()
   step := fun c env s => do
     let (currentW, currentH) ← c.ctx.getCurrentSize
-    let c ← renderDemoGridFrame c env.screenScale currentW currentH env.fontSmall env.fonts env.fontRegistry env.fontSmallId env.t
+    let demoFonts : DemoFonts := {
+      label := env.fontSmallId,
+      small := env.fontSmallId,
+      medium := env.fontMediumId,
+      large := env.fontLargeId,
+      huge := env.fontHugeId
+    }
+    let c ← renderDemoGridFrame c env.screenScale currentW currentH env.fontRegistry demoFonts env.t
     pure (c, s)
 
 instance : Demo .gridPerf where

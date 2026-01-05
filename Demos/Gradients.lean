@@ -1,130 +1,224 @@
 /-
-  Gradients Demo - Linear and radial gradients
+  Gradients Demo - Cards showing linear and radial gradients.
 -/
 import Afferent
+import Afferent.Widget
+import Afferent.Arbor
+import Demos.Card
+import Trellis
 
-open Afferent CanvasM
+open Afferent.Arbor
+open Trellis (EdgeInsets)
 
 namespace Demos
 
-/-- Render gradients demo content to canvas using CanvasM -/
-def renderGradientsM : CanvasM Unit := do
-  -- Row 1: Linear gradients - horizontal
-  setFillLinearGradient ⟨50, 70⟩ ⟨200, 70⟩ gradient![Color.red, Color.yellow]
-  fillRect (Rect.mk' 50 30 150 80)
+/-- Fill a rect with a linear gradient style. -/
+private def linearRect (r : Rect) (start finish : Afferent.Point) (stops : Array Afferent.GradientStop)
+    (cornerRadius : Float := 8) : RenderCommands :=
+  let style := Afferent.FillStyle.linearGradient start finish stops
+  #[.fillRectStyle r style cornerRadius]
 
-  setFillLinearGradient ⟨230, 70⟩ ⟨380, 70⟩ gradient![Color.blue, Color.cyan]
-  fillRect (Rect.mk' 230 30 150 80)
+/-- Fill a shape path with a gradient style. -/
+private def fillPathStyle (path : Path) (style : Afferent.FillStyle) : RenderCommands :=
+  #[.fillPathStyle path style]
 
-  setFillLinearGradient ⟨410, 70⟩ ⟨560, 70⟩ gradient![Color.green, Color.white]
-  fillRect (Rect.mk' 410 30 150 80)
+/-- Linear gradient horizontal. -/
+private def linearHorizontal (colors : Array Color) : Rect → RenderCommands := fun r =>
+  let start := Afferent.Point.mk' r.origin.x (r.origin.y + r.size.height / 2)
+  let finish := Afferent.Point.mk' (r.origin.x + r.size.width) (r.origin.y + r.size.height / 2)
+  linearRect r start finish (Afferent.GradientStop.distribute colors)
 
-  -- Row 1: Vertical gradient
-  setFillLinearGradient ⟨640, 30⟩ ⟨640, 110⟩ gradient![Color.purple, Color.orange]
-  fillRect (Rect.mk' 590 30 100 80)
+/-- Linear gradient vertical. -/
+private def linearVertical (colors : Array Color) : Rect → RenderCommands := fun r =>
+  let start := Afferent.Point.mk' (r.origin.x + r.size.width / 2) r.origin.y
+  let finish := Afferent.Point.mk' (r.origin.x + r.size.width / 2) (r.origin.y + r.size.height)
+  linearRect r start finish (Afferent.GradientStop.distribute colors)
 
-  -- Diagonal gradient
-  setFillLinearGradient ⟨720, 30⟩ ⟨870, 110⟩ gradient![Color.magenta, Color.cyan]
-  fillRect (Rect.mk' 720 30 150 80)
+/-- Diagonal linear gradient. -/
+private def linearDiagonal (colors : Array Color) : Rect → RenderCommands := fun r =>
+  let start := Afferent.Point.mk' r.origin.x r.origin.y
+  let finish := Afferent.Point.mk' (r.origin.x + r.size.width) (r.origin.y + r.size.height)
+  linearRect r start finish (Afferent.GradientStop.distribute colors)
 
-  -- Row 2: Multi-stop gradients (rainbow) - 7 evenly spaced colors
-  setFillLinearGradient ⟨50, 180⟩ ⟨450, 180⟩
-    gradient![Color.red, Color.orange, Color.yellow, Color.green, Color.blue, Color.purple, Color.magenta]
-  fillRect (Rect.mk' 50 140 400 80)
+/-- Radial gradient circle. -/
+private def radialCircle (colors : Array Color) : Rect → RenderCommands := fun r =>
+  let center := Afferent.Point.mk' (r.origin.x + r.size.width / 2) (r.origin.y + r.size.height / 2)
+  let radius := minSide r * 0.45
+  let style := Afferent.FillStyle.radialGradient center radius (Afferent.GradientStop.distribute colors)
+  fillPathStyle (Path.circle ⟨center.x, center.y⟩ radius) style
 
-  -- Sunset gradient
-  let sunset : Array GradientStop := #[
-    { position := 0.0, color := Color.hsva 0.667 0.667 0.3 1.0 },  -- dark blue
-    { position := 0.3, color := Color.hsva 0.833 0.6 0.5 1.0 },    -- purple
-    { position := 0.5, color := Color.hsva 0.024 0.778 0.9 1.0 },  -- orange-red
-    { position := 0.7, color := Color.hsva 0.083 0.8 1.0 1.0 },    -- orange
-    { position := 1.0, color := Color.hsva 0.139 0.6 1.0 1.0 }     -- light yellow
-  ]
-  setFillLinearGradient ⟨570, 140⟩ ⟨570, 220⟩ sunset
-  fillRect (Rect.mk' 480 140 180 80)
+/-- Radial gradient ellipse. -/
+private def radialEllipse (colors : Array Color) : Rect → RenderCommands := fun r =>
+  let center := Afferent.Point.mk' (r.origin.x + r.size.width / 2) (r.origin.y + r.size.height / 2)
+  let rx := r.size.width * 0.45
+  let ry := r.size.height * 0.32
+  let style := Afferent.FillStyle.radialGradient center (min rx ry) (Afferent.GradientStop.distribute colors)
+  fillPathStyle (Path.ellipse ⟨center.x, center.y⟩ rx ry) style
 
-  -- Grayscale
-  setFillLinearGradient ⟨690, 180⟩ ⟨870, 180⟩ gradient![Color.black, Color.white]
-  fillRect (Rect.mk' 690 140 180 80)
+/-- Gradient cards rendered as widgets. -/
+def gradientsWidget (labelFont : FontId) : WidgetBuilder := do
+  let sunset : Array Afferent.GradientStop := #[(
+    { position := 0.0, color := Afferent.Color.hsva 0.667 0.667 0.3 1.0 }
+  ), (
+    { position := 0.3, color := Afferent.Color.hsva 0.833 0.6 0.5 1.0 }
+  ), (
+    { position := 0.5, color := Afferent.Color.hsva 0.024 0.778 0.9 1.0 }
+  ), (
+    { position := 0.7, color := Afferent.Color.hsva 0.083 0.8 1.0 1.0 }
+  ), (
+    { position := 1.0, color := Afferent.Color.hsva 0.139 0.6 1.0 1.0 }
+  )]
 
-  -- Row 3: Radial gradients
-  setFillRadialGradient ⟨120, 320⟩ 70 gradient![Color.white, Color.blue]
-  fillCircle ⟨120, 320⟩ 70
+  let spotlight : Array Afferent.GradientStop := #[(
+    { position := 0.0, color := Afferent.Color.white }
+  ), (
+    { position := 0.7, color := Afferent.Color.hsva 0.0 0.0 1.0 0.3 }
+  ), (
+    { position := 1.0, color := Afferent.Color.hsva 0.0 0.0 1.0 0.0 }
+  )]
 
-  setFillRadialGradient ⟨280, 320⟩ 70 gradient![Color.yellow, Color.orange, Color.red]
-  fillCircle ⟨280, 320⟩ 70
+  let stripes : Array Afferent.GradientStop := #[(
+    { position := 0.0, color := Afferent.Color.red }
+  ), (
+    { position := 0.33, color := Afferent.Color.red }
+  ), (
+    { position := 0.34, color := Afferent.Color.white }
+  ), (
+    { position := 0.66, color := Afferent.Color.white }
+  ), (
+    { position := 0.67, color := Afferent.Color.blue }
+  ), (
+    { position := 1.0, color := Afferent.Color.blue }
+  )]
 
-  let spotlight : Array GradientStop := #[
-    { position := 0.0, color := Color.white },
-    { position := 0.7, color := Color.hsva 0.0 0.0 1.0 0.3 },
-    { position := 1.0, color := Color.hsva 0.0 0.0 1.0 0.0 }
-  ]
-  setFillRadialGradient ⟨440, 320⟩ 70 spotlight
-  fillCircle ⟨440, 320⟩ 70
+  let chrome : Array Afferent.GradientStop := #[(
+    { position := 0.0, color := Afferent.Color.hsva 0.0 0.0 0.3 1.0 }
+  ), (
+    { position := 0.2, color := Afferent.Color.hsva 0.0 0.0 0.9 1.0 }
+  ), (
+    { position := 0.4, color := Afferent.Color.hsva 0.0 0.0 0.5 1.0 }
+  ), (
+    { position := 0.6, color := Afferent.Color.hsva 0.0 0.0 0.8 1.0 }
+  ), (
+    { position := 0.8, color := Afferent.Color.hsva 0.0 0.0 0.4 1.0 }
+  ), (
+    { position := 1.0, color := Afferent.Color.hsva 0.0 0.0 0.6 1.0 }
+  )]
 
-  setFillRadialGradient ⟨600, 320⟩ 70
-    gradient![Color.hsva 0.333 0.5 1.0 1.0, Color.green, Color.hsva 0.333 1.0 0.3 1.0]
-  fillCircle ⟨600, 320⟩ 70
+  let gold : Array Afferent.GradientStop := #[(
+    { position := 0.0, color := Afferent.Color.hsva 0.1 0.833 0.6 1.0 }
+  ), (
+    { position := 0.3, color := Afferent.Color.hsva 0.125 0.6 1.0 1.0 }
+  ), (
+    { position := 0.5, color := Afferent.Color.hsva 0.111 0.75 0.8 1.0 }
+  ), (
+    { position := 0.7, color := Afferent.Color.hsva 0.133 0.5 1.0 1.0 }
+  ), (
+    { position := 1.0, color := Afferent.Color.hsva 0.104 0.8 0.5 1.0 }
+  )]
 
-  setFillRadialGradient ⟨760, 320⟩ 70 gradient![Color.cyan, Color.magenta]
-  fillCircle ⟨760, 320⟩ 70
+  let cards : Array (String × (Rect → RenderCommands)) := #[(
+    "Linear Red-Yellow", linearHorizontal #[Afferent.Color.red, Afferent.Color.yellow]
+  ), (
+    "Linear Blue-Cyan", linearHorizontal #[Afferent.Color.blue, Afferent.Color.cyan]
+  ), (
+    "Linear Green-White", linearHorizontal #[Afferent.Color.green, Afferent.Color.white]
+  ), (
+    "Linear Vertical", linearVertical #[Afferent.Color.purple, Afferent.Color.orange]
+  ), (
+    "Linear Diagonal", linearDiagonal #[Afferent.Color.magenta, Afferent.Color.cyan]
+  ), (
+    "Rainbow", linearHorizontal #[
+      Afferent.Color.red, Afferent.Color.orange, Afferent.Color.yellow,
+      Afferent.Color.green, Afferent.Color.blue, Afferent.Color.purple, Afferent.Color.magenta
+    ]
+  ), (
+    "Sunset", fun r =>
+      let start := Afferent.Point.mk' (r.origin.x + r.size.width / 2) r.origin.y
+      let finish := Afferent.Point.mk' (r.origin.x + r.size.width / 2) (r.origin.y + r.size.height)
+      linearRect r start finish sunset
+  ), (
+    "Grayscale", linearHorizontal #[Afferent.Color.black, Afferent.Color.white]
+  ), (
+    "Radial Blue", radialCircle #[Afferent.Color.white, Afferent.Color.blue]
+  ), (
+    "Radial Warm", radialCircle #[Afferent.Color.yellow, Afferent.Color.orange, Afferent.Color.red]
+  ), (
+    "Spotlight", fun r =>
+      let center := Afferent.Point.mk' (r.origin.x + r.size.width / 2) (r.origin.y + r.size.height / 2)
+      let radius := minSide r * 0.45
+      let style := Afferent.FillStyle.radialGradient center radius spotlight
+      fillPathStyle (Path.circle ⟨center.x, center.y⟩ radius) style
+  ), (
+    "Radial Green", radialCircle #[
+      Afferent.Color.hsva 0.333 0.5 1.0 1.0, Afferent.Color.green, Afferent.Color.hsva 0.333 1.0 0.3 1.0
+    ]
+  ), (
+    "Radial Cyan", radialCircle #[Afferent.Color.cyan, Afferent.Color.magenta]
+  ), (
+    "Rounded Rect", fun r =>
+      let start := Afferent.Point.mk' r.origin.x r.origin.y
+      let finish := Afferent.Point.mk' (r.origin.x + r.size.width) (r.origin.y + r.size.height)
+      linearRect r start finish (Afferent.GradientStop.distribute #[Afferent.Color.red, Afferent.Color.blue]) 12
+  ), (
+    "Ellipse", radialEllipse #[Afferent.Color.yellow, Afferent.Color.purple]
+  ), (
+    "Star", fun r =>
+      let center := Afferent.Point.mk' (r.origin.x + r.size.width / 2) (r.origin.y + r.size.height / 2)
+      let radius := minSide r * 0.4
+      let start := Afferent.Point.mk' r.origin.x r.origin.y
+      let finish := Afferent.Point.mk' (r.origin.x + r.size.width) (r.origin.y + r.size.height)
+      let style := Afferent.FillStyle.linearGradient start finish
+        (Afferent.GradientStop.distribute #[Afferent.Color.yellow, Afferent.Color.orange, Afferent.Color.red])
+      fillPathStyle (Path.star ⟨center.x, center.y⟩ radius (radius * 0.5) 5) style
+  ), (
+    "Heart", fun r =>
+      let center := Afferent.Point.mk' (r.origin.x + r.size.width / 2) (r.origin.y + r.size.height / 2)
+      let radius := minSide r * 0.45
+      let style := Afferent.FillStyle.radialGradient center radius
+        (Afferent.GradientStop.distribute #[Afferent.Color.hsva 0.0 0.5 1.0 1.0, Afferent.Color.red, Afferent.Color.hsva 0.0 1.0 0.5 1.0])
+      fillPathStyle (Path.heart ⟨center.x, center.y⟩ radius) style
+  ), (
+    "Stripes", fun r =>
+      let start := Afferent.Point.mk' r.origin.x (r.origin.y + r.size.height / 2)
+      let finish := Afferent.Point.mk' (r.origin.x + r.size.width) (r.origin.y + r.size.height / 2)
+      linearRect r start finish stripes
+  ), (
+    "Chrome", fun r =>
+      let start := Afferent.Point.mk' (r.origin.x + r.size.width / 2) r.origin.y
+      let finish := Afferent.Point.mk' (r.origin.x + r.size.width / 2) (r.origin.y + r.size.height)
+      linearRect r start finish chrome
+  ), (
+    "Gold", fun r =>
+      let start := Afferent.Point.mk' (r.origin.x + r.size.width / 2) r.origin.y
+      let finish := Afferent.Point.mk' (r.origin.x + r.size.width / 2) (r.origin.y + r.size.height)
+      linearRect r start finish gold
+  ), (
+    "Deep Radial", fun r =>
+      let center := Afferent.Point.mk' (r.origin.x + r.size.width / 2) (r.origin.y + r.size.height / 2)
+      let radius := minSide r * 0.55
+      let style := Afferent.FillStyle.radialGradient center radius #[(
+        { position := 0.0, color := Afferent.Color.hsva 0.5 1.0 1.0 1.0 }
+      ), (
+        { position := 0.4, color := Afferent.Color.hsva 0.583 1.0 1.0 0.8 }
+      ), (
+        { position := 1.0, color := Afferent.Color.hsva 0.667 1.0 0.3 1.0 }
+      )]
+      #[.fillRectStyle r style 8]
+  ), (
+    "Purple-Pink", fun r =>
+      let start := Afferent.Point.mk' (r.origin.x + r.size.width) r.origin.y
+      let finish := Afferent.Point.mk' r.origin.x (r.origin.y + r.size.height)
+      linearRect r start finish
+        (Afferent.GradientStop.distribute #[Afferent.Color.hsva 0.778 1.0 0.6 1.0, Afferent.Color.hsva 0.944 0.6 1.0 1.0])
+  )]
 
-  -- Row 4: Gradients on different shapes
-  setFillLinearGradient ⟨50, 420⟩ ⟨200, 520⟩ gradient![Color.red, Color.blue]
-  fillRoundedRect (Rect.mk' 50 420 150 100) 20
+  let widgets := cards.map fun (label, draw) => demoCard labelFont label draw
+  grid 4 10 { padding := EdgeInsets.uniform 10 } widgets
 
-  setFillRadialGradient ⟨330, 470⟩ 80 gradient![Color.yellow, Color.purple]
-  fillEllipse ⟨330, 470⟩ 80 50
-
-  setFillLinearGradient ⟨460, 410⟩ ⟨580, 530⟩ gradient![Color.yellow, Color.orange, Color.red]
-  fillPath (Path.star ⟨520, 470⟩ 60 30 5)
-
-  setFillRadialGradient ⟨700, 450⟩ 80
-    gradient![Color.hsva 0.0 0.5 1.0 1.0, Color.red, Color.hsva 0.0 1.0 0.5 1.0]
-  fillPath (Path.heart ⟨700, 470⟩ 70)
-
-  -- Row 5: More gradient variations
-  let stripes : Array GradientStop := #[
-    { position := 0.0, color := Color.red },
-    { position := 0.33, color := Color.red },
-    { position := 0.34, color := Color.white },
-    { position := 0.66, color := Color.white },
-    { position := 0.67, color := Color.blue },
-    { position := 1.0, color := Color.blue }
-  ]
-  setFillLinearGradient ⟨50, 610⟩ ⟨200, 610⟩ stripes
-  fillRect (Rect.mk' 50 560 150 100)
-
-  let chrome : Array GradientStop := #[
-    { position := 0.0, color := Color.hsva 0.0 0.0 0.3 1.0 },
-    { position := 0.2, color := Color.hsva 0.0 0.0 0.9 1.0 },
-    { position := 0.4, color := Color.hsva 0.0 0.0 0.5 1.0 },
-    { position := 0.6, color := Color.hsva 0.0 0.0 0.8 1.0 },
-    { position := 0.8, color := Color.hsva 0.0 0.0 0.4 1.0 },
-    { position := 1.0, color := Color.hsva 0.0 0.0 0.6 1.0 }
-  ]
-  setFillLinearGradient ⟨230, 560⟩ ⟨230, 660⟩ chrome
-  fillRect (Rect.mk' 230 560 150 100)
-
-  let gold : Array GradientStop := #[
-    { position := 0.0, color := Color.hsva 0.1 0.833 0.6 1.0 },
-    { position := 0.3, color := Color.hsva 0.125 0.6 1.0 1.0 },
-    { position := 0.5, color := Color.hsva 0.111 0.75 0.8 1.0 },
-    { position := 0.7, color := Color.hsva 0.133 0.5 1.0 1.0 },
-    { position := 1.0, color := Color.hsva 0.104 0.8 0.5 1.0 }
-  ]
-  setFillLinearGradient ⟨410, 560⟩ ⟨410, 660⟩ gold
-  fillRect (Rect.mk' 410 560 150 100)
-
-  setFillRadialGradient ⟨655, 610⟩ 100 #[
-    { position := 0.0, color := Color.hsva 0.5 1.0 1.0 1.0 },    -- cyan
-    { position := 0.4, color := Color.hsva 0.583 1.0 1.0 0.8 },  -- azure
-    { position := 1.0, color := Color.hsva 0.667 1.0 0.3 1.0 }   -- dark blue
-  ]
-  fillRect (Rect.mk' 590 560 130 100)
-
-  setFillLinearGradient ⟨750, 660⟩ ⟨870, 560⟩
-    gradient![Color.hsva 0.778 1.0 0.6 1.0, Color.hsva 0.944 0.6 1.0 1.0]  -- purple to pink
-  fillRect (Rect.mk' 750 560 120 100)
+/-- Render gradients demo content to canvas using Arbor widgets. -/
+def renderGradientsM (reg : Afferent.FontRegistry) (labelFont : FontId) : Afferent.CanvasM Unit := do
+  let widget := Afferent.Arbor.build (gradientsWidget labelFont)
+  Afferent.Widget.renderArborWidget reg widget 1000 800
 
 end Demos

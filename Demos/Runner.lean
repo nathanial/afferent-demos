@@ -43,7 +43,6 @@ def unifiedDemo : IO Unit := do
   let fontMedium ← Font.load "/System/Library/Fonts/Monaco.ttf" (24 * screenScale).toUInt32
   let fontLarge ← Font.load "/System/Library/Fonts/Monaco.ttf" (36 * screenScale).toUInt32
   let fontHuge ← Font.load "/System/Library/Fonts/Monaco.ttf" (48 * screenScale).toUInt32
-  let fonts : Fonts := { small := fontSmall, medium := fontMedium, large := fontLarge, huge := fontHuge }
 
   IO.println "Loading sprite texture..."
   let spriteTexture ← FFI.Texture.load "nibble.png"
@@ -133,7 +132,9 @@ def unifiedDemo : IO Unit := do
   -- Create font registry for Arbor widget system
   let (fontReg1, fontSmallId) := FontRegistry.empty.register fontSmall "small"
   let (fontReg2, fontMediumId) := fontReg1.register fontMedium "medium"
-  let fontRegistry := fontReg2.setDefault fontMedium
+  let (fontReg3, fontLargeId) := fontReg2.register fontLarge "large"
+  let (fontReg4, fontHugeId) := fontReg3.register fontHuge "huge"
+  let fontRegistry := fontReg4.setDefault fontMedium
 
   -- Display modes: 0 = demo, 1 = grid squares, 2 = triangles, 3 = circles, 4 = sprites, 16 = lines, 17 = texture matrix, 18 = orbital instanced
   let startTime ← IO.monoMsNow
@@ -163,10 +164,11 @@ def unifiedDemo : IO Unit := do
     fontLarge := fontLarge
     fontHuge := fontHuge
     layoutFont := layoutFont
-    fonts := fonts
     fontRegistry := fontRegistry
     fontMediumId := fontMediumId
     fontSmallId := fontSmallId
+    fontLargeId := fontLargeId
+    fontHugeId := fontHugeId
     spriteTexture := spriteTexture
     halfSize := halfSize
     circleRadius := circleRadius

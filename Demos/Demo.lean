@@ -3,7 +3,6 @@
 -/
 import Afferent
 import Afferent.Arbor
-import Demos.Text
 import Init.Data.FloatArray
 
 open Afferent
@@ -20,10 +19,11 @@ structure DemoEnv where
   fontLarge : Afferent.Font
   fontHuge : Afferent.Font
   layoutFont : Afferent.Font
-  fonts : Fonts
   fontRegistry : Afferent.FontRegistry
   fontMediumId : Afferent.Arbor.FontId
   fontSmallId : Afferent.Arbor.FontId
+  fontLargeId : Afferent.Arbor.FontId
+  fontHugeId : Afferent.Arbor.FontId
   spriteTexture : Afferent.FFI.Texture
   halfSize : Float
   circleRadius : Float

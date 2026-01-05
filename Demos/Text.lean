@@ -1,90 +1,144 @@
 /-
-  Text Demo - Font rendering, sizes, colors
+  Text Demo - Cards showing font sizes, colors, and text on shapes.
 -/
 import Afferent
+import Afferent.Widget
+import Afferent.Arbor
+import Demos.Card
+import Trellis
 
-open Afferent CanvasM
+open Afferent.Arbor
+open Trellis (EdgeInsets)
 
 namespace Demos
 
-/-- Font bundle for text demo -/
-structure Fonts where
-  small : Font
-  medium : Font
-  large : Font
-  huge : Font
+private structure TextCard where
+  label : String
+  draw : Rect → RenderCommands
+  contentSize : Float := 90
+  cardWidth : Float := 140
+  cardHeight : Float := 120
 
-/-- Render text demo content to canvas using CanvasM -/
-def renderTextM (fonts : Fonts) : CanvasM Unit := do
-  -- Row 1: Basic text in different sizes
-  setFillColor Color.white
-  fillTextXY "Small (16pt)" 50 50 fonts.small
-  fillTextXY "Medium (24pt)" 50 90 fonts.medium
-  fillTextXY "Large (36pt)" 50 140 fonts.large
-  fillTextXY "Huge (48pt)" 50 200 fonts.huge
+/-- Center a single line of text within the rect. -/
+private def centeredText (text : String) (font : FontId) (color : Color) (r : Rect) : RenderCommands :=
+  #[.fillTextBlock text r font color .center .middle]
 
-  -- Row 2: Text in different colors
-  setFillColor Color.red
-  fillTextXY "Red Text" 500 50 fonts.medium
-  setFillColor Color.green
-  fillTextXY "Green Text" 500 90 fonts.medium
-  setFillColor Color.blue
-  fillTextXY "Blue Text" 500 130 fonts.medium
-  setFillColor Color.yellow
-  fillTextXY "Yellow Text" 500 170 fonts.medium
-  setFillColor Color.cyan
-  fillTextXY "Cyan Text" 500 210 fonts.medium
-  setFillColor Color.magenta
-  fillTextXY "Magenta Text" 500 250 fonts.medium
+/-- Text cards rendered as widgets. -/
+def textWidget (fonts : DemoFonts) : WidgetBuilder := do
+  let cards : Array TextCard := #[(
+    { label := "Small", draw := fun r => centeredText "Small 16pt" fonts.small Afferent.Color.white r }
+  ), (
+    { label := "Medium", draw := fun r => centeredText "Medium 24pt" fonts.medium Afferent.Color.white r }
+  ), (
+    { label := "Large", draw := fun r => centeredText "Large 36pt" fonts.large Afferent.Color.white r, contentSize := 100 }
+  ), (
+    { label := "Huge", draw := fun r => centeredText "Huge 48pt" fonts.huge Afferent.Color.white r, contentSize := 110 }
+  ), (
+    { label := "Red", draw := fun r => centeredText "Red Text" fonts.medium Afferent.Color.red r }
+  ), (
+    { label := "Green", draw := fun r => centeredText "Green Text" fonts.medium Afferent.Color.green r }
+  ), (
+    { label := "Blue", draw := fun r => centeredText "Blue Text" fonts.medium Afferent.Color.blue r }
+  ), (
+    { label := "Yellow", draw := fun r => centeredText "Yellow Text" fonts.medium Afferent.Color.yellow r }
+  ), (
+    { label := "Cyan", draw := fun r => centeredText "Cyan Text" fonts.medium Afferent.Color.cyan r }
+  ), (
+    { label := "Magenta", draw := fun r => centeredText "Magenta Text" fonts.medium Afferent.Color.magenta r }
+  ), (
+    { label := "Headline",
+      draw := fun r => centeredText "Afferent" fonts.large Afferent.Color.white r,
+      contentSize := 110, cardWidth := 180, cardHeight := 130 }
+  ), (
+    { label := "Text on Shape",
+      draw := fun r =>
+        let rect := Rect.mk' (r.origin.x + 8) (r.origin.y + r.size.height * 0.3) (r.size.width - 16) (r.size.height * 0.4)
+        #[
+          .fillRect rect Afferent.Color.blue 6,
+          .fillTextBlock "Text on Shape" rect fonts.small Afferent.Color.white .center .middle
+        ] }
+  ), (
+    { label := "Labels",
+      draw := fun r =>
+        let center := rectCenter r
+        let radius := minSide r * 0.3
+        #[
+          .fillPath (Path.circle center radius) Afferent.Color.red,
+          .fillTextBlock "Labels" (Rect.mk' (center.x - radius) (center.y - 10) (radius * 2) 20)
+            fonts.small Afferent.Color.white .center .middle
+        ] }
+  ), (
+    { label := "Rounded Button",
+      draw := fun r =>
+        let rect := Rect.mk' (r.origin.x + 8) (r.origin.y + r.size.height * 0.3) (r.size.width - 16) (r.size.height * 0.4)
+        #[
+          .fillRect rect Afferent.Color.green 10,
+          .fillTextBlock "Rounded" rect fonts.small Afferent.Color.black .center .middle
+        ] }
+  ), (
+    { label := "Alphabet",
+      draw := fun r =>
+        let x := r.origin.x + 6
+        let y1 := r.origin.y + r.size.height * 0.4
+        let y2 := r.origin.y + r.size.height * 0.7
+        #[
+          .fillText "ABCDEFGHIJKLMNOPQRSTUVWXYZ" x y1 fonts.small Afferent.Color.white,
+          .fillText "abcdefghijklmnopqrstuvwxyz" x y2 fonts.small Afferent.Color.white
+        ],
+      contentSize := 120, cardWidth := 200, cardHeight := 130 }
+  ), (
+    { label := "Digits",
+      draw := fun r =>
+        let x := r.origin.x + 6
+        let y := r.origin.y + r.size.height * 0.55
+        #[
+          .fillText "0123456789 !@#$%^&*()" x y fonts.small Afferent.Color.white
+        ],
+      contentSize := 110, cardWidth := 200, cardHeight := 130 }
+  ), (
+    { label := "Transparent",
+      draw := fun r =>
+        let x := r.origin.x + 6
+        let y0 := r.origin.y + r.size.height * 0.35
+        let step := r.size.height * 0.22
+        #[
+          .fillText "Semi-transparent" x y0 fonts.small (Afferent.Color.hsva 0.0 0.0 1.0 0.7),
+          .fillText "More transparent" x (y0 + step) fonts.small (Afferent.Color.hsva 0.0 0.0 1.0 0.4),
+          .fillText "Very faint" x (y0 + step * 2) fonts.small (Afferent.Color.hsva 0.0 0.0 1.0 0.2)
+        ] }
+  ), (
+    { label := "Error",
+      draw := fun r =>
+        let rect := Rect.mk' (r.origin.x + 8) (r.origin.y + r.size.height * 0.3) (r.size.width - 16) (r.size.height * 0.4)
+        #[
+          .fillRect rect (Afferent.Color.hsva 0.0 0.75 0.8 1.0) 6,
+          .fillTextBlock "Error" rect fonts.small Afferent.Color.white .center .middle
+        ] }
+  ), (
+    { label := "Success",
+      draw := fun r =>
+        let rect := Rect.mk' (r.origin.x + 8) (r.origin.y + r.size.height * 0.3) (r.size.width - 16) (r.size.height * 0.4)
+        #[
+          .fillRect rect (Afferent.Color.hsva 0.333 0.667 0.6 1.0) 6,
+          .fillTextBlock "Success" rect fonts.small Afferent.Color.white .center .middle
+        ] }
+  ), (
+    { label := "Warning",
+      draw := fun r =>
+        let rect := Rect.mk' (r.origin.x + 8) (r.origin.y + r.size.height * 0.3) (r.size.width - 16) (r.size.height * 0.4)
+        #[
+          .fillRect rect (Afferent.Color.hsva 0.119 0.875 0.8 1.0) 6,
+          .fillTextBlock "Warning" rect fonts.small Afferent.Color.black .center .middle
+        ] }
+  )]
 
-  -- Row 3: Showcase text content
-  setFillColor Color.white
-  fillTextXY "Afferent - A Lean 4 2D Graphics Library" 50 300 fonts.large
+  let widgets := cards.map fun card =>
+    demoCard fonts.label card.label card.draw card.contentSize card.cardWidth card.cardHeight
+  grid 4 10 { padding := EdgeInsets.uniform 10 } widgets
 
-  -- Row 4: Mixed content - text with shapes
-  setFillColor Color.blue
-  fillRect (Rect.mk' 50 350 150 40)
-  setFillColor Color.white
-  fillTextXY "Text on Shape" 60 380 fonts.small
-
-  setFillColor Color.red
-  fillCircle ⟨350, 370⟩ 30
-  setFillColor Color.white
-  fillTextXY "Labels" 320 420 fonts.small
-
-  setFillColor Color.green
-  fillRoundedRect (Rect.mk' 450 350 180 40) 10
-  setFillColor Color.black
-  fillTextXY "Rounded Button" 460 380 fonts.small
-
-  -- Row 5: Character set sample
-  setFillColor Color.white
-  fillTextXY "ABCDEFGHIJKLMNOPQRSTUVWXYZ" 50 470 fonts.medium
-  fillTextXY "abcdefghijklmnopqrstuvwxyz" 50 510 fonts.medium
-  fillTextXY "0123456789 !@#$%^&*()_+-=" 50 550 fonts.medium
-
-  -- Row 6: Semi-transparent text
-  setFillColor (Color.hsva 0.0 0.0 1.0 0.7)
-  fillTextXY "Semi-transparent" 50 600 fonts.medium
-  setFillColor (Color.hsva 0.0 0.0 1.0 0.4)
-  fillTextXY "More transparent" 300 600 fonts.medium
-  setFillColor (Color.hsva 0.0 0.0 1.0 0.2)
-  fillTextXY "Very faint" 550 600 fonts.medium
-
-  -- Row 7: Colored backgrounds with text
-  setFillColor (Color.hsva 0.0 0.75 0.8 1.0)  -- red
-  fillRect (Rect.mk' 50 640 200 40)
-  setFillColor Color.white
-  fillTextXY "Error Message" 60 670 fonts.small
-
-  setFillColor (Color.hsva 0.333 0.667 0.6 1.0)  -- green
-  fillRect (Rect.mk' 280 640 200 40)
-  setFillColor Color.white
-  fillTextXY "Success!" 330 670 fonts.small
-
-  setFillColor (Color.hsva 0.119 0.875 0.8 1.0)  -- orange/warning
-  fillRect (Rect.mk' 510 640 200 40)
-  setFillColor Color.black
-  fillTextXY "Warning" 570 670 fonts.small
+/-- Render text demo content to canvas using Arbor widgets. -/
+def renderTextM (reg : Afferent.FontRegistry) (fonts : DemoFonts) : Afferent.CanvasM Unit := do
+  let widget := Afferent.Arbor.build (textWidget fonts)
+  Afferent.Widget.renderArborWidget reg widget 1000 800
 
 end Demos
