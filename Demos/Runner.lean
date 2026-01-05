@@ -142,6 +142,11 @@ private def buildOrbitalParams (orbitalCount : Nat)
     arr := arr.push size
   arr
 
+private def spriteHalfSizeFromTexture (texture : FFI.Texture) : IO Float := do
+  let (w, h) ← FFI.Texture.getSize texture
+  let side : UInt32 := if w ≤ h then w else h
+  pure (side.toFloat / 2.0)
+
 private def renderLoading (c : Canvas) (t : Float) (screenScale : Float)
     (progress : Float) (label : String) (font? : Option Font) : IO Canvas := do
   let c' ← run' c do
@@ -221,7 +226,7 @@ private def advanceLoading (s0 : LoadingState) (screenScale : Float) (canvas : C
         } }
     | _, _, _, _ => return s
   if s.spriteTexture.isNone then
-    let spriteTexture ← FFI.Texture.load "nibble.png"
+    let spriteTexture ← FFI.Texture.load "nibble-32.png"
     return { s with spriteTexture := some spriteTexture }
   if s.lineBuffer.isNone then
     match s.lineSegments with
@@ -238,20 +243,21 @@ private def advanceLoading (s0 : LoadingState) (screenScale : Float) (canvas : C
   return s
 
 private def toLoadedAssets (s : LoadingState)
-    (screenScale halfSize circleRadius spriteHalfSize : Float)
+    (screenScale halfSize circleRadius : Float)
     (lineWidth : Float)
     (orbitalCount : Nat)
     (physWidthF physHeightF : Float)
     (physWidth physHeight : UInt32)
     (layoutOffsetX layoutOffsetY layoutScale : Float)
-    : Option LoadedAssets :=
+    : IO (Option LoadedAssets) := do
   match s.fontSmall, s.fontMedium, s.fontLarge, s.fontHuge, s.layoutFont,
         s.fontPack, s.spriteTexture, s.gridParticles, s.lineSegments,
         s.lineBuffer, s.orbitalParams, s.orbitalBuffer with
   | some fontSmall, some fontMedium, some fontLarge, some fontHuge, some layoutFont,
     some fontPack, some spriteTexture, some gridParticles, some (_, lineCount),
     some lineBuffer, some orbitalParams, some orbitalBuffer =>
-      some {
+      let spriteHalfSize ← spriteHalfSizeFromTexture spriteTexture
+      pure (some {
         screenScale
         fontSmall
         fontMedium
@@ -277,8 +283,8 @@ private def toLoadedAssets (s : LoadingState)
         layoutOffsetX
         layoutOffsetY
         layoutScale
-      }
-  | _, _, _, _, _, _, _, _, _, _, _, _ => none
+      })
+  | _, _, _, _, _, _, _, _, _, _, _, _ => pure none
 
 private def cleanupLoading (s : LoadingState) : IO Unit := do
   if let some font := s.fontSmall then font.destroy
@@ -361,7 +367,6 @@ def unifiedDemo : IO Unit := do
   -- Sizes scaled for physical resolution
   let halfSize := 1.5 * screenScale
   let circleRadius := 2.0 * screenScale
-  let spriteHalfSize := 15.0 * screenScale  -- Size for sprite rendering
 
   -- Physical dimensions as floats
   let physWidthF := baseWidth * screenScale
@@ -447,8 +452,9 @@ def unifiedDemo : IO Unit := do
             let progress := loadingProgress ls
             let label := loadingStatus ls
             c ← renderLoading c t screenScale progress label ls.fontSmall
-            match toLoadedAssets ls screenScale halfSize circleRadius spriteHalfSize lineWidth orbitalCount
-                physWidthF physHeightF physWidth physHeight layoutOffsetX layoutOffsetY layoutScale with
+            let assetsOpt ← toLoadedAssets ls screenScale halfSize circleRadius lineWidth orbitalCount
+              physWidthF physHeightF physWidth physHeight layoutOffsetX layoutOffsetY layoutScale
+            match assetsOpt with
             | some assets =>
                 let initEnv := mkEnvFromAssets assets 0.0 0.0 0
                 let mut demos ← buildDemoList initEnv
