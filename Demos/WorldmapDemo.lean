@@ -19,7 +19,6 @@ def stepWorldmapDemoFrame (c : Canvas) (state : Worldmap.MapState) (screenScale 
   Worldmap.cancelStaleTasks mapState
   mapState ← Worldmap.updateTileCache mapState
 
-  c.ctx.resetScissor
   Worldmap.render c.ctx.renderer mapState
 
   let c ← run' c do
