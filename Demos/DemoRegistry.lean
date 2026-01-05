@@ -11,10 +11,9 @@ import Demos.SpritesPerf
 import Demos.Layout
 import Demos.Grid
 import Demos.Widgets
-import Demos.Interactive
+import Demos.Overview.Counter
 import Demos.SpinningCubes
 import Demos.Seascape
-import Demos.PathFeatures
 import Demos.ShapeGallery
 import Demos.LineCaps
 import Demos.DashedLines
@@ -39,7 +38,6 @@ inductive DemoId where
   | widgets
   | spinningCubes
   | seascape
-  | pathFeatures
   | shapeGallery
   | worldmap
   | lineCaps
@@ -76,7 +74,6 @@ def DemoState : DemoId → Type
   | .widgets => Unit
   | .spinningCubes => SpinningCubesState
   | .seascape => SeascapeState
-  | .pathFeatures => Unit
   | .shapeGallery => ShapeGalleryState
   | .worldmap => WorldmapState
   | .lineCaps => Unit
@@ -281,14 +278,6 @@ instance : Demo .seascape where
     FFI.Window.setPointerLock c.ctx.window false
     pure s
 
-instance : Demo .pathFeatures where
-  name := "PATH FEATURES demo (non-convex, arcTo, transforms)"
-  shortName := "Paths"
-  init := fun _ => pure ()
-  view := fun env _ =>
-    some (pathFeaturesWidget env.screenScale env.fontSmall env.fontMedium)
-  step := fun c _ s => pure (c, s)
-
 instance : Demo .shapeGallery where
   name := "SHAPE GALLERY (arrow keys to navigate)"
   shortName := "Shapes"
@@ -427,7 +416,6 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let widgetsDemo ← mkAnyDemo .widgets env
   let spinningCubesDemo ← mkAnyDemo .spinningCubes env
   let seascapeDemo ← mkAnyDemo .seascape env
-  let pathFeaturesDemo ← mkAnyDemo .pathFeatures env
   let shapeGalleryDemo ← mkAnyDemo .shapeGallery env
   let worldmapDemo ← mkAnyDemo .worldmap env
   let lineCapsDemo ← mkAnyDemo .lineCaps env
@@ -436,8 +424,8 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let textureMatrixDemo ← mkAnyDemo .textureMatrix env
   let orbitalInstancedDemo ← mkAnyDemo .orbitalInstanced env
   pure #[demoGrid, gridPerf, trianglesPerf, circlesPerf, spritesPerf, layoutDemo, cssGridDemo,
-    widgetsDemo, spinningCubesDemo, seascapeDemo, pathFeaturesDemo,
-    shapeGalleryDemo, worldmapDemo, lineCapsDemo, dashedLinesDemo, linesPerfDemo,
+    widgetsDemo, spinningCubesDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
+    lineCapsDemo, dashedLinesDemo, linesPerfDemo,
     textureMatrixDemo, orbitalInstancedDemo]
 
 end Demos

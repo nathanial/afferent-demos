@@ -12,7 +12,8 @@ import Demos.Overview.Gradients
 import Demos.Overview.Text
 import Demos.Overview.Animations
 import Demos.Overview.Card
-import Demos.Interactive
+import Demos.Overview.Counter
+import Demos.Overview.Paths
 
 open Afferent CanvasM
 open Afferent.Arbor
@@ -63,6 +64,15 @@ def counterCellWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts)
   }
   cellWidget config screenScale t demoFonts
 
+/-- Build the paths overview cell using path feature cards. -/
+def pathFeaturesCellWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts) : WidgetBuilder := do
+  let config : CellConfig := {
+    bg := Color.hsva 0.45 0.25 0.18 1.0
+    label := "Paths"
+    content := fun _ fonts => pathFeaturesWidgetFlex fonts.small
+  }
+  cellWidget config screenScale t demoFonts
+
 /-- Build the normal demo mode: 2x4 grid of demo cells using Arbor widgets. -/
 def demoGridWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts) (counterValue : Int)
     : WidgetBuilder := do
@@ -81,6 +91,7 @@ def demoGridWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts) (co
     cellWidget (getCellConfig 3) screenScale t demoFonts,
     cellWidget (getCellConfig 4) screenScale t demoFonts,
     cellWidget (getCellConfig 5) screenScale t demoFonts,
+    pathFeaturesCellWidget screenScale t demoFonts,
     counterCellWidget screenScale t demoFonts counterValue
   ]
 
