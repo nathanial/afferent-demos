@@ -148,9 +148,4 @@ def textWidgetFlex (fonts : DemoFonts) : WidgetBuilder := do
   let widgets := (textSubset fonts).map fun (label, draw) => demoCardFlex fonts.label label draw
   gridFlex 3 3 4 widgets
 
-/-- Render text demo content to canvas using Arbor widgets. -/
-def renderTextM (reg : Afferent.FontRegistry) (fonts : DemoFonts) : Afferent.CanvasM Unit := do
-  let widget := Afferent.Arbor.build (textWidget fonts)
-  Afferent.Widget.renderArborWidget reg widget 1000 800
-
 end Demos

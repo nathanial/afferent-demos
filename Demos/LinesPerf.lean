@@ -2,6 +2,9 @@
   Lines Performance Test - 100k GPU-extruded line segments
 -/
 import Afferent
+import Afferent.Arbor
+import Demos.Demo
+import Trellis
 
 open Afferent CanvasM
 
@@ -92,10 +95,48 @@ def renderLinesPerfM (t : Float) (buffer : FFI.Buffer) (lineCount : Nat) (lineWi
     0.0
     0.85 0.9 1.0 1.0
 
-def renderLinesPerfFrame (c : Canvas) (t : Float) (buffer : FFI.Buffer) (lineCount : Nat)
-    (lineWidth : Float) (font : Font) (screenWidth screenHeight : Float) : IO Canvas := do
-  run' c do
-    resetTransform
-    renderLinesPerfM t buffer lineCount lineWidth font screenWidth screenHeight
+def renderLinesPerfMappedM (t : Float) (buffer : FFI.Buffer) (lineCount : Nat) (lineWidth : Float)
+    (font : Font) (contentW contentH windowW windowH offsetX offsetY : Float) : CanvasM Unit := do
+  setFillColor Color.white
+  fillTextXY s!"Lines: {lineCount} GPU stroke segments (Space to advance)" 20 30 font
+
+  let renderer ← getRenderer
+  let centerX := windowW / 2.0
+  let centerY := windowH / 2.0
+  let rotation := t * 0.35
+  let tform :=
+    Transform.concat
+      (Transform.concat (Transform.translate (-centerX) (-centerY)) (Transform.rotate rotation))
+      (Transform.translate centerX centerY)
+  let scaleX := if windowW <= 0.0 then 1.0 else contentW / windowW
+  let scaleY := if windowH <= 0.0 then 1.0 else contentH / windowH
+  let contentTransform := Transform.concat (Transform.scale scaleX scaleY) (Transform.translate offsetX offsetY)
+  let final := Transform.concat tform contentTransform
+  renderer.drawStrokePath
+    buffer
+    lineCount.toUInt32
+    1
+    (lineWidth / 2.0)
+    windowW windowH
+    10.0
+    0 0
+    final.a final.b final.c final.d final.tx final.ty
+    #[]
+    0
+    0.0
+    0.85 0.9 1.0 1.0
+
+def linesPerfWidget (t : Float) (buffer : FFI.Buffer) (lineCount : Nat) (lineWidth : Float)
+    (font : Font) (windowW windowH : Float) : Afferent.Arbor.WidgetBuilder := do
+  Afferent.Arbor.custom (spec := {
+    measure := fun _ _ => (0, 0)
+    collect := fun _ => #[]
+    draw := some (fun layout => do
+      withContentRect layout fun w h => do
+        resetTransform
+        let rect := layout.contentRect
+        renderLinesPerfMappedM t buffer lineCount lineWidth font w h windowW windowH rect.x rect.y
+    )
+  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
 
 end Demos

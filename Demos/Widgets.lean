@@ -13,9 +13,15 @@ open Trellis
 namespace Demos
 
 /-- Build a demo widget showcasing text, boxes, and layout. -/
-def widgetDemo (fontId : FontId) (smallFontId : FontId) (screenScale : Float := 1.0) : Widget := build do
+def widgetDemo (fontId : FontId) (smallFontId : FontId) (screenScale : Float := 1.0) : WidgetBuilder := do
   let s := fun (v : Float) => v * screenScale
-  column (gap := s 20) (style := { backgroundColor := some (Color.gray 0.15), padding := EdgeInsets.uniform (s 30) }) #[
+  column (gap := s 20) (style := {
+    backgroundColor := some (Color.gray 0.15)
+    padding := EdgeInsets.uniform (s 30)
+    width := .percent 1.0
+    height := .percent 1.0
+    flexItem := some (Trellis.FlexItem.growing 1)
+  }) #[
     -- Title
     text' "Widget System Demo" fontId Color.white .center,
 
@@ -69,7 +75,7 @@ def widgetDemo (fontId : FontId) (smallFontId : FontId) (screenScale : Float := 
   ]
 
 /-- Simple scroll demo widget. -/
-def scrollDemoWidget (fontId : FontId) (scrollY : Float) (screenScale : Float := 1.0) : Widget := build do
+def scrollDemoWidget (fontId : FontId) (scrollY : Float) (screenScale : Float := 1.0) : WidgetBuilder := do
   let s := fun (v : Float) => v * screenScale
   column (gap := s 16) (style := { backgroundColor := some (Color.gray 0.15), padding := EdgeInsets.uniform (s 20) }) #[
     text' "Scroll Container Demo" fontId Color.white .center,
@@ -95,31 +101,5 @@ def scrollDemoWidget (fontId : FontId) (scrollY : Float) (screenScale : Float :=
         coloredBox Color.orange (s 280) (s 40)
       ]
   ]
-
-/-- Render the widget demo using Arbor (fills available space). -/
-def renderWidgetsM (reg : FontRegistry) (fontId : FontId) (smallFontId : FontId)
-    (width height : Float) (screenScale : Float := 1.0) : CanvasM Unit := do
-  let widget := widgetDemo fontId smallFontId screenScale
-  Afferent.Widget.renderArborWidget reg widget width height
-
-/-- Render the widget demo centered on screen. -/
-def renderWidgetShapesM (reg : FontRegistry) (fontId : FontId) (smallFontId : FontId)
-    (width height : Float) (screenScale : Float := 1.0) : CanvasM Unit := do
-  let widget := widgetDemo fontId smallFontId screenScale
-  Afferent.Widget.renderArborWidgetCentered reg widget width height
-
-/-- Render the widget demo centered with debug borders around layout cells. -/
-def renderWidgetShapesDebugM (reg : FontRegistry) (fontId : FontId) (smallFontId : FontId)
-    (width height : Float) (screenScale : Float := 1.0) : CanvasM Unit := do
-  let widget := widgetDemo fontId smallFontId screenScale
-  Afferent.Widget.renderArborWidgetDebug reg widget width height
-
-def renderWidgetDemoFrame (c : Canvas) (reg : FontRegistry) (fontId : FontId) (smallFontId : FontId)
-    (width height screenScale : Float) (fontMedium : Font) : IO Canvas := do
-  run' c do
-    resetTransform
-    renderWidgetShapesDebugM reg fontId smallFontId width height screenScale
-    setFillColor Color.white
-    fillTextXY "Widget System Demo (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
 
 end Demos

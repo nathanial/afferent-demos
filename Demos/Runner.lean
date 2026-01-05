@@ -79,7 +79,6 @@ private structure RunningState where
   assets : LoadedAssets
   demos : Array AnyDemo
   demoRefs : Array (IO.Ref AnyDemo)
-  envRef : IO.Ref DemoEnv
   displayMode : Nat
   msaaEnabled : Bool
   frameCount : Nat
@@ -323,12 +322,13 @@ private def cleanupAssets (a : LoadedAssets) : IO Unit := do
   FFI.FloatBuffer.destroy a.orbitalBuffer
 
 private def mkEnvFromAssets (a : LoadedAssets) (t dt : Float)
-    (keyCode : UInt16) (clearKey : IO Unit) : DemoEnv := {
+    (keyCode : UInt16) (clearKey : IO Unit) (window : FFI.Window) : DemoEnv := {
   screenScale := a.screenScale
   t := t
   dt := dt
   keyCode := keyCode
   clearKey := clearKey
+  window := window
   fontSmall := a.fontSmall
   fontMedium := a.fontMedium
   fontLarge := a.fontLarge
@@ -350,6 +350,8 @@ private def mkEnvFromAssets (a : LoadedAssets) (t dt : Float)
   orbitalCount := a.orbitalCount
   orbitalParams := a.orbitalParams
   orbitalBuffer := a.orbitalBuffer
+  windowWidthF := a.physWidthF
+  windowHeightF := a.physHeightF
   physWidthF := a.physWidthF
   physHeightF := a.physHeightF
   physWidth := a.physWidth
@@ -381,27 +383,6 @@ private def buildRootWidget (tabBar : TabBarResult) (content : Afferent.Arbor.Wi
       { width := .percent 1.0, height := .percent 1.0 }
       #[tabBar.widget, content]
   { widget := root, tabBar := tabBar, contentId := Afferent.Arbor.Widget.id content }
-
-private def demoWidget (startId : Nat) (demoRef : IO.Ref AnyDemo) (envRef : IO.Ref DemoEnv) : Afferent.Arbor.Widget :=
-  Afferent.Arbor.buildFrom startId do
-    Afferent.Arbor.custom (spec := {
-      measure := fun _ _ => (0, 0)
-      collect := fun _ => #[]
-      draw := some (fun layout => do
-        let rect := layout.contentRect
-        CanvasM.save
-        CanvasM.setBaseTransform (Transform.translate rect.x rect.y)
-        CanvasM.resetTransform
-        CanvasM.clip (Afferent.Rect.mk' 0 0 rect.width rect.height)
-        CanvasM.liftCanvas fun c => do
-          let env ← envRef.get
-          let demo ← demoRef.get
-          let (c', demo') ← AnyDemo.step demo c env
-          demoRef.set demo'
-          pure c'
-        CanvasM.restore
-      )
-    }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
 
 /-- Unified visual demo - runs all demos in a grid layout -/
 def unifiedDemo : IO Unit := do
@@ -526,7 +507,7 @@ def unifiedDemo : IO Unit := do
                 let contentHeight := contentHeightF.toUInt32
                 let (contentLayoutOffsetX, contentLayoutOffsetY, contentLayoutScale) :=
                   calcLayout assets.physWidthF contentHeightF
-                let initEnv := mkEnvFromAssets assets 0.0 0.0 0 (pure ())
+                let initEnv := mkEnvFromAssets assets 0.0 0.0 0 (pure ()) c.ctx.window
                 let initEnv := {
                   initEnv with
                   physHeightF := contentHeightF
@@ -539,7 +520,6 @@ def unifiedDemo : IO Unit := do
                 }
                 let demos ← buildDemoList initEnv
                 let demoRefs ← demos.mapM (fun demo => IO.mkRef demo)
-                let envRef ← IO.mkRef initEnv
                 let displayMode : Nat := startMode % demos.size
                 let msaaEnabled : Bool := AnyDemo.msaaEnabled (demos[displayMode]!)
                 FFI.Renderer.setMSAAEnabled c.ctx.renderer msaaEnabled
@@ -551,7 +531,6 @@ def unifiedDemo : IO Unit := do
                   assets := assets
                   demos := demos
                   demoRefs := demoRefs
-                  envRef := envRef
                   displayMode := displayMode
                   msaaEnabled := msaaEnabled
                   frameCount := 0
@@ -566,18 +545,19 @@ def unifiedDemo : IO Unit := do
         | .running rs =>
             let mut rs := rs
             let keyCode ← c.getKeyCode
+            let click ← FFI.Window.getClick c.ctx.window
             let s := rs.assets.screenScale
             let tabBarHeightPx := tabBarHeight * s
 
-            let buildDemoWidget := fun (tabBar : TabBarResult) (demoRef : IO.Ref AnyDemo) (demo : AnyDemo)
+            let buildDemoWidget := fun (tabBar : TabBarResult) (demo : AnyDemo)
                 (envForView : DemoEnv) =>
               match AnyDemo.view? demo envForView with
               | some builder => Afferent.Arbor.buildFrom tabBar.finalId builder
-              | none => demoWidget tabBar.finalId demoRef rs.envRef
+              | none => Afferent.Arbor.buildFrom tabBar.finalId (Afferent.Arbor.spacer 0 0)
 
-            let buildRoot := fun (tabBar : TabBarResult) (demoRef : IO.Ref AnyDemo) (demo : AnyDemo)
+            let buildRoot := fun (tabBar : TabBarResult) (demo : AnyDemo)
                 (envForView : DemoEnv) =>
-              buildRootWidget tabBar (buildDemoWidget tabBar demoRef demo envForView)
+              buildRootWidget tabBar (buildDemoWidget tabBar demo envForView)
 
             let measureRoot := fun (root : Afferent.Arbor.Widget) => do
               let measureResult ← runWithFonts rs.assets.fontPack.registry
@@ -591,7 +571,7 @@ def unifiedDemo : IO Unit := do
               let contentH := max 1.0 rect.height
               let (contentLayoutOffsetX, contentLayoutOffsetY, contentLayoutScale) :=
                 calcLayout contentW contentH
-              let base := mkEnvFromAssets rs.assets t dt keyCode clearKey
+              let base := mkEnvFromAssets rs.assets t dt keyCode clearKey c.ctx.window
               {
                 base with
                 physWidthF := contentW
@@ -610,42 +590,45 @@ def unifiedDemo : IO Unit := do
               { x := 0, y := tabBarHeightPx, width := rs.assets.physWidthF, height := fallbackContentH }
             let defaultLayout := Trellis.ComputedLayout.simple 0 defaultContentRect
             let envForView := envFromLayout defaultLayout t dt keyCode c.clearKey
+            match rs.demoRefs[rs.displayMode]? with
+            | some demoRef => do
+                let demo ← demoRef.get
+                let demo' ← AnyDemo.update demo envForView
+                demoRef.set demo'
+            | none => pure ()
             let buildRootBuild : IO RootBuild := do
               match rs.demoRefs[rs.displayMode]? with
               | some demoRef => do
                   let demo ← demoRef.get
-                  let demo' ← AnyDemo.update demo envForView
-                  demoRef.set demo'
-                  pure (buildRoot rs.tabBar demoRef demo' envForView)
+                  pure (buildRoot rs.tabBar demo envForView)
               | none =>
                   pure (buildRootWidget rs.tabBar (.spacer rs.tabBar.finalId none 0 0))
 
             let initRootBuild ← buildRootBuild
-            let ((measuredWidget, layouts, clickOutsideTabBar, clickedTab), rootBuild) ←
+            let ((measuredWidget, layouts, clickedTab, demoClickPath), rootBuild) ←
               (do
                 let rootBuild : RootBuild ← get
                 let (measuredWidget, layouts) ← StateT.lift (measureRoot rootBuild.widget)
 
-                let mut clickOutsideTabBar := false
                 let mut clickedTab : Option Nat := none
-                let click ← StateT.lift (FFI.Window.getClick c.ctx.window)
+                let mut demoClickPath : Option (Array Afferent.Arbor.WidgetId) := none
                 match click with
                 | some ce =>
                     let hitPath := Afferent.Arbor.hitTestPath measuredWidget layouts ce.x ce.y
                     let inTabBar := hitPath.any (· == rootBuild.tabBar.rowId)
                     if inTabBar then
-                      StateT.lift (FFI.Window.clearClick c.ctx.window)
                       clickedTab := rootBuild.tabBar.tabIds.findIdx? (fun tabId => hitPath.any (· == tabId))
                     else
-                      clickOutsideTabBar := true
+                      demoClickPath := some hitPath
                 | none => pure ()
-                pure (measuredWidget, layouts, clickOutsideTabBar, clickedTab)
+                pure (measuredWidget, layouts, clickedTab, demoClickPath)
               ) |>.run initRootBuild
 
             let mut measuredWidget := measuredWidget
             let mut layouts := layouts
             let mut rootBuild := rootBuild
 
+            let mut tabSwitched := false
             match clickedTab with
             | some newTabIdx =>
                 if newTabIdx != rs.displayMode then
@@ -666,6 +649,7 @@ def unifiedDemo : IO Unit := do
                   let newTabBar := rebuildTabBar rs.demos newTabIdx rs.assets.fontPack.smallId s
                   rs := { rs with tabBar := newTabBar }
                   IO.println s!"Switched to {AnyDemo.name (rs.demos[rs.displayMode]!)}"
+                  tabSwitched := true
 
                   let ((measuredWidget', layouts'), rootBuild') ←
                     (do
@@ -679,16 +663,39 @@ def unifiedDemo : IO Unit := do
                   rootBuild := rootBuild'
             | none => pure ()
 
-            let contentLayout :=
-              (layouts.get rootBuild.contentId).getD (Trellis.ComputedLayout.simple rootBuild.contentId defaultContentRect)
-            let env := envFromLayout contentLayout t dt keyCode c.clearKey
-            rs.envRef.set env
+            if !tabSwitched then
+              match demoClickPath with
+              | some hitPath =>
+                  match click with
+                  | some ce =>
+                      let contentLayout :=
+                        (layouts.get rootBuild.contentId).getD (Trellis.ComputedLayout.simple rootBuild.contentId defaultContentRect)
+                      let clickEnv := envFromLayout contentLayout t dt keyCode c.clearKey
+                      match rs.demoRefs[rs.displayMode]? with
+                      | some demoRef =>
+                          let demo ← demoRef.get
+                          let demo' ← AnyDemo.handleClick demo clickEnv rootBuild.contentId hitPath ce
+                          demoRef.set demo'
+                          let ((measuredWidget', layouts'), rootBuild') ←
+                            (do
+                              let rootBuild : RootBuild ← StateT.lift buildRootBuild
+                              set rootBuild
+                              let (measuredWidget, layouts) ← StateT.lift (measureRoot rootBuild.widget)
+                              pure (measuredWidget, layouts)
+                            ) |>.run rootBuild
+                          measuredWidget := measuredWidget'
+                          layouts := layouts'
+                          rootBuild := rootBuild'
+                      | none => pure ()
+                  | none => pure ()
+              | none => pure ()
+
             c ← run' c do
               let commands := Afferent.Arbor.collectCommands measuredWidget layouts
               Afferent.Widget.executeCommands rs.assets.fontPack.registry commands
               Afferent.Widget.renderCustomWidgets measuredWidget layouts
 
-            if clickOutsideTabBar then
+            if click.isSome then
               FFI.Window.clearClick c.ctx.window
 
             -- Update FPS counter (update display every 10 frames for stability)

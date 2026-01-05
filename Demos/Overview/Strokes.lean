@@ -298,9 +298,4 @@ def strokesWidgetFlex (labelFont : FontId) : WidgetBuilder := do
   let widgets := strokesSubset.map fun (label, draw) => demoCardFlex labelFont label draw
   gridFlex 3 3 4 widgets
 
-/-- Render strokes demo content to canvas using Arbor widgets. -/
-def renderStrokesM (reg : Afferent.FontRegistry) (labelFont : FontId) : Afferent.CanvasM Unit := do
-  let widget := Afferent.Arbor.build (strokesWidget labelFont)
-  Afferent.Widget.renderArborWidget reg widget 1000 800
-
 end Demos

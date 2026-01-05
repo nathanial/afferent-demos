@@ -4,6 +4,7 @@
 import Afferent
 import Afferent.Widget
 import Afferent.Arbor
+import Demos.Demo
 import Trellis
 
 open Afferent CanvasM
@@ -247,23 +248,17 @@ def cssGridWidget (gridFont fontMedium : Font)
   Afferent.Arbor.custom (spec := {
     measure := fun _ _ => (0, 0)
     collect := fun _ => #[]
-    draw := some (fun _ => do
-      resetTransform
-      saved do
-        translate offsetX offsetY
-        scale gridScale gridScale
-        renderGridShapesM
-      renderGridLabelsMappedM gridFont offsetX offsetY gridScale
-      setFillColor Color.white
-      fillTextXY "CSS Grid Layout Demo (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
+    draw := some (fun layout => do
+      withContentRect layout fun _ _ => do
+        resetTransform
+        saved do
+          translate offsetX offsetY
+          scale gridScale gridScale
+          renderGridShapesM
+        renderGridLabelsMappedM gridFont offsetX offsetY gridScale
+        setFillColor Color.white
+        fillTextXY "CSS Grid Layout Demo (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
     )
   }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
-
-def renderCssGridDemoFrame (c : Canvas) (gridFont : Font) (fontMedium : Font)
-    (offsetX offsetY gridScale screenScale : Float)
-    (width height : Float) : IO Canvas := do
-  let widget := Afferent.Arbor.build (cssGridWidget gridFont fontMedium offsetX offsetY gridScale screenScale)
-  run' c do
-    Afferent.Widget.renderArborWidgetWithCustom FontRegistry.empty widget width height
 
 end Demos

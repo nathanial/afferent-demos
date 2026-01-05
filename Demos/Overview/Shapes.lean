@@ -194,9 +194,4 @@ def shapesWidgetFlex (labelFont : FontId) : WidgetBuilder := do
   let cards := shapesSubset.map (shapeCardFlex labelFont)
   gridFlex 3 3 4 cards
 
-/-- Render shapes demo content to canvas using Arbor widgets. -/
-def renderShapesM (reg : Afferent.FontRegistry) (labelFont : FontId) : Afferent.CanvasM Unit := do
-  let widget := Afferent.Arbor.build (shapesWidget labelFont)
-  Afferent.Widget.renderArborWidget reg widget 1000 800
-
 end Demos

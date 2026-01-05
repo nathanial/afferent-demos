@@ -154,9 +154,4 @@ def animationsWidgetFlex (labelFont : FontId) (t : Float) : WidgetBuilder := do
   let widgets := cards.map fun (label, draw) => demoCardFlex labelFont label draw
   gridFlex 2 3 4 widgets
 
-/-- Render animations demo content to canvas using Arbor widgets. -/
-def renderAnimationsM (t : Float) (reg : Afferent.FontRegistry) (labelFont : FontId) : Afferent.CanvasM Unit := do
-  let widget := Afferent.Arbor.build (animationsWidget labelFont t)
-  Afferent.Widget.renderArborWidget reg widget 1000 800
-
 end Demos

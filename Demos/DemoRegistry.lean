@@ -56,12 +56,6 @@ structure CirclesState where
 structure SpritesState where
   particles : Render.Dynamic.ParticleState
 
-structure SpinningCubesState where
-  camera : Render.FPSCamera
-
-structure SeascapeState where
-  camera : Render.FPSCamera
-
 structure ShapeGalleryState where
   index : Nat
 
@@ -100,6 +94,8 @@ class Demo (id : DemoId) where
   init : DemoEnv → IO (DemoState id)
   update : DemoEnv → DemoState id → IO (DemoState id) := fun _ s => pure s
   view : DemoEnv → DemoState id → Option Afferent.Arbor.WidgetBuilder := fun _ _ => none
+  handleClick : DemoEnv → DemoState id → Afferent.Arbor.WidgetId → Array Afferent.Arbor.WidgetId →
+      Afferent.FFI.ClickEvent → IO (DemoState id) := fun _ s _ _ _ => pure s
   step : Canvas → DemoEnv → DemoState id → IO (Canvas × DemoState id)
   onExit : Canvas → DemoEnv → DemoState id → IO (DemoState id) := fun _ _ s => pure s
 
@@ -114,9 +110,7 @@ instance : Demo .demoGrid where
   name := "DEMO mode"
   shortName := "Overview"
   init := fun _ => pure ()
-  step := fun c env s => do
-    let currentW := env.physWidthF
-    let currentH := env.physHeightF
+  view := fun env _ =>
     let demoFonts : DemoFonts := {
       label := env.fontSmallId,
       small := env.fontSmallId,
@@ -124,24 +118,24 @@ instance : Demo .demoGrid where
       large := env.fontLargeId,
       huge := env.fontHugeId
     }
-    let c ← renderDemoGridFrame c env.screenScale currentW currentH env.fontRegistry demoFonts env.t
-    pure (c, s)
+    some (demoGridWidget env.screenScale env.t demoFonts)
+  step := fun c _ s => pure (c, s)
 
 instance : Demo .gridPerf where
   name := "GRID (squares) performance test"
   shortName := "Grid"
   init := fun _ => pure ()
-  step := fun c env s => do
-    let c ← renderGridPerfFrame c env.t env.fontMedium env.gridParticles env.halfSize
-    pure (c, s)
+  view := fun env _ =>
+    some (gridPerfWidget env.t env.fontMedium env.gridParticles env.halfSize)
+  step := fun c _ s => pure (c, s)
 
 instance : Demo .trianglesPerf where
   name := "TRIANGLES performance test"
   shortName := "Triangles"
   init := fun _ => pure ()
-  step := fun c env s => do
-    let c ← renderTrianglesPerfFrame c env.t env.fontMedium env.gridParticles env.halfSize
-    pure (c, s)
+  view := fun env _ =>
+    some (trianglesPerfWidget env.t env.fontMedium env.gridParticles env.halfSize)
+  step := fun c _ s => pure (c, s)
 
 instance : Demo .circlesPerf where
   name := "CIRCLES (bouncing) performance test"
@@ -150,10 +144,12 @@ instance : Demo .circlesPerf where
     let particles := Render.Dynamic.ParticleState.create 1000000 env.physWidthF env.physHeightF 42
     IO.println s!"Created {particles.count} bouncing circles"
     pure { particles := particles }
-  step := fun c env s => do
-    let (c', nextParticles) ←
-      stepCirclesPerfFrame c env.dt env.t env.fontMedium s.particles env.circleRadius env.screenScale
-    pure (c', { s with particles := nextParticles })
+  update := fun env s => do
+    let nextParticles := s.particles.updateBouncing env.dt env.circleRadius
+    pure { s with particles := nextParticles }
+  view := fun env s =>
+    some (circlesPerfWidget env.t env.fontMedium s.particles env.circleRadius)
+  step := fun c _ s => pure (c, s)
 
 instance : Demo .spritesPerf where
   name := "SPRITES (Bunnymark) performance test"
@@ -163,10 +159,12 @@ instance : Demo .spritesPerf where
     let particles := Render.Dynamic.ParticleState.create 1000000 env.physWidthF env.physHeightF 123
     IO.println s!"Created {particles.count} bouncing sprites"
     pure { particles := particles }
-  step := fun c env s => do
-    let (c', nextParticles) ←
-      stepSpritesPerfFrame c env.dt env.fontMedium s.particles env.spriteTexture env.spriteHalfSize env.screenScale
-    pure (c', { s with particles := nextParticles })
+  update := fun env s => do
+    let nextParticles := s.particles.updateBouncing env.dt env.spriteHalfSize
+    pure { s with particles := nextParticles }
+  view := fun env s =>
+    some (spritesPerfWidget env.screenScale env.fontMedium env.spriteTexture s.particles env.spriteHalfSize)
+  step := fun c _ s => pure (c, s)
 
 instance : Demo .layout where
   name := "LAYOUT demo (full-size)"
@@ -188,32 +186,35 @@ instance : Demo .widgets where
   name := "WIDGET demo (full-size)"
   shortName := "Widgets"
   init := fun _ => pure ()
-  step := fun c env s => do
-    let c ← renderWidgetDemoFrame c env.fontRegistry env.fontMediumId env.fontSmallId env.physWidthF env.physHeightF env.screenScale env.fontMedium
-    pure (c, s)
+  view := fun env _ =>
+    some (widgetDemo env.fontMediumId env.fontSmallId env.screenScale)
+  step := fun c _ s => pure (c, s)
 
 instance : Demo .interactive where
   name := "INTERACTIVE demo (click the buttons!)"
   shortName := "Counter"
   init := fun _ => pure { counter := CounterState.initial }
-  step := fun c env s => do
-    let (c', nextCounter) ←
-      stepInteractiveDemoFrame c env.fontRegistry env.fontMediumId env.fontSmallId
-        env.physWidthF env.physHeightF env.screenScale
-        env.contentOffsetX env.contentOffsetY
-        s.counter env.fontMedium
-    pure (c', { s with counter := nextCounter })
+  view := fun env s =>
+    some (counterWidget env.fontMediumId env.fontSmallId s.counter.value env.screenScale)
+  handleClick := fun _ s contentId hitPath click => do
+    let nextCounter := handleCounterClick s.counter contentId hitPath click.button
+    pure { s with counter := nextCounter }
+  step := fun c _ s => pure (c, s)
 
 instance : Demo .spinningCubes where
   name := "3D SPINNING CUBES demo"
   shortName := "3D Cubes"
   init := fun _ => pure { camera := default }
-  step := fun c env s => do
-    let (c', nextCamera) ←
-      stepSpinningCubesFrame c env.t env.dt env.keyCode env.screenScale
-        env.physWidthF env.physHeightF
-        env.fontMedium env.fontSmall s.camera
-    pure (c', { s with camera := nextCamera })
+  update := fun env s => updateSpinningCubesState env s
+  view := fun env s =>
+    some (spinningCubesWidget env.t env.screenScale env.windowWidthF env.windowHeightF env.fontMedium env.fontSmall s)
+  handleClick := fun env s _ _ click => do
+    if click.button == 0 && !s.locked then
+      FFI.Window.setPointerLock env.window true
+      pure { s with locked := true }
+    else
+      pure s
+  step := fun c _ s => pure (c, s)
   onExit := fun c _ s => do
     FFI.Window.setPointerLock c.ctx.window false
     pure s
@@ -223,12 +224,16 @@ instance : Demo .seascape where
   shortName := "Seascape"
   msaaEnabled := false
   init := fun _ => pure { camera := Demos.seascapeCamera }
-  step := fun c env s => do
-    let (c', nextCamera) ←
-      stepSeascapeDemoFrame c env.t env.dt env.keyCode env.screenScale
-        env.physWidthF env.physHeightF
-        env.fontMedium env.fontSmall s.camera
-    pure (c', { s with camera := nextCamera })
+  update := fun env s => updateSeascapeState env s
+  view := fun env s =>
+    some (seascapeWidget env.t env.screenScale env.windowWidthF env.windowHeightF env.fontMedium env.fontSmall s)
+  handleClick := fun env s _ _ click => do
+    if click.button == 0 && !s.locked then
+      FFI.Window.setPointerLock env.window true
+      pure { s with locked := true }
+    else
+      pure s
+  step := fun c _ s => pure (c, s)
   onExit := fun c _ s => do
     FFI.Window.setPointerLock c.ctx.window false
     pure s
@@ -270,10 +275,12 @@ instance : Demo .worldmap where
     let mapState ← Worldmap.MapState.init 37.7749 (-122.4194) 12
       (env.physWidth.toNat : Int) (env.physHeight.toNat : Int) diskConfig
     pure { mapState := mapState }
-  step := fun c env s => do
-    let (c', nextState) ← stepWorldmapDemoFrame c s.mapState env.screenScale env.fontMedium env.fontSmall
-      env.physWidthF env.physHeightF env.contentOffsetX env.contentOffsetY
-    pure (c', { s with mapState := nextState })
+  update := fun env s => do
+    let nextState ← updateWorldmapDemo env s.mapState
+    pure { s with mapState := nextState }
+  view := fun env s =>
+    some (worldmapWidget env.screenScale env.fontMedium env.fontSmall env.windowWidthF env.windowHeightF s.mapState)
+  step := fun c _ s => pure (c, s)
 
 instance : Demo .lineCaps where
   name := "LINE CAPS & JOINS demo"
@@ -296,17 +303,18 @@ instance : Demo .linesPerf where
   shortName := "Lines"
   msaaEnabled := false
   init := fun _ => pure ()
-  step := fun c env s => do
-    let c ← renderLinesPerfFrame c env.t env.lineBuffer env.lineCount env.lineWidth
-      env.fontMedium env.physWidthF env.physHeightF
-    pure (c, s)
+  view := fun env _ =>
+    some (linesPerfWidget env.t env.lineBuffer env.lineCount env.lineWidth
+      env.fontMedium env.windowWidthF env.windowHeightF)
+  step := fun c _ s => pure (c, s)
 
 instance : Demo .textureMatrix where
   name := "TEXTURE MATRIX demo (u_matrix scaling)"
   shortName := "Textures"
   init := fun _ => pure ()
   view := fun env _ =>
-    some (textureMatrixWidget env.t env.screenScale env.fontMedium env.fontSmall env.spriteTexture)
+    some (textureMatrixWidget env.t env.screenScale env.windowWidthF env.windowHeightF
+      env.fontMedium env.fontSmall env.spriteTexture)
   step := fun c _ s => pure (c, s)
 
 instance : Demo .orbitalInstanced where
@@ -314,11 +322,10 @@ instance : Demo .orbitalInstanced where
   shortName := "Orbital"
   msaaEnabled := false
   init := fun _ => pure ()
-  step := fun c env s => do
-    let c ← renderOrbitalInstancedDemoFrame c env.t env.screenScale
-      env.physWidthF env.physHeightF
-      env.fontMedium env.orbitalCount env.orbitalParams env.orbitalBuffer
-    pure (c, s)
+  view := fun env _ =>
+    some (orbitalInstancedWidget env.t env.screenScale env.windowWidthF env.windowHeightF
+      env.fontMedium env.orbitalCount env.orbitalParams env.orbitalBuffer)
+  step := fun c _ s => pure (c, s)
 
 def demoInstance (id : DemoId) : Demo id := by
   cases id <;> infer_instance
@@ -341,6 +348,12 @@ def update (d : AnyDemo) (env : DemoEnv) : IO AnyDemo := do
 
 def view? (d : AnyDemo) (env : DemoEnv) : Option Afferent.Arbor.WidgetBuilder :=
   (demoInstance d.id).view env d.state
+
+def handleClick (d : AnyDemo) (env : DemoEnv) (contentId : Afferent.Arbor.WidgetId)
+    (hitPath : Array Afferent.Arbor.WidgetId) (click : Afferent.FFI.ClickEvent) : IO AnyDemo := do
+  let inst := demoInstance d.id
+  let state' ← inst.handleClick env d.state contentId hitPath click
+  pure { id := d.id, state := state' }
 
 def step (d : AnyDemo) (c : Canvas) (env : DemoEnv) : IO (Canvas × AnyDemo) := do
   let inst := demoInstance d.id

@@ -5,6 +5,7 @@
 import Afferent
 import Afferent.Widget
 import Afferent.Arbor
+import Demos.Demo
 import Trellis
 
 open Afferent CanvasM
@@ -97,19 +98,14 @@ def lineCapsWidget (screenScale : Float) (fontSmall fontMedium : Font) : Afferen
   Afferent.Arbor.custom (spec := {
     measure := fun _ _ => (0, 0)
     collect := fun _ => #[]
-    draw := some (fun _ => do
-      resetTransform
-      scale screenScale screenScale
-      renderLineCapsM fontSmall
-      setFillColor Color.white
-      fillTextXY "Line Caps & Joins (Space to advance)" 20 30 fontMedium
+    draw := some (fun layout => do
+      withContentRect layout fun _ _ => do
+        resetTransform
+        scale screenScale screenScale
+        renderLineCapsM fontSmall
+        setFillColor Color.white
+        fillTextXY "Line Caps & Joins (Space to advance)" 20 30 fontMedium
     )
   }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
-
-def renderLineCapsDemoFrame (c : Canvas) (screenScale : Float) (fontSmall fontMedium : Font)
-    (width height : Float) : IO Canvas := do
-  let widget := Afferent.Arbor.build (lineCapsWidget screenScale fontSmall fontMedium)
-  run' c do
-    Afferent.Widget.renderArborWidgetWithCustom FontRegistry.empty widget width height
 
 end Demos

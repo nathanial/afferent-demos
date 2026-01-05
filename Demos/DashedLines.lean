@@ -5,6 +5,7 @@
 import Afferent
 import Afferent.Widget
 import Afferent.Arbor
+import Demos.Demo
 import Trellis
 
 open Afferent CanvasM
@@ -97,19 +98,14 @@ def dashedLinesWidget (screenScale : Float) (fontSmall fontMedium : Font) : Affe
   Afferent.Arbor.custom (spec := {
     measure := fun _ _ => (0, 0)
     collect := fun _ => #[]
-    draw := some (fun _ => do
-      resetTransform
-      scale screenScale screenScale
-      renderDashedLinesM fontSmall
-      setFillColor Color.white
-      fillTextXY "Dashed Lines (Space to advance)" 20 30 fontMedium
+    draw := some (fun layout => do
+      withContentRect layout fun _ _ => do
+        resetTransform
+        scale screenScale screenScale
+        renderDashedLinesM fontSmall
+        setFillColor Color.white
+        fillTextXY "Dashed Lines (Space to advance)" 20 30 fontMedium
     )
   }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
-
-def renderDashedLinesDemoFrame (c : Canvas) (screenScale : Float) (fontSmall fontMedium : Font)
-    (width height : Float) : IO Canvas := do
-  let widget := Afferent.Arbor.build (dashedLinesWidget screenScale fontSmall fontMedium)
-  run' c do
-    Afferent.Widget.renderArborWidgetWithCustom FontRegistry.empty widget width height
 
 end Demos

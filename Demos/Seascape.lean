@@ -4,12 +4,20 @@
   Features interactive FPS camera controls (WASD + mouse look).
 -/
 import Afferent
+import Afferent.Arbor
 import Assimptor
+import Demos.Demo
+import Trellis
 
 open Afferent Afferent.FFI Afferent.Render Assimptor CanvasM
 open Linalg
 
 namespace Demos
+
+/-- State for the seascape demo. -/
+structure SeascapeState where
+  camera : FPSCamera
+  locked : Bool := false
 
 -- Use Float.pi from Linalg.Core
 
@@ -642,16 +650,20 @@ def defaultFog : FogParams :=
   , start := 80.0                  -- Fog begins at moderate distance
   , endDist := 350.0 }             -- Fully fogged before mesh edge at 500
 
-/-- Render the seascape with the given camera.
-    t: elapsed time in seconds
-    renderer: FFI renderer
-    screenWidth/screenHeight: for aspect ratio
-    camera: FPS camera state -/
-def renderSeascape (renderer : Renderer) (t : Float)
-    (screenWidth screenHeight : Float) (camera : FPSCamera) : IO Unit := do
-  let aspect := screenWidth / screenHeight
-  let fovY := Float.pi / 3.0  -- 60 degrees for wide ocean vista
-  let proj := Mat4.perspective fovY aspect 0.1 1000.0
+private def applyViewport (proj : Mat4) (offsetX offsetY contentW contentH fullW fullH : Float) : Mat4 := Id.run do
+  let sx := if fullW <= 0.0 then 1.0 else contentW / fullW
+  let sy := if fullH <= 0.0 then 1.0 else contentH / fullH
+  let tx := (2.0 * offsetX / fullW) + sx - 1.0
+  let ty := 1.0 - (2.0 * offsetY / fullH) - sy
+  let mut ndc := Mat4.identity
+  ndc := ndc.set 0 0 sx
+  ndc := ndc.set 1 1 sy
+  ndc := ndc.set 0 3 tx
+  ndc := ndc.set 1 3 ty
+  ndc * proj
+
+private def renderSeascapeWithProj (renderer : Renderer) (t : Float)
+    (proj : Mat4) (fovY aspect : Float) (camera : FPSCamera) : IO Unit := do
   let view := camera.viewMatrix
 
   -- Light direction (from above-left, softer for overcast)
@@ -749,6 +761,26 @@ def renderSeascape (renderer : Renderer) (t : Float)
       fog.endDist
       frigate.texture
 
+/-- Render the seascape with the given camera.
+    t: elapsed time in seconds
+    renderer: FFI renderer
+    screenWidth/screenHeight: for aspect ratio
+    camera: FPS camera state -/
+def renderSeascape (renderer : Renderer) (t : Float)
+    (screenWidth screenHeight : Float) (camera : FPSCamera) : IO Unit := do
+  let aspect := screenWidth / screenHeight
+  let fovY := Float.pi / 3.0  -- 60 degrees for wide ocean vista
+  let proj := Mat4.perspective fovY aspect 0.1 1000.0
+  renderSeascapeWithProj renderer t proj fovY aspect camera
+
+def renderSeascapeViewport (renderer : Renderer) (t : Float)
+    (contentW contentH offsetX offsetY fullW fullH : Float) (camera : FPSCamera) : IO Unit := do
+  let aspect := contentW / contentH
+  let fovY := Float.pi / 3.0
+  let proj := Mat4.perspective fovY aspect 0.1 1000.0
+  let proj := applyViewport proj offsetX offsetY contentW contentH fullW fullH
+  renderSeascapeWithProj renderer t proj fovY aspect camera
+
 /-- Create initial FPS camera for seascape viewing.
     Positioned above and behind the ocean, looking forward. -/
 def seascapeCamera : FPSCamera :=
@@ -812,5 +844,52 @@ def stepSeascapeDemoFrame (c : Canvas) (t dt : Float) (keyCode : UInt16) (screen
       (s!"pos=({seascapeCamera.x},{seascapeCamera.y},{seascapeCamera.z}) yaw={seascapeCamera.yaw} pitch={seascapeCamera.pitch}")
       (20 * screenScale) (55 * screenScale) fontSmall
   pure (c, seascapeCamera)
+
+def updateSeascapeState (env : DemoEnv) (state : SeascapeState) : IO SeascapeState := do
+  let mut camera := state.camera
+  let mut locked ← FFI.Window.getPointerLock env.window
+  if env.keyCode == FFI.Key.escape then
+    FFI.Window.setPointerLock env.window (!locked)
+    locked := !locked
+    env.clearKey
+  let wDown ← FFI.Window.isKeyDown env.window FFI.Key.w
+  let aDown ← FFI.Window.isKeyDown env.window FFI.Key.a
+  let sDown ← FFI.Window.isKeyDown env.window FFI.Key.s
+  let dDown ← FFI.Window.isKeyDown env.window FFI.Key.d
+  let qDown ← FFI.Window.isKeyDown env.window FFI.Key.q
+  let eDown ← FFI.Window.isKeyDown env.window FFI.Key.e
+  let (dx, dy) ←
+    if locked then
+      FFI.Window.getMouseDelta env.window
+    else
+      pure (0.0, 0.0)
+  camera := camera.update env.dt wDown sDown aDown dDown eDown qDown dx dy
+  pure { state with camera := camera, locked := locked }
+
+def seascapeWidget (t : Float) (screenScale : Float) (windowW windowH : Float)
+    (fontMedium fontSmall : Afferent.Font) (state : SeascapeState) : Afferent.Arbor.WidgetBuilder := do
+  Afferent.Arbor.custom (spec := {
+    measure := fun _ _ => (0, 0)
+    collect := fun _ => #[]
+    draw := some (fun layout => do
+      withContentRect layout fun w h => do
+        let rect := layout.contentRect
+        let renderer ← getRenderer
+        renderSeascapeViewport renderer t w h rect.x rect.y windowW windowH state.camera
+        resetTransform
+        setFillColor Color.white
+        if state.locked then
+          fillTextXY
+            "Seascape - WASD+Q/E to move, mouse to look, Escape to release (Space to advance)"
+            (20 * screenScale) (30 * screenScale) fontMedium
+        else
+          fillTextXY
+            "Seascape - WASD+Q/E to move, click or Escape to capture mouse (Space to advance)"
+            (20 * screenScale) (30 * screenScale) fontMedium
+        fillTextXY
+          (s!"pos=({state.camera.x},{state.camera.y},{state.camera.z}) yaw={state.camera.yaw} pitch={state.camera.pitch}")
+          (20 * screenScale) (55 * screenScale) fontSmall
+    )
+  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
 
 end Demos

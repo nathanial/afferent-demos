@@ -2,6 +2,9 @@
   Circles Performance Test - Bouncing circles
 -/
 import Afferent
+import Afferent.Arbor
+import Demos.Demo
+import Trellis
 
 open Afferent CanvasM
 
@@ -14,6 +17,18 @@ def renderCircleTestM (t : Float) (font : Font) (particles : Render.Dynamic.Part
   setFillColor Color.white
   fillTextXY s!"Circles: {particles.count} dynamic circles (Space to advance)" 20 30 font
   fillDynamicCircles particles radius t
+
+def circlesPerfWidget (t : Float) (font : Font) (particles : Render.Dynamic.ParticleState)
+    (radius : Float) : Afferent.Arbor.WidgetBuilder := do
+  Afferent.Arbor.custom (spec := {
+    measure := fun _ _ => (0, 0)
+    collect := fun _ => #[]
+    draw := some (fun layout => do
+      withContentRect layout fun _ _ => do
+        resetTransform
+        renderCircleTestM t font particles radius
+    )
+  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
 
 def stepCirclesPerfFrame (c : Canvas) (dt t : Float) (font : Font)
     (particles : Render.Dynamic.ParticleState) (radius : Float) (screenScale : Float)

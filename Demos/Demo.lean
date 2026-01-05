@@ -4,6 +4,7 @@
 import Afferent
 import Afferent.Arbor
 import Init.Data.FloatArray
+import Trellis
 
 open Afferent
 
@@ -15,6 +16,7 @@ structure DemoEnv where
   dt : Float
   keyCode : UInt16
   clearKey : IO Unit
+  window : Afferent.FFI.Window
   fontSmall : Afferent.Font
   fontMedium : Afferent.Font
   fontLarge : Afferent.Font
@@ -36,6 +38,8 @@ structure DemoEnv where
   orbitalCount : Nat
   orbitalParams : FloatArray
   orbitalBuffer : Afferent.FFI.FloatBuffer
+  windowWidthF : Float
+  windowHeightF : Float
   physWidthF : Float
   physHeightF : Float
   physWidth : UInt32
@@ -45,5 +49,14 @@ structure DemoEnv where
   layoutOffsetX : Float
   layoutOffsetY : Float
   layoutScale : Float
+
+def withContentRect (layout : Trellis.ComputedLayout) (draw : Float → Float → Afferent.CanvasM Unit) : Afferent.CanvasM Unit := do
+  let rect := layout.contentRect
+  Afferent.CanvasM.save
+  Afferent.CanvasM.setBaseTransform (Transform.translate rect.x rect.y)
+  Afferent.CanvasM.resetTransform
+  Afferent.CanvasM.clip (Afferent.Rect.mk' 0 0 rect.width rect.height)
+  draw rect.width rect.height
+  Afferent.CanvasM.restore
 
 end Demos

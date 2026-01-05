@@ -237,9 +237,4 @@ def gradientsWidgetFlex (labelFont : FontId) : WidgetBuilder := do
   let widgets := gradientsSubset.map fun (label, draw) => demoCardFlex labelFont label draw
   gridFlex 3 3 4 widgets
 
-/-- Render gradients demo content to canvas using Arbor widgets. -/
-def renderGradientsM (reg : Afferent.FontRegistry) (labelFont : FontId) : Afferent.CanvasM Unit := do
-  let widget := Afferent.Arbor.build (gradientsWidget labelFont)
-  Afferent.Widget.renderArborWidget reg widget 1000 800
-
 end Demos

@@ -240,9 +240,4 @@ def transformsWidgetFlex (labelFont : FontId) : WidgetBuilder := do
   let widgets := transformsSubset.map fun (label, draw) => demoCardFlex labelFont label draw
   gridFlex 3 3 4 widgets
 
-/-- Render transforms demo content to canvas using Arbor widgets. -/
-def renderTransformsM (reg : Afferent.FontRegistry) (labelFont : FontId) : Afferent.CanvasM Unit := do
-  let widget := Afferent.Arbor.build (transformsWidget labelFont)
-  Afferent.Widget.renderArborWidget reg widget 1000 800
-
 end Demos

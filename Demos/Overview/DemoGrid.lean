@@ -52,37 +52,23 @@ def cellWidget (config : CellConfig) (screenScale : Float)
     config.content t demoFonts
   ]
 
-/-- Render the normal demo mode: 2x3 grid of demo cells using pure Arbor widgets -/
-def renderDemoGridM (screenScale : Float) (screenWidth screenHeight : Float)
-    (fontRegistry : Afferent.FontRegistry) (demoFonts : DemoFonts)
-    (t : Float) : CanvasM Unit := do
-  -- Create 2x3 grid with cells that stretch to fill viewport.
+/-- Build the normal demo mode: 2x3 grid of demo cells using Arbor widgets. -/
+def demoGridWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts) : WidgetBuilder := do
   let props := GridContainer.withTemplate
     #[.fr 1, .fr 1, .fr 1]  -- 3 rows, each 1fr
     #[.fr 1, .fr 1]          -- 2 columns, each 1fr
-
-  let widget := Afferent.Arbor.build do
-    Afferent.Arbor.gridCustom props {} #[
-      cellWidget (getCellConfig 0) screenScale t demoFonts,
-      cellWidget (getCellConfig 1) screenScale t demoFonts,
-      cellWidget (getCellConfig 2) screenScale t demoFonts,
-      cellWidget (getCellConfig 3) screenScale t demoFonts,
-      cellWidget (getCellConfig 4) screenScale t demoFonts,
-      cellWidget (getCellConfig 5) screenScale t demoFonts
-    ]
-
-  -- Single-pass: measure, layout, collect, execute
-  let measureResult ← Afferent.runWithFonts fontRegistry
-    (Afferent.Arbor.measureWidget widget screenWidth screenHeight)
-  let layouts := layout measureResult.node screenWidth screenHeight
-  let commands := Afferent.Arbor.collectCommands measureResult.widget layouts
-  Afferent.Widget.executeCommands fontRegistry commands
-
-def renderDemoGridFrame (c : Canvas) (screenScale screenWidth screenHeight : Float)
-    (fontRegistry : Afferent.FontRegistry) (demoFonts : DemoFonts)
-    (t : Float) : IO Canvas := do
-  run' c do
-    resetTransform
-    renderDemoGridM screenScale screenWidth screenHeight fontRegistry demoFonts t
+  let style : BoxStyle := {
+    width := .percent 1.0
+    height := .percent 1.0
+    flexItem := some (Trellis.FlexItem.growing 1)
+  }
+  Afferent.Arbor.gridCustom props style #[
+    cellWidget (getCellConfig 0) screenScale t demoFonts,
+    cellWidget (getCellConfig 1) screenScale t demoFonts,
+    cellWidget (getCellConfig 2) screenScale t demoFonts,
+    cellWidget (getCellConfig 3) screenScale t demoFonts,
+    cellWidget (getCellConfig 4) screenScale t demoFonts,
+    cellWidget (getCellConfig 5) screenScale t demoFonts
+  ]
 
 end Demos

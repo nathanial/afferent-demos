@@ -6,6 +6,7 @@
 import Afferent
 import Afferent.Widget
 import Afferent.Arbor
+import Demos.Demo
 import Trellis
 import Linalg.Core
 
@@ -194,18 +195,12 @@ def shapeGalleryWidget (idx : Nat) (screenScale : Float)
     measure := fun _ _ => (0, 0)
     collect := fun _ => #[]
     draw := some (fun layout => do
-      let rect := layout.contentRect
-      resetTransform
-      renderShapeGalleryM idx rect.width rect.height screenScale fontLarge fontSmall
-      setFillColor Color.white
-      fillTextXY "Shape Gallery (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
+      withContentRect layout fun w h => do
+        resetTransform
+        renderShapeGalleryM idx w h screenScale fontLarge fontSmall
+        setFillColor Color.white
+        fillTextXY "Shape Gallery (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
     )
   }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
-
-def renderShapeGalleryDemoFrame (c : Canvas) (idx : Nat) (screenW screenH screenScale : Float)
-    (fontLarge fontSmall fontMedium : Font) : IO Canvas := do
-  let widget := Afferent.Arbor.build (shapeGalleryWidget idx screenScale fontLarge fontSmall fontMedium)
-  run' c do
-    Afferent.Widget.renderArborWidgetWithCustom FontRegistry.empty widget screenW screenH
 
 end Demos

@@ -2,6 +2,9 @@
   Sprites Performance Test - Bunnymark-style textured sprites
 -/
 import Afferent
+import Afferent.Arbor
+import Demos.Demo
+import Trellis
 
 open Afferent CanvasM
 
@@ -18,6 +21,22 @@ def renderSpriteTestFastM (font : Font) (particles : Render.Dynamic.ParticleStat
   -- Render from FloatBuffer (zero-copy to GPU)
   let renderer ← getRenderer
   Render.Dynamic.drawSpritesFromBuffer renderer texture spriteBuffer particles.count.toUInt32 halfSize particles.screenWidth particles.screenHeight
+
+def spritesPerfWidget (screenScale : Float) (font : Font) (texture : FFI.Texture)
+    (particles : Render.Dynamic.ParticleState) (halfSize : Float) : Afferent.Arbor.WidgetBuilder := do
+  Afferent.Arbor.custom (spec := {
+    measure := fun _ _ => (0, 0)
+    collect := fun _ => #[]
+    draw := some (fun layout => do
+      withContentRect layout fun _ _ => do
+        resetTransform
+        setFillColor Color.white
+        fillTextXY
+          s!"Sprites: {particles.count} textured sprites (Space to advance)"
+          (20 * screenScale) (30 * screenScale) font
+        fillDynamicSprites texture particles halfSize
+    )
+  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
 
 def stepSpritesPerfFrame (c : Canvas) (dt : Float) (font : Font)
     (particles : Render.Dynamic.ParticleState) (texture : FFI.Texture) (halfSize : Float)

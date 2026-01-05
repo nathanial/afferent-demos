@@ -8,6 +8,7 @@
 import Afferent
 import Afferent.Widget
 import Afferent.Arbor
+import Demos.Demo
 import Trellis
 
 open Afferent CanvasM Linalg
@@ -196,20 +197,15 @@ def pathFeaturesWidget (screenScale : Float) (fontSmall fontMedium : Font) : Aff
   Afferent.Arbor.custom (spec := {
     measure := fun _ _ => (0, 0)
     collect := fun _ => #[]
-    draw := some (fun _ => do
-      resetTransform
-      renderPathFeaturesM screenScale fontSmall
-      setFillColor Color.white
-      fillTextXY
-        "Path Features Demo - Non-convex, arcTo, transforms (Space to advance)"
-        (20 * screenScale) (30 * screenScale) fontMedium
+    draw := some (fun layout => do
+      withContentRect layout fun _ _ => do
+        resetTransform
+        renderPathFeaturesM screenScale fontSmall
+        setFillColor Color.white
+        fillTextXY
+          "Path Features Demo - Non-convex, arcTo, transforms (Space to advance)"
+          (20 * screenScale) (30 * screenScale) fontMedium
     )
   }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
-
-def renderPathFeaturesDemoFrame (c : Canvas) (screenScale : Float) (fontSmall fontMedium : Font)
-    (width height : Float) : IO Canvas := do
-  let widget := Afferent.Arbor.build (pathFeaturesWidget screenScale fontSmall fontMedium)
-  run' c do
-    Afferent.Widget.renderArborWidgetWithCustom FontRegistry.empty widget width height
 
 end Demos

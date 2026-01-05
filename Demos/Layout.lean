@@ -4,6 +4,7 @@
 import Afferent
 import Afferent.Widget
 import Afferent.Arbor
+import Demos.Demo
 import Trellis
 
 open Afferent CanvasM
@@ -235,23 +236,17 @@ def layoutWidget (layoutFont fontMedium : Font)
   Afferent.Arbor.custom (spec := {
     measure := fun _ _ => (0, 0)
     collect := fun _ => #[]
-    draw := some (fun _ => do
-      resetTransform
-      saved do
-        translate offsetX offsetY
-        scale layoutScale layoutScale
-        renderLayoutShapesM
-      renderLayoutLabelsMappedM layoutFont offsetX offsetY layoutScale
-      setFillColor Color.white
-      fillTextXY "CSS Flexbox Layout Demo (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
+    draw := some (fun layout => do
+      withContentRect layout fun _ _ => do
+        resetTransform
+        saved do
+          translate offsetX offsetY
+          scale layoutScale layoutScale
+          renderLayoutShapesM
+        renderLayoutLabelsMappedM layoutFont offsetX offsetY layoutScale
+        setFillColor Color.white
+        fillTextXY "CSS Flexbox Layout Demo (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
     )
   }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
-
-def renderLayoutDemoFrame (c : Canvas) (layoutFont : Font) (fontMedium : Font)
-    (offsetX offsetY layoutScale screenScale : Float)
-    (width height : Float) : IO Canvas := do
-  let widget := Afferent.Arbor.build (layoutWidget layoutFont fontMedium offsetX offsetY layoutScale screenScale)
-  run' c do
-    Afferent.Widget.renderArborWidgetWithCustom FontRegistry.empty widget width height
 
 end Demos

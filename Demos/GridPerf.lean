@@ -2,6 +2,9 @@
   Grid Performance Test - Spinning squares in a grid
 -/
 import Afferent
+import Afferent.Arbor
+import Demos.Demo
+import Trellis
 
 open Afferent CanvasM
 
@@ -15,10 +18,16 @@ def renderGridTestM (t : Float) (font : Font) (particles : Render.Dynamic.Partic
   fillTextXY s!"Grid: {particles.count} dynamic squares (Space to advance)" 20 30 font
   fillDynamicRectsAnimated particles halfSize t 3.0
 
-def renderGridPerfFrame (c : Canvas) (t : Float) (font : Font)
-    (particles : Render.Dynamic.ParticleState) (halfSize : Float) : IO Canvas := do
-  run' c do
-    resetTransform
-    renderGridTestM t font particles halfSize
+def gridPerfWidget (t : Float) (font : Font)
+    (particles : Render.Dynamic.ParticleState) (halfSize : Float) : Afferent.Arbor.WidgetBuilder := do
+  Afferent.Arbor.custom (spec := {
+    measure := fun _ _ => (0, 0)
+    collect := fun _ => #[]
+    draw := some (fun layout => do
+      withContentRect layout fun _ _ => do
+        resetTransform
+        renderGridTestM t font particles halfSize
+    )
+  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
 
 end Demos
