@@ -9,6 +9,7 @@ open Afferent CanvasM
 namespace Demos
 
 def renderTextureMatrixDemoFrame (c : Canvas) (t : Float) (screenScale : Float)
+    (screenWidth screenHeight : Float)
     (fontMedium fontSmall : Font) (texture : FFI.Texture) : IO Canvas := do
   run' c do
     resetTransform
@@ -16,7 +17,8 @@ def renderTextureMatrixDemoFrame (c : Canvas) (t : Float) (screenScale : Float)
     fillTextXY "Texture Matrix Demo (u_matrix scaling) (Space to advance)"
       (20 * screenScale) (30 * screenScale) fontMedium
     let renderer ← getRenderer
-    let (wF, hF) ← getCurrentSize
+    let wF := screenWidth
+    let hF := screenHeight
     let baseHalf := 48.0 * screenScale
     let pivotX := wF * 0.65
     let pivotY := hF * 0.55

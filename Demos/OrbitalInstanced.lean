@@ -10,6 +10,7 @@ open Afferent CanvasM
 namespace Demos
 
 def renderOrbitalInstancedDemoFrame (c : Canvas) (t : Float) (screenScale : Float)
+    (screenWidth screenHeight : Float)
     (fontMedium : Font) (orbitalCount : Nat) (orbitalParams : FloatArray)
     (orbitalBuffer : FFI.FloatBuffer) : IO Canvas := do
   run' c do
@@ -18,7 +19,8 @@ def renderOrbitalInstancedDemoFrame (c : Canvas) (t : Float) (screenScale : Floa
     fillTextXY s!"Orbital: {orbitalCount} instanced rects (Space to advance)"
       (20 * screenScale) (30 * screenScale) fontMedium
     let renderer ← getRenderer
-    let (wF, hF) ← getCurrentSize
+    let wF := screenWidth
+    let hF := screenHeight
     let centerX := wF * 0.5
     let centerY := hF * 0.5
     let a := 2.0 / wF

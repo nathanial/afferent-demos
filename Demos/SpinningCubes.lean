@@ -73,6 +73,7 @@ def renderSpinningCubesWithCamera (renderer : Renderer) (t : Float)
   renderCubesWithView renderer t proj view
 
 def stepSpinningCubesFrame (c : Canvas) (t dt : Float) (keyCode : UInt16) (screenScale : Float)
+    (screenWidth screenHeight : Float)
     (fontMedium fontSmall : Afferent.Font) (camera : FPSCamera) : IO (Canvas × FPSCamera) := do
   let mut fpsCamera := camera
   let mut locked ← FFI.Window.getPointerLock c.ctx.window
@@ -106,9 +107,8 @@ def stepSpinningCubesFrame (c : Canvas) (t dt : Float) (keyCode : UInt16) (scree
   fpsCamera := fpsCamera.update dt wDown sDown aDown dDown eDown qDown dx dy
 
   let c ← run' c do
-    let (currentW, currentH) ← getCurrentSize
     let renderer ← getRenderer
-    renderSpinningCubesWithCamera renderer t currentW currentH fpsCamera
+    renderSpinningCubesWithCamera renderer t screenWidth screenHeight fpsCamera
     resetTransform
     setFillColor Color.white
     if locked then

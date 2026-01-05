@@ -208,7 +208,9 @@ instance : Demo .spinningCubes where
   init := fun _ => pure { camera := default }
   step := fun c env s => do
     let (c', nextCamera) ←
-      stepSpinningCubesFrame c env.t env.dt env.keyCode env.screenScale env.fontMedium env.fontSmall s.camera
+      stepSpinningCubesFrame c env.t env.dt env.keyCode env.screenScale
+        env.physWidthF env.physHeightF
+        env.fontMedium env.fontSmall s.camera
     pure (c', { s with camera := nextCamera })
   onExit := fun c _ s => do
     FFI.Window.setPointerLock c.ctx.window false
@@ -221,7 +223,9 @@ instance : Demo .seascape where
   init := fun _ => pure { camera := Demos.seascapeCamera }
   step := fun c env s => do
     let (c', nextCamera) ←
-      stepSeascapeDemoFrame c env.t env.dt env.keyCode env.screenScale env.fontMedium env.fontSmall s.camera
+      stepSeascapeDemoFrame c env.t env.dt env.keyCode env.screenScale
+        env.physWidthF env.physHeightF
+        env.fontMedium env.fontSmall s.camera
     pure (c', { s with camera := nextCamera })
   onExit := fun c _ s => do
     FFI.Window.setPointerLock c.ctx.window false
@@ -288,7 +292,8 @@ instance : Demo .linesPerf where
   msaaEnabled := false
   init := fun _ => pure ()
   step := fun c env s => do
-    let c ← renderLinesPerfFrame c env.t env.lineBuffer env.lineCount env.lineWidth env.fontMedium
+    let c ← renderLinesPerfFrame c env.t env.lineBuffer env.lineCount env.lineWidth
+      env.fontMedium env.physWidthF env.physHeightF
     pure (c, s)
 
 instance : Demo .textureMatrix where
@@ -296,7 +301,9 @@ instance : Demo .textureMatrix where
   shortName := "Textures"
   init := fun _ => pure ()
   step := fun c env s => do
-    let c ← renderTextureMatrixDemoFrame c env.t env.screenScale env.fontMedium env.fontSmall env.spriteTexture
+    let c ← renderTextureMatrixDemoFrame c env.t env.screenScale
+      env.physWidthF env.physHeightF
+      env.fontMedium env.fontSmall env.spriteTexture
     pure (c, s)
 
 instance : Demo .orbitalInstanced where
@@ -305,7 +312,9 @@ instance : Demo .orbitalInstanced where
   msaaEnabled := false
   init := fun _ => pure ()
   step := fun c env s => do
-    let c ← renderOrbitalInstancedDemoFrame c env.t env.screenScale env.fontMedium env.orbitalCount env.orbitalParams env.orbitalBuffer
+    let c ← renderOrbitalInstancedDemoFrame c env.t env.screenScale
+      env.physWidthF env.physHeightF
+      env.fontMedium env.orbitalCount env.orbitalParams env.orbitalBuffer
     pure (c, s)
 
 def demoInstance (id : DemoId) : Demo id := by

@@ -761,6 +761,7 @@ def seascapeCamera : FPSCamera :=
   , lookSensitivity := 0.003 }
 
 def stepSeascapeDemoFrame (c : Canvas) (t dt : Float) (keyCode : UInt16) (screenScale : Float)
+    (screenWidth screenHeight : Float)
     (fontMedium fontSmall : Afferent.Font) (camera : FPSCamera) : IO (Canvas × FPSCamera) := do
   let mut seascapeCamera := camera
   let mut locked ← FFI.Window.getPointerLock c.ctx.window
@@ -794,9 +795,8 @@ def stepSeascapeDemoFrame (c : Canvas) (t dt : Float) (keyCode : UInt16) (screen
   seascapeCamera := seascapeCamera.update dt wDown sDown aDown dDown eDown qDown dx dy
 
   let c ← run' c do
-    let (currentW, currentH) ← getCurrentSize
     let renderer ← getRenderer
-    renderSeascape renderer t currentW currentH seascapeCamera
+    renderSeascape renderer t screenWidth screenHeight seascapeCamera
     resetTransform
     setFillColor Color.white
     if locked then

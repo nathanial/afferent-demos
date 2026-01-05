@@ -66,14 +66,13 @@ def buildLineSegments (screenWidth screenHeight : Float) : Array Float × Nat :=
 
 /-- Render 100k line segments using GPU stroke extrusion (single draw call). -/
 def renderLinesPerfM (t : Float) (buffer : FFI.Buffer) (lineCount : Nat) (lineWidth : Float)
-    (font : Font) : CanvasM Unit := do
+    (font : Font) (screenWidth screenHeight : Float) : CanvasM Unit := do
   setFillColor Color.white
   fillTextXY s!"Lines: {lineCount} GPU stroke segments (Space to advance)" 20 30 font
 
-  let (w, h) ← getCurrentSize
   let renderer ← getRenderer
-  let centerX := w / 2.0
-  let centerY := h / 2.0
+  let centerX := screenWidth / 2.0
+  let centerY := screenHeight / 2.0
   let rotation := t * 0.35
   let tform :=
     Transform.concat
@@ -84,7 +83,7 @@ def renderLinesPerfM (t : Float) (buffer : FFI.Buffer) (lineCount : Nat) (lineWi
     lineCount.toUInt32
     1
     (lineWidth / 2.0)
-    w h
+    screenWidth screenHeight
     10.0
     0 0
     tform.a tform.b tform.c tform.d tform.tx tform.ty
@@ -94,9 +93,9 @@ def renderLinesPerfM (t : Float) (buffer : FFI.Buffer) (lineCount : Nat) (lineWi
     0.85 0.9 1.0 1.0
 
 def renderLinesPerfFrame (c : Canvas) (t : Float) (buffer : FFI.Buffer) (lineCount : Nat)
-    (lineWidth : Float) (font : Font) : IO Canvas := do
+    (lineWidth : Float) (font : Font) (screenWidth screenHeight : Float) : IO Canvas := do
   run' c do
     resetTransform
-    renderLinesPerfM t buffer lineCount lineWidth font
+    renderLinesPerfM t buffer lineCount lineWidth font screenWidth screenHeight
 
 end Demos

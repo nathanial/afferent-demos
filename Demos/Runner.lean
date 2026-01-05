@@ -65,27 +65,28 @@ private structure LoadedAssets where
   layoutOffsetY : Float
   layoutScale : Float
 
-/-- Tabbar UI state. -/
-private structure TabBarState where
-  selectedTab : Nat
-  tabIds : Array Afferent.Arbor.WidgetId
-  cachedWidget : Option Afferent.Arbor.Widget
-  cachedLayouts : Option Trellis.LayoutResult
-deriving Inhabited
-
 /-- Fixed tabbar height in logical pixels. -/
 def tabBarHeight : Float := ({} : TabBarStyle).height
+
+private def tabBarStartId : Nat := 1
+
+private structure RootBuild where
+  widget : Afferent.Arbor.Widget
+  tabBar : TabBarResult
+  contentId : Afferent.Arbor.WidgetId
 
 private structure RunningState where
   assets : LoadedAssets
   demos : Array AnyDemo
+  demoRefs : Array (IO.Ref AnyDemo)
+  envRef : IO.Ref DemoEnv
   displayMode : Nat
   msaaEnabled : Bool
   frameCount : Nat
   fpsAccumulator : Float
   displayFps : Float
   framesLeft : Nat
-  tabBar : TabBarState
+  tabBar : TabBarResult
 
 private inductive AppState where
   | loading (state : LoadingState)
@@ -368,39 +369,37 @@ private def buildTabConfigs (demos : Array AnyDemo) (selectedIdx : Nat) : Array 
 
 /-- Build or rebuild the tabbar widget. -/
 private def rebuildTabBar (demos : Array AnyDemo) (selectedIdx : Nat)
-    (fontId : Afferent.Arbor.FontId) (screenScale : Float) : TabBarState :=
+    (fontId : Afferent.Arbor.FontId) (screenScale : Float) : TabBarResult :=
   let configs := buildTabConfigs demos selectedIdx
-  let result := buildTabBar configs fontId {} screenScale
-  { selectedTab := selectedIdx
-    tabIds := result.tabIds
-    cachedWidget := some result.widget
-    cachedLayouts := none  -- Will be computed during render
-  }
+  buildTabBar configs fontId {} screenScale tabBarStartId
 
-/-- Render the tabbar widget using CanvasM. Returns updated canvas and layouts for hit testing. -/
-private def renderTabBarWidgetM (tabBarState : TabBarState)
-    (fontRegistry : FontRegistry) (physWidth : Float) (screenScale : Float)
-    : CanvasM (Option Trellis.LayoutResult) := do
-  match tabBarState.cachedWidget with
-  | none => pure none
-  | some widget =>
-    -- Render the tabbar using the standard Arbor widget renderer
-    let availWidth := physWidth
-    let availHeight := tabBarHeight * screenScale
-    Afferent.Widget.renderArborWidget fontRegistry widget availWidth availHeight
-    -- Compute layouts separately for hit testing
-    let measureResult ← runWithFonts fontRegistry (Afferent.Arbor.measureWidget widget availWidth availHeight)
-    let layouts := Trellis.layout measureResult.node availWidth availHeight
-    pure (some layouts)
+private def buildRootWidget (tabBar : TabBarResult) (content : Afferent.Arbor.Widget) : RootBuild :=
+  let root : Afferent.Arbor.Widget :=
+    .flex 0 none (Trellis.FlexContainer.column 0)
+      { width := .percent 1.0, height := .percent 1.0 }
+      #[tabBar.widget, content]
+  { widget := root, tabBar := tabBar, contentId := Afferent.Arbor.Widget.id content }
 
-/-- Handle click events for the tabbar. Returns Some newTabIndex if a tab was clicked. -/
-private def handleTabBarClick (tabBarState : TabBarState) (clickX clickY : Float)
-    : Option Nat := do
-  let widget ← tabBarState.cachedWidget
-  let layouts ← tabBarState.cachedLayouts
-  -- Check if click is in the tabbar area; map any hit child to its tab container.
-  let hitPath := Afferent.Arbor.hitTestPath widget layouts clickX clickY
-  tabBarState.tabIds.findIdx? (fun tabId => hitPath.any (· == tabId))
+private def demoWidget (startId : Nat) (demoRef : IO.Ref AnyDemo) (envRef : IO.Ref DemoEnv) : Afferent.Arbor.Widget :=
+  Afferent.Arbor.buildFrom startId do
+    Afferent.Arbor.custom (spec := {
+      measure := fun _ _ => (0, 0)
+      collect := fun _ => #[]
+      draw := some (fun layout => do
+        let rect := layout.contentRect
+        CanvasM.save
+        CanvasM.setBaseTransform (Transform.translate rect.x rect.y)
+        CanvasM.resetTransform
+        CanvasM.clip (Afferent.Rect.mk' 0 0 rect.width rect.height)
+        CanvasM.liftCanvas fun c => do
+          let env ← envRef.get
+          let demo ← demoRef.get
+          let (c', demo') ← AnyDemo.step demo c env
+          demoRef.set demo'
+          pure c'
+        CanvasM.restore
+      )
+    }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
 
 /-- Unified visual demo - runs all demos in a grid layout -/
 def unifiedDemo : IO Unit := do
@@ -536,24 +535,28 @@ def unifiedDemo : IO Unit := do
                   layoutOffsetY := contentLayoutOffsetY
                   layoutScale := contentLayoutScale
                 }
-                let mut demos ← buildDemoList initEnv
+                let demos ← buildDemoList initEnv
+                let demoRefs ← demos.mapM (fun demo => IO.mkRef demo)
+                let envRef ← IO.mkRef initEnv
                 let displayMode : Nat := startMode % demos.size
                 let msaaEnabled : Bool := AnyDemo.msaaEnabled (demos[displayMode]!)
                 FFI.Renderer.setMSAAEnabled c.ctx.renderer msaaEnabled
                 -- Build initial tabbar state
-                let tabBarState := rebuildTabBar demos displayMode assets.fontPack.smallId screenScale
+                let tabBar := rebuildTabBar demos displayMode assets.fontPack.smallId screenScale
                 IO.println "Rendering animated demo... (close window to exit)"
                 IO.println "Click tabs to switch demos"
                 state := .running {
                   assets := assets
                   demos := demos
+                  demoRefs := demoRefs
+                  envRef := envRef
                   displayMode := displayMode
                   msaaEnabled := msaaEnabled
                   frameCount := 0
                   fpsAccumulator := 0.0
                   displayFps := 0.0
                   framesLeft := exitAfterFrames
-                  tabBar := tabBarState
+                  tabBar := tabBar
                 }
             | none =>
                 state := .loading ls
@@ -564,91 +567,112 @@ def unifiedDemo : IO Unit := do
             let s := rs.assets.screenScale
             let tabBarHeightPx := tabBarHeight * s
 
-            -- Check for click events on tabbar
+            let buildDemoWidget := fun (tabBar : TabBarResult) (demoIdx : Nat) =>
+              match rs.demoRefs[demoIdx]? with
+              | some demoRef => demoWidget tabBar.finalId demoRef rs.envRef
+              | none => .spacer tabBar.finalId none 0 0
+
+            let buildRoot := fun (tabBar : TabBarResult) (demoIdx : Nat) =>
+              buildRootWidget tabBar (buildDemoWidget tabBar demoIdx)
+
+            let measureRoot := fun (root : Afferent.Arbor.Widget) => do
+              let measureResult ← runWithFonts rs.assets.fontPack.registry
+                (Afferent.Arbor.measureWidget root rs.assets.physWidthF rs.assets.physHeightF)
+              let layouts := Trellis.layout measureResult.node rs.assets.physWidthF rs.assets.physHeightF
+              pure (measureResult.widget, layouts)
+
+            let envFromLayout := fun (layout : Trellis.ComputedLayout) (t dt : Float) (keyCode : UInt16) =>
+              let rect := layout.contentRect
+              let contentW := max 1.0 rect.width
+              let contentH := max 1.0 rect.height
+              let (contentLayoutOffsetX, contentLayoutOffsetY, contentLayoutScale) :=
+                calcLayout contentW contentH
+              let base := mkEnvFromAssets rs.assets t dt keyCode
+              {
+                base with
+                physWidthF := contentW
+                physHeightF := contentH
+                physWidth := contentW.toUInt32
+                physHeight := contentH.toUInt32
+                contentOffsetX := rect.x
+                contentOffsetY := rect.y
+                layoutOffsetX := contentLayoutOffsetX
+                layoutOffsetY := contentLayoutOffsetY
+                layoutScale := contentLayoutScale
+              }
+
+            let fallbackContentH := max 1.0 (rs.assets.physHeightF - tabBarHeightPx)
+            let defaultContentRect : Trellis.LayoutRect :=
+              { x := 0, y := tabBarHeightPx, width := rs.assets.physWidthF, height := fallbackContentH }
+
+            let mut rootBuild := buildRoot rs.tabBar rs.displayMode
+            let (measuredWidget, layouts) ← measureRoot rootBuild.widget
+
+            -- Check for click events on tabbar using Arbor hit testing
             let mut clickOutsideTabBar := false
             let click ← FFI.Window.getClick c.ctx.window
+            let mut tabSwitched := false
             match click with
             | some ce =>
-              if ce.y <= tabBarHeightPx then
+              let hitPath := Afferent.Arbor.hitTestPath measuredWidget layouts ce.x ce.y
+              let inTabBar := hitPath.any (· == rootBuild.tabBar.rowId)
+              if inTabBar then
                 FFI.Window.clearClick c.ctx.window
-                -- Check if click is on a tab
-                match handleTabBarClick rs.tabBar ce.x ce.y with
+                let clickedTab := rootBuild.tabBar.tabIds.findIdx? (fun tabId => hitPath.any (· == tabId))
+                match clickedTab with
                 | some newTabIdx =>
-                  if newTabIdx != rs.displayMode then
-                    -- Switch to new tab
-                    let exitEnv := mkEnvFromAssets rs.assets 0.0 0.0 keyCode
-                    let contentHeightF := max 1.0 (rs.assets.physHeightF - tabBarHeightPx)
-                    let contentHeight := contentHeightF.toUInt32
-                    let (contentLayoutOffsetX, contentLayoutOffsetY, contentLayoutScale) :=
-                      calcLayout rs.assets.physWidthF contentHeightF
-                    let exitEnv := {
-                      exitEnv with
-                      physHeightF := contentHeightF
-                      physHeight := contentHeight
-                      contentOffsetX := 0.0
-                      contentOffsetY := tabBarHeightPx
-                      layoutOffsetX := contentLayoutOffsetX
-                      layoutOffsetY := contentLayoutOffsetY
-                      layoutScale := contentLayoutScale
-                    }
-                    let currentDemo ← AnyDemo.onExit (rs.demos[rs.displayMode]!) c exitEnv
-                    rs := { rs with demos := rs.demos.set! rs.displayMode currentDemo }
-                    rs := { rs with displayMode := newTabIdx }
-                    c := c.resetState
-                    c.ctx.resetScissor
-                    rs := { rs with msaaEnabled := AnyDemo.msaaEnabled (rs.demos[rs.displayMode]!) }
-                    FFI.Renderer.setMSAAEnabled c.ctx.renderer rs.msaaEnabled
-                    -- Rebuild tabbar with new selection
-                    let newTabBar := rebuildTabBar rs.demos newTabIdx rs.assets.fontPack.smallId s
-                    rs := { rs with tabBar := newTabBar }
-                    IO.println s!"Switched to {AnyDemo.name (rs.demos[rs.displayMode]!)}"
+                    if newTabIdx != rs.displayMode then
+                      let contentLayout :=
+                        (layouts.get rootBuild.contentId).getD (Trellis.ComputedLayout.simple rootBuild.contentId defaultContentRect)
+                      let exitEnv := envFromLayout contentLayout 0.0 0.0 keyCode
+                      match rs.demoRefs[rs.displayMode]? with
+                      | some demoRef =>
+                          let currentDemo ← demoRef.get
+                          let nextDemo ← AnyDemo.onExit currentDemo c exitEnv
+                          demoRef.set nextDemo
+                      | none => pure ()
+                      rs := { rs with displayMode := newTabIdx }
+                      c := c.resetState
+                      c.ctx.resetScissor
+                      rs := { rs with msaaEnabled := AnyDemo.msaaEnabled (rs.demos[rs.displayMode]!) }
+                      FFI.Renderer.setMSAAEnabled c.ctx.renderer rs.msaaEnabled
+                      let newTabBar := rebuildTabBar rs.demos newTabIdx rs.assets.fontPack.smallId s
+                      rs := { rs with tabBar := newTabBar }
+                      tabSwitched := true
+                      IO.println s!"Switched to {AnyDemo.name (rs.demos[rs.displayMode]!)}"
                 | none => pure ()
               else
                 clickOutsideTabBar := true
             | none => pure ()
 
-            -- Set up scissor to clip demo content to area below tabbar
-            let tabBarHeightPxU32 := tabBarHeightPx.toUInt32
-            let contentHeightF := max 1.0 (rs.assets.physHeightF - tabBarHeightPx)
-            let contentHeight := contentHeightF.toUInt32
-            c.setScissor 0 tabBarHeightPxU32 rs.assets.physWidth contentHeight
+            if tabSwitched then
+              rootBuild := buildRoot rs.tabBar rs.displayMode
+              let (measuredWidget', layouts') ← measureRoot rootBuild.widget
+              -- Replace with updated widgets/layouts after tab switch
+              let measuredWidget := measuredWidget'
+              let layouts := layouts'
+              -- Update env for new tab before rendering
+              let contentLayout :=
+                (layouts.get rootBuild.contentId).getD (Trellis.ComputedLayout.simple rootBuild.contentId defaultContentRect)
+              let env := envFromLayout contentLayout t dt keyCode
+              rs.envRef.set env
+              -- Render updated tree
+              c ← run' c do
+                let commands := Afferent.Arbor.collectCommands measuredWidget layouts
+                Afferent.Widget.executeCommands rs.assets.fontPack.registry commands
+                Afferent.Widget.renderCustomWidgets measuredWidget layouts
+            else
+              let contentLayout :=
+                (layouts.get rootBuild.contentId).getD (Trellis.ComputedLayout.simple rootBuild.contentId defaultContentRect)
+              let env := envFromLayout contentLayout t dt keyCode
+              rs.envRef.set env
+              c ← run' c do
+                let commands := Afferent.Arbor.collectCommands measuredWidget layouts
+                Afferent.Widget.executeCommands rs.assets.fontPack.registry commands
+                Afferent.Widget.renderCustomWidgets measuredWidget layouts
 
-            -- Use a base transform so resetTransform keeps the tabbar offset.
-            let contentTransform := Transform.translate 0 tabBarHeightPx
-            c := c.modifyState (CanvasState.setBaseTransform contentTransform)
-            c := c.resetTransform
-
-            -- Create adjusted environment with reduced height for demo area
-            let (contentLayoutOffsetX, contentLayoutOffsetY, contentLayoutScale) :=
-              calcLayout rs.assets.physWidthF contentHeightF
-            let mut env := mkEnvFromAssets rs.assets t dt keyCode
-            env := {
-              env with
-              physHeightF := contentHeightF
-              physHeight := contentHeight
-              contentOffsetX := 0.0
-              contentOffsetY := tabBarHeightPx
-              layoutOffsetX := contentLayoutOffsetX
-              layoutOffsetY := contentLayoutOffsetY
-              layoutScale := contentLayoutScale
-            }
-
-            -- Render the current demo (clipped to content area)
-            let demo := rs.demos[rs.displayMode]!
-            let (c', nextDemo) ← AnyDemo.step demo c env
-            c := c'
-            rs := { rs with demos := rs.demos.set! rs.displayMode nextDemo }
             if clickOutsideTabBar then
               FFI.Window.clearClick c.ctx.window
-
-            -- Reset base transform and scissor, then render tabbar on top
-            c := c.modifyState (CanvasState.setBaseTransform Transform.identity)
-            c := c.resetTransform
-            c.resetScissor
-            let (layouts, c') ← run c (renderTabBarWidgetM rs.tabBar rs.assets.fontPack.registry rs.assets.physWidthF s)
-            c := c'
-            -- Cache the layouts for hit testing
-            rs := { rs with tabBar := { rs.tabBar with cachedLayouts := layouts } }
 
             -- Update FPS counter (update display every 10 frames for stability)
             rs := { rs with frameCount := rs.frameCount + 1 }

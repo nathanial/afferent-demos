@@ -34,6 +34,7 @@ deriving Repr, Inhabited
 /-- Result of building a tabbar. -/
 structure TabBarResult where
   widget : Widget
+  rowId : WidgetId
   tabIds : Array WidgetId
   finalId : Nat
 deriving Inhabited
@@ -55,16 +56,15 @@ def buildTab (config : TabConfig) (fontId : FontId) (style : TabBarStyle)
     text' config.label fontId textColor .center
 
 /-- Build a tab bar from an array of tab configurations.
-    Returns the widget, an array mapping tab indices to their widget IDs, and the final ID counter. -/
+    Returns the widget, the row ID, an array mapping tab indices to their widget IDs, and the final ID counter. -/
 def buildTabBar (tabs : Array TabConfig) (fontId : FontId)
-    (style : TabBarStyle := {}) (screenScale : Float := 1.0) : TabBarResult :=
+    (style : TabBarStyle := {}) (screenScale : Float := 1.0) (startId : Nat := 0) : TabBarResult :=
   let s := fun (v : Float) => v * screenScale
 
   -- Build all tabs and collect their IDs
   -- Each tab uses 2 IDs: one for the center container, one for the text
   -- So tab at index i has clickable ID at: startId + 1 + (i * 2)
-  -- The row itself takes ID 0
-  let startId := 0
+  -- The row itself takes the startId
   let rowId := startId
   let tabWidgets := tabs.mapIdx fun idx config =>
     -- Build tab at known ID position
@@ -82,12 +82,13 @@ def buildTabBar (tabs : Array TabConfig) (fontId : FontId)
       backgroundColor := some style.backgroundColor
       padding := { top := s 4, right := s 8, bottom := s 4, left := s 8 }
       height := .length (s style.height)
+      flexItem := some (Trellis.FlexItem.fixed (s style.height))
     }
     tabWidgets
 
   let finalId := rowId + 1 + tabs.size * 2
 
-  { widget := rowWidget, tabIds := tabIds, finalId := finalId }
+  { widget := rowWidget, rowId := rowId, tabIds := tabIds, finalId := finalId }
 
 /-- Find which tab was clicked given a widget ID.
     Returns Some tabIndex if a tab was clicked, None otherwise. -/
