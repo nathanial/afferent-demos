@@ -113,7 +113,8 @@ instance : Demo .demoGrid where
   shortName := "Overview"
   init := fun _ => pure ()
   step := fun c env s => do
-    let (currentW, currentH) ← c.ctx.getCurrentSize
+    let currentW := env.physWidthF
+    let currentH := env.physHeightF
     let demoFonts : DemoFonts := {
       label := env.fontSmallId,
       small := env.fontSmallId,

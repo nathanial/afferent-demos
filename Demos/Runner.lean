@@ -74,7 +74,7 @@ private structure TabBarState where
 deriving Inhabited
 
 /-- Fixed tabbar height in logical pixels. -/
-def tabBarHeight : Float := 44.0
+def tabBarHeight : Float := ({} : TabBarStyle).height
 
 private structure RunningState where
   assets : LoadedAssets
@@ -436,11 +436,14 @@ def unifiedDemo : IO Unit := do
   let layoutW : Float := 1000.0
   let layoutH : Float := 800.0
   let layoutPadTop : Float := 60.0 * screenScale
-  let layoutAvailW : Float := physWidthF
-  let layoutAvailH : Float := max 1.0 (physHeightF - layoutPadTop)
-  let layoutScale : Float := min (layoutAvailW / layoutW) (layoutAvailH / layoutH)
-  let layoutOffsetX : Float := (layoutAvailW - layoutW * layoutScale) / 2.0
-  let layoutOffsetY : Float := layoutPadTop + (layoutAvailH - layoutH * layoutScale) / 2.0
+  let calcLayout := fun (availW availH : Float) =>
+    let layoutAvailW : Float := availW
+    let layoutAvailH : Float := max 1.0 (availH - layoutPadTop)
+    let layoutScale : Float := min (layoutAvailW / layoutW) (layoutAvailH / layoutH)
+    let layoutOffsetX : Float := (layoutAvailW - layoutW * layoutScale) / 2.0
+    let layoutOffsetY : Float := layoutPadTop + (layoutAvailH - layoutH * layoutScale) / 2.0
+    (layoutOffsetX, layoutOffsetY, layoutScale)
+  let (layoutOffsetX, layoutOffsetY, layoutScale) := calcLayout physWidthF physHeightF
 
   -- Grid particles (316x316 ≈ 100k grid of spinning squares/triangles)
   let gridCols := 316 * 3
@@ -516,7 +519,20 @@ def unifiedDemo : IO Unit := do
               physWidthF physHeightF physWidth physHeight layoutOffsetX layoutOffsetY layoutScale
             match assetsOpt with
             | some assets =>
+                let tabBarHeightPx := tabBarHeight * screenScale
+                let contentHeightF := max 1.0 (assets.physHeightF - tabBarHeightPx)
+                let contentHeight := contentHeightF.toUInt32
+                let (contentLayoutOffsetX, contentLayoutOffsetY, contentLayoutScale) :=
+                  calcLayout assets.physWidthF contentHeightF
                 let initEnv := mkEnvFromAssets assets 0.0 0.0 0
+                let initEnv := {
+                  initEnv with
+                  physHeightF := contentHeightF
+                  physHeight := contentHeight
+                  layoutOffsetX := contentLayoutOffsetX
+                  layoutOffsetY := contentLayoutOffsetY
+                  layoutScale := contentLayoutScale
+                }
                 let mut demos ← buildDemoList initEnv
                 let displayMode : Nat := startMode % demos.size
                 let msaaEnabled : Bool := AnyDemo.msaaEnabled (demos[displayMode]!)
@@ -572,18 +588,27 @@ def unifiedDemo : IO Unit := do
 
             -- Set up scissor to clip demo content to area below tabbar
             let tabBarHeightPxU32 := tabBarHeightPx.toUInt32
-            let contentHeight := (rs.assets.physHeightF - tabBarHeightPx).toUInt32
+            let contentHeightF := max 1.0 (rs.assets.physHeightF - tabBarHeightPx)
+            let contentHeight := contentHeightF.toUInt32
             c.setScissor 0 tabBarHeightPxU32 rs.assets.physWidth contentHeight
 
-            -- Set up translation for demo content area (below tabbar)
-            c ← run' c do
-              resetTransform
-              translate 0 tabBarHeightPx
+            -- Use a base transform so resetTransform keeps the tabbar offset.
+            let contentTransform := Transform.translate 0 tabBarHeightPx
+            c := c.modifyState (CanvasState.setBaseTransform contentTransform)
+            c := c.resetTransform
 
             -- Create adjusted environment with reduced height for demo area
-            let adjustedPhysHeightF := rs.assets.physHeightF - tabBarHeightPx
+            let (contentLayoutOffsetX, contentLayoutOffsetY, contentLayoutScale) :=
+              calcLayout rs.assets.physWidthF contentHeightF
             let mut env := mkEnvFromAssets rs.assets t dt keyCode
-            env := { env with physHeightF := adjustedPhysHeightF }
+            env := {
+              env with
+              physHeightF := contentHeightF
+              physHeight := contentHeight
+              layoutOffsetX := contentLayoutOffsetX
+              layoutOffsetY := contentLayoutOffsetY
+              layoutScale := contentLayoutScale
+            }
 
             -- Render the current demo (clipped to content area)
             let demo := rs.demos[rs.displayMode]!
@@ -591,7 +616,9 @@ def unifiedDemo : IO Unit := do
             c := c'
             rs := { rs with demos := rs.demos.set! rs.displayMode nextDemo }
 
-            -- Reset scissor and render tabbar on top
+            -- Reset base transform and scissor, then render tabbar on top
+            c := c.modifyState (CanvasState.setBaseTransform Transform.identity)
+            c := c.resetTransform
             c.resetScissor
             let (layouts, c') ← run c (renderTabBarWidgetM rs.tabBar rs.assets.fontPack.registry rs.assets.physWidthF s)
             c := c'
