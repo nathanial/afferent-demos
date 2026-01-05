@@ -396,10 +396,9 @@ private def handleTabBarClick (tabBarState : TabBarState) (clickX clickY : Float
     : Option Nat := do
   let widget ← tabBarState.cachedWidget
   let layouts ← tabBarState.cachedLayouts
-  -- Check if click is in the tabbar area
-  let hitWidgetId ← Afferent.Arbor.hitTestId widget layouts clickX clickY
-  -- Find which tab was clicked
-  findClickedTab tabBarState.tabIds hitWidgetId
+  -- Check if click is in the tabbar area; map any hit child to its tab container.
+  let hitPath := Afferent.Arbor.hitTestPath widget layouts clickX clickY
+  tabBarState.tabIds.findIdx? (fun tabId => hitPath.any (· == tabId))
 
 /-- Unified visual demo - runs all demos in a grid layout -/
 def unifiedDemo : IO Unit := do
