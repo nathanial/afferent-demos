@@ -2,7 +2,7 @@
   Demo Typeclass - Shared demo environment and polymorphic demo handling.
 -/
 import Afferent
-import Arbor
+import Afferent.Arbor
 import Demos.Text
 import Init.Data.FloatArray
 
@@ -22,8 +22,8 @@ structure DemoEnv where
   layoutFont : Afferent.Font
   fonts : Fonts
   fontRegistry : Afferent.FontRegistry
-  fontMediumId : Arbor.FontId
-  fontSmallId : Arbor.FontId
+  fontMediumId : Afferent.Arbor.FontId
+  fontSmallId : Afferent.Arbor.FontId
   spriteTexture : Afferent.FFI.Texture
   halfSize : Float
   circleRadius : Float

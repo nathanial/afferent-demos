@@ -3,11 +3,11 @@
 -/
 import Afferent
 import Afferent.Widget
-import Arbor
+import Afferent.Arbor
 import Trellis
 
 open Afferent CanvasM
-open Arbor
+open Afferent.Arbor
 open Trellis
 
 namespace Demos

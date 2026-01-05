@@ -3,31 +3,31 @@
 -/
 import Afferent
 import Afferent.Widget
-import Arbor
+import Afferent.Arbor
 import Trellis
 
-open Arbor
+open Afferent.Arbor
 open Trellis (EdgeInsets)
 
 namespace Demos
 
 structure ShapeDef where
   label : String
-  color : Arbor.Color
-  path : Arbor.Rect → Arbor.Path
-  stroke : Option (Arbor.Color × Float) := none
+  color : Afferent.Arbor.Color
+  path : Afferent.Arbor.Rect → Afferent.Arbor.Path
+  stroke : Option (Afferent.Arbor.Color × Float) := none
 
-def rectCenter (r : Arbor.Rect) : Arbor.Point :=
+def rectCenter (r : Afferent.Arbor.Rect) : Afferent.Arbor.Point :=
   { x := r.origin.x + r.size.width / 2, y := r.origin.y + r.size.height / 2 }
 
-def minSide (r : Arbor.Rect) : Float :=
+def minSide (r : Afferent.Arbor.Rect) : Float :=
   min r.size.width r.size.height
 
-def insetRect (r : Arbor.Rect) (pad : Float) : Arbor.Rect :=
+def insetRect (r : Afferent.Arbor.Rect) (pad : Float) : Afferent.Arbor.Rect :=
   Rect.mk' (r.origin.x + pad) (r.origin.y + pad)
     (max 1.0 (r.size.width - pad * 2)) (max 1.0 (r.size.height - pad * 2))
 
-def layoutRectToRect (r : Trellis.LayoutRect) : Arbor.Rect :=
+def layoutRectToRect (r : Trellis.LayoutRect) : Afferent.Arbor.Rect :=
   Rect.mk' r.x r.y r.width r.height
 
 /-- Create a custom spec that draws a single shape inside its layout rect. -/
@@ -201,7 +201,7 @@ def shapesWidget (labelFont : FontId) : WidgetBuilder := do
 
 /-- Render shapes demo content to canvas using Arbor widgets. -/
 def renderShapesM (reg : Afferent.FontRegistry) (labelFont : FontId) : Afferent.CanvasM Unit := do
-  let widget := Arbor.build (shapesWidget labelFont)
+  let widget := Afferent.Arbor.build (shapesWidget labelFont)
   Afferent.Widget.renderArborWidget reg widget 1000 800
 
 end Demos

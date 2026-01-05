@@ -4,7 +4,7 @@
 -/
 import Afferent
 import Afferent.Layout
-import Arbor
+import Afferent.Arbor
 import Demos.Shapes
 import Demos.Transforms
 import Demos.Strokes
@@ -22,7 +22,7 @@ structure CellConfig where
   bg : Color
   label : String
   scale : Float
-  render : Float → Fonts → Afferent.FontRegistry → Arbor.FontId → CanvasM Unit
+  render : Float → Fonts → Afferent.FontRegistry → Afferent.Arbor.FontId → CanvasM Unit
 
 /-- Get cell configuration by index (0-5, left-to-right, top-to-bottom) -/
 def getCellConfig (idx : Nat) : CellConfig :=
@@ -37,7 +37,7 @@ def getCellConfig (idx : Nat) : CellConfig :=
 /-- Render the normal demo mode: 2x3 grid of demo cells using Trellis layout -/
 def renderDemoGridM (screenScale : Float) (screenWidth screenHeight : Float)
     (fontSmall : Font) (fonts : Fonts) (fontRegistry : Afferent.FontRegistry)
-    (fontSmallId : Arbor.FontId) (t : Float) : CanvasM Unit := do
+    (fontSmallId : Afferent.Arbor.FontId) (t : Float) : CanvasM Unit := do
   -- Create 2x3 grid with cells that stretch to fill viewport
   -- 2 columns (1fr each), 3 rows (1fr each)
   let props := GridContainer.withTemplate
@@ -87,7 +87,7 @@ def renderDemoGridM (screenScale : Float) (screenWidth screenHeight : Float)
 
 def renderDemoGridFrame (c : Canvas) (screenScale screenWidth screenHeight : Float)
     (fontSmall : Font) (fonts : Fonts) (fontRegistry : Afferent.FontRegistry)
-    (fontSmallId : Arbor.FontId) (t : Float) : IO Canvas := do
+    (fontSmallId : Afferent.Arbor.FontId) (t : Float) : IO Canvas := do
   run' c do
     resetTransform
     renderDemoGridM screenScale screenWidth screenHeight fontSmall fonts fontRegistry fontSmallId t

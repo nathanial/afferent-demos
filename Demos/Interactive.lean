@@ -3,11 +3,11 @@
 -/
 import Afferent
 import Afferent.Widget
-import Arbor
+import Afferent.Arbor
 import Trellis
 
 open Afferent CanvasM
-open Arbor
+open Afferent.Arbor
 open Trellis (EdgeInsets)
 
 namespace Demos
@@ -47,7 +47,7 @@ def buildCounterWidget (fontId : FontId) (smallFontId : FontId) (counter : Int) 
   let s := fun (v : Float) => v * screenScale
 
   -- Build widget with explicit starting ID
-  let widget := Arbor.buildFrom 0 do
+  let widget := Afferent.Arbor.buildFrom 0 do
     column (gap := s 30) (style := { backgroundColor := some (Color.gray 0.15), padding := EdgeInsets.uniform (s 40) }) #[
       -- Title (ID 1)
       text' "Interactive Counter Demo" fontId Color.white .center,
@@ -141,12 +141,12 @@ def prepareCounterForHitTest (reg : FontRegistry) (fontId : FontId) (smallFontId
   let (widget, ids) := buildCounterWidget fontId smallFontId state.value screenScale
 
   -- Measure widget
-  let measureResult ← Afferent.runWithFonts reg (Arbor.measureWidget widget width height)
+  let measureResult ← Afferent.runWithFonts reg (Afferent.Arbor.measureWidget widget width height)
   let layoutNode := measureResult.node
   let measuredWidget := measureResult.widget
 
   -- Get intrinsic size for centering
-  let (intrinsicWidth, intrinsicHeight) ← Afferent.runWithFonts reg (Arbor.intrinsicSize widget)
+  let (intrinsicWidth, intrinsicHeight) ← Afferent.runWithFonts reg (Afferent.Arbor.intrinsicSize widget)
 
   -- Compute layout at intrinsic size
   let layouts := Trellis.layout layoutNode intrinsicWidth intrinsicHeight
@@ -163,7 +163,7 @@ def hitTestCounter (widget : Widget) (layouts : Trellis.LayoutResult)
   -- Adjust screen coordinates to widget-local coordinates
   let localX := screenX - offsetX
   let localY := screenY - offsetY
-  Arbor.hitTestId widget layouts localX localY
+  Afferent.Arbor.hitTestId widget layouts localX localY
 
 def stepInteractiveDemoFrame (c : Canvas) (reg : FontRegistry) (fontId : FontId) (smallFontId : FontId)
     (width height screenScale : Float) (state : CounterState) (fontMedium : Font)
