@@ -280,6 +280,24 @@ def strokesWidget (labelFont : FontId) : WidgetBuilder := do
   let widgets := cards.map fun (label, draw) => demoCard labelFont label draw
   grid 4 10 { padding := EdgeInsets.uniform 10 } widgets
 
+/-- Curated subset of strokes for responsive grid display. -/
+def strokesSubset : Array (String × (Rect → RenderCommands)) := #[
+  ("Rect Widths", rectWidthCommands),
+  ("Circle Widths", circleWidthCommands),
+  ("Line Widths", lineWidthCommands),
+  ("Rounded Rects", roundedRectCommands),
+  ("Stars", starCommands),
+  ("Fill+Stroke", fillStrokeCommands),
+  ("Wave", waveCommands),
+  ("Arcs", arcCommands),
+  ("Arrow", arrowCommands)
+]
+
+/-- Responsive strokes widget that fills available space. -/
+def strokesWidgetFlex (labelFont : FontId) : WidgetBuilder := do
+  let widgets := strokesSubset.map fun (label, draw) => demoCardFlex labelFont label draw
+  gridFlex 3 3 4 widgets
+
 /-- Render strokes demo content to canvas using Arbor widgets. -/
 def renderStrokesM (reg : Afferent.FontRegistry) (labelFont : FontId) : Afferent.CanvasM Unit := do
   let widget := Afferent.Arbor.build (strokesWidget labelFont)

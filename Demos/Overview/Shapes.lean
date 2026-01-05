@@ -166,6 +166,34 @@ def shapesWidget (labelFont : FontId) : WidgetBuilder := do
   let cards := shapes.map (shapeCard labelFont)
   grid 6 10 { padding := EdgeInsets.uniform 10 } cards
 
+/-- Build a flexible card for a single shape. -/
+def shapeCardFlex (labelFont : FontId) (shape : ShapeDef) : WidgetBuilder := do
+  demoCardFlex labelFont shape.label (shapeCommands shape)
+
+/-- Curated subset of shapes for responsive grid display. -/
+def shapesSubset : Array ShapeDef := #[
+  { label := "Rectangle", color := Afferent.Color.red, path := fun r => Path.rectangle r },
+  { label := "Circle", color := Afferent.Color.yellow, path := fun r => Path.circle (rectCenter r) (minSide r / 2) },
+  { label := "Rounded", color := Afferent.Color.white, path := fun r => Path.roundedRect r (minSide r * 0.15) },
+  { label := "Star", color := Afferent.Color.yellow, path := fun r =>
+      Path.star (rectCenter r) (minSide r * 0.5) (minSide r * 0.22) 5 },
+  { label := "Polygon", color := Afferent.Color.cyan, path := fun r =>
+      Path.polygon (rectCenter r) (minSide r * 0.48) 6 },
+  { label := "Heart", color := Afferent.Color.red, path := fun r =>
+      Path.heart (rectCenter r) (minSide r * 0.8) },
+  { label := "Ellipse", color := Afferent.Color.orange, path := fun r =>
+      Path.ellipse (rectCenter r) (r.size.width / 2) (r.size.height * 0.35) },
+  { label := "Pie", color := Afferent.Color.green, path := fun r =>
+      Path.pie (rectCenter r) (minSide r * 0.5) 0 (Path.pi * 1.5) },
+  { label := "Triangle", color := Afferent.Color.blue, path := fun r =>
+      Path.equilateralTriangle (rectCenter r) (minSide r * 0.5) }
+]
+
+/-- Responsive shapes widget that fills available space. -/
+def shapesWidgetFlex (labelFont : FontId) : WidgetBuilder := do
+  let cards := shapesSubset.map (shapeCardFlex labelFont)
+  gridFlex 3 3 4 cards
+
 /-- Render shapes demo content to canvas using Arbor widgets. -/
 def renderShapesM (reg : Afferent.FontRegistry) (labelFont : FontId) : Afferent.CanvasM Unit := do
   let widget := Afferent.Arbor.build (shapesWidget labelFont)

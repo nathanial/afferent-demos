@@ -141,6 +141,19 @@ def animationsWidget (labelFont : FontId) (t : Float) : WidgetBuilder := do
   let widgets := cards.map fun (label, draw) => demoCard labelFont label draw
   grid 3 10 { padding := EdgeInsets.uniform 10 } widgets
 
+/-- Responsive animations widget that fills available space. -/
+def animationsWidgetFlex (labelFont : FontId) (t : Float) : WidgetBuilder := do
+  let cards : Array (String × (Rect → RenderCommands)) := #[
+    ("Spinning Stars", fun r => spinningStarsCommands r t),
+    ("Pulsing Circles", fun r => pulsingCirclesCommands r t),
+    ("Wiggling Line", fun r => wigglingLineCommands r t),
+    ("Morphing Poly", fun r => morphingPolygonCommands r t),
+    ("Orbiting Hearts", fun r => orbitingHeartsCommands r t),
+    ("Bouncing Rects", fun r => bouncingRectsCommands r t)
+  ]
+  let widgets := cards.map fun (label, draw) => demoCardFlex labelFont label draw
+  gridFlex 2 3 4 widgets
+
 /-- Render animations demo content to canvas using Arbor widgets. -/
 def renderAnimationsM (t : Float) (reg : Afferent.FontRegistry) (labelFont : FontId) : Afferent.CanvasM Unit := do
   let widget := Afferent.Arbor.build (animationsWidget labelFont t)

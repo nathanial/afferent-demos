@@ -216,6 +216,27 @@ def gradientsWidget (labelFont : FontId) : WidgetBuilder := do
   let widgets := cards.map fun (label, draw) => demoCard labelFont label draw
   grid 4 10 { padding := EdgeInsets.uniform 10 } widgets
 
+/-- Curated subset of gradients for responsive grid display. -/
+def gradientsSubset : Array (String × (Rect → RenderCommands)) := #[
+  ("Linear Red-Yellow", linearHorizontal #[Afferent.Color.red, Afferent.Color.yellow]),
+  ("Linear Blue-Cyan", linearHorizontal #[Afferent.Color.blue, Afferent.Color.cyan]),
+  ("Linear Vertical", linearVertical #[Afferent.Color.purple, Afferent.Color.orange]),
+  ("Linear Diagonal", linearDiagonal #[Afferent.Color.magenta, Afferent.Color.cyan]),
+  ("Rainbow", linearHorizontal #[
+    Afferent.Color.red, Afferent.Color.orange, Afferent.Color.yellow,
+    Afferent.Color.green, Afferent.Color.blue, Afferent.Color.purple
+  ]),
+  ("Radial Blue", radialCircle #[Afferent.Color.white, Afferent.Color.blue]),
+  ("Radial Warm", radialCircle #[Afferent.Color.yellow, Afferent.Color.orange, Afferent.Color.red]),
+  ("Ellipse", radialEllipse #[Afferent.Color.yellow, Afferent.Color.purple]),
+  ("Grayscale", linearHorizontal #[Afferent.Color.black, Afferent.Color.white])
+]
+
+/-- Responsive gradients widget that fills available space. -/
+def gradientsWidgetFlex (labelFont : FontId) : WidgetBuilder := do
+  let widgets := gradientsSubset.map fun (label, draw) => demoCardFlex labelFont label draw
+  gridFlex 3 3 4 widgets
+
 /-- Render gradients demo content to canvas using Arbor widgets. -/
 def renderGradientsM (reg : Afferent.FontRegistry) (labelFont : FontId) : Afferent.CanvasM Unit := do
   let widget := Afferent.Arbor.build (gradientsWidget labelFont)

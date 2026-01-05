@@ -60,6 +60,23 @@ def cardSpec (draw : Rect → RenderCommands) (size : Float) : CustomSpec :=
       let inner := insetRect rect pad
       draw inner }
 
+/-- Create a flexible custom spec with minimum size that expands. -/
+def cardSpecFlex (draw : Rect → RenderCommands) : CustomSpec :=
+  { measure := fun _ _ => (60, 60)  -- Minimum content size
+    collect := fun layout =>
+      let rect := layoutRectToRect layout.borderRect
+      let pad := min rect.size.width rect.size.height * 0.08
+      let inner := insetRect rect pad
+      draw inner }
+
+/-- Flexible card style for responsive layout. -/
+def cardStyleFlex : BoxStyle :=
+  { backgroundColor := some (Afferent.Color.gray 0.15)
+    borderColor := some (Afferent.Color.gray 0.35)
+    borderWidth := 1
+    cornerRadius := 6
+    padding := EdgeInsets.uniform 4 }
+
 /-- Build a labeled card with a custom drawing spec. -/
 def demoCard (labelFont : FontId) (label : String) (draw : Rect → RenderCommands)
     (contentSize : Float := 90) (cardWidth : Float := 140) (cardHeight : Float := 120)
@@ -69,5 +86,22 @@ def demoCard (labelFont : FontId) (label : String) (draw : Rect → RenderComman
     custom (cardSpec draw contentSize) { minWidth := some contentSize, minHeight := some contentSize },
     text' label labelFont cardLabelColor .center (some labelMaxWidth)
   ]
+
+/-- Build a flexible card that fills available space in a grid. -/
+def demoCardFlex (labelFont : FontId) (label : String) (draw : Rect → RenderCommands)
+    : WidgetBuilder := do
+  column (gap := 4) (style := cardStyleFlex) #[
+    custom (cardSpecFlex draw) {},
+    text' label labelFont cardLabelColor .center none
+  ]
+
+/-- Create a flexible grid that fills available space using fr units.
+    Creates a grid with the specified number of rows and columns,
+    where each cell expands equally to fill the container. -/
+def gridFlex (rows cols : Nat) (gap : Float := 4) (children : Array WidgetBuilder) : WidgetBuilder := do
+  let rowTemplate := Array.replicate rows (.fr 1)
+  let colTemplate := Array.replicate cols (.fr 1)
+  let props := Trellis.GridContainer.withTemplate rowTemplate colTemplate gap
+  Afferent.Arbor.gridCustom props {} children
 
 end Demos

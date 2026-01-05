@@ -222,6 +222,24 @@ def transformsWidget (labelFont : FontId) : WidgetBuilder := do
   let widgets := cards.map fun (label, draw) => demoCard labelFont label draw
   grid 4 10 { padding := EdgeInsets.uniform 10 } widgets
 
+/-- Curated subset of transforms for responsive grid display. -/
+def transformsSubset : Array (String × (Rect → RenderCommands)) := #[
+  ("Reference", fun r => referenceCommands r Afferent.Color.white),
+  ("Translate", translateCommands),
+  ("Scale", scaleCommands),
+  ("Rotate Fan", rotateFanCommands),
+  ("Nested", nestedCommands),
+  ("Alpha", alphaCommands),
+  ("Orbit", orbitCommands),
+  ("Skew", skewCommands),
+  ("Hearts", heartCommands)
+]
+
+/-- Responsive transforms widget that fills available space. -/
+def transformsWidgetFlex (labelFont : FontId) : WidgetBuilder := do
+  let widgets := transformsSubset.map fun (label, draw) => demoCardFlex labelFont label draw
+  gridFlex 3 3 4 widgets
+
 /-- Render transforms demo content to canvas using Arbor widgets. -/
 def renderTransformsM (reg : Afferent.FontRegistry) (labelFont : FontId) : Afferent.CanvasM Unit := do
   let widget := Afferent.Arbor.build (transformsWidget labelFont)

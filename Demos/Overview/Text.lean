@@ -136,6 +136,24 @@ def textWidget (fonts : DemoFonts) : WidgetBuilder := do
     demoCard fonts.label card.label card.draw card.contentSize card.cardWidth card.cardHeight
   grid 4 10 { padding := EdgeInsets.uniform 10 } widgets
 
+/-- Curated subset of text cards for responsive grid display. -/
+def textSubset (fonts : DemoFonts) : Array (String × (Rect → RenderCommands)) := #[
+  ("Small", fun r => centeredText "Small" fonts.small Afferent.Color.white r),
+  ("Medium", fun r => centeredText "Medium" fonts.medium Afferent.Color.white r),
+  ("Large", fun r => centeredText "Large" fonts.large Afferent.Color.white r),
+  ("Red", fun r => centeredText "Red" fonts.medium Afferent.Color.red r),
+  ("Green", fun r => centeredText "Green" fonts.medium Afferent.Color.green r),
+  ("Blue", fun r => centeredText "Blue" fonts.medium Afferent.Color.blue r),
+  ("Yellow", fun r => centeredText "Yellow" fonts.medium Afferent.Color.yellow r),
+  ("Cyan", fun r => centeredText "Cyan" fonts.medium Afferent.Color.cyan r),
+  ("Magenta", fun r => centeredText "Magenta" fonts.medium Afferent.Color.magenta r)
+]
+
+/-- Responsive text widget that fills available space. -/
+def textWidgetFlex (fonts : DemoFonts) : WidgetBuilder := do
+  let widgets := (textSubset fonts).map fun (label, draw) => demoCardFlex fonts.label label draw
+  gridFlex 3 3 4 widgets
+
 /-- Render text demo content to canvas using Arbor widgets. -/
 def renderTextM (reg : Afferent.FontRegistry) (fonts : DemoFonts) : Afferent.CanvasM Unit := do
   let widget := Afferent.Arbor.build (textWidget fonts)
