@@ -213,8 +213,8 @@ def gradientsWidget (labelFont : FontId) : WidgetBuilder := do
         (Afferent.GradientStop.distribute #[Afferent.Color.hsva 0.778 1.0 0.6 1.0, Afferent.Color.hsva 0.944 0.6 1.0 1.0])
   )]
 
-  let widgets := cards.map fun (label, draw) => demoCard labelFont label draw
-  grid 4 10 { padding := EdgeInsets.uniform 10 } widgets
+  let widgets := cards.map fun (label, draw) => demoCardFlex labelFont label draw
+  gridFlex 4 10 4 widgets (EdgeInsets.uniform 10)
 
 /-- Curated subset of gradients for responsive grid display. -/
 def gradientsSubset : Array (String × (Rect → RenderCommands)) := #[

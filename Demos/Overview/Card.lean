@@ -35,30 +35,9 @@ def rectCenter (r : Rect) : Point :=
 def minSide (r : Rect) : Float :=
   min r.size.width r.size.height
 
-/-- Shared card style for demo widgets. -/
-def cardStyle (cardWidth cardHeight : Float) : BoxStyle :=
-  {
-    backgroundColor := some (Afferent.Color.gray 0.15)
-    borderColor := some (Afferent.Color.gray 0.35)
-    borderWidth := 1
-    cornerRadius := 10
-    padding := EdgeInsets.uniform 8
-    minWidth := some cardWidth
-    minHeight := some cardHeight
-  }
-
 /-- Default label color for cards. -/
 def cardLabelColor : Color :=
   Afferent.Color.gray 0.85
-
-/-- Create a custom spec that draws within a fixed square area. -/
-def cardSpec (draw : Rect → RenderCommands) (size : Float) : CustomSpec :=
-  { measure := fun _ _ => (size, size)
-    collect := fun layout =>
-      let rect := layoutRectToRect layout.borderRect
-      let pad := min rect.size.width rect.size.height * 0.12
-      let inner := insetRect rect pad
-      draw inner }
 
 /-- Create a flexible custom spec with minimum size that expands. -/
 def cardSpecFlex (draw : Rect → RenderCommands) : CustomSpec :=
@@ -78,16 +57,6 @@ def cardStyleFlex : BoxStyle :=
     padding := EdgeInsets.uniform 4
     height := .percent 1.0 }
 
-/-- Build a labeled card with a custom drawing spec. -/
-def demoCard (labelFont : FontId) (label : String) (draw : Rect → RenderCommands)
-    (contentSize : Float := 90) (cardWidth : Float := 140) (cardHeight : Float := 120)
-    : WidgetBuilder := do
-  let labelMaxWidth : Float := cardWidth - 16.0
-  column (gap := 6) (style := cardStyle cardWidth cardHeight) #[
-    custom (cardSpec draw contentSize) { minWidth := some contentSize, minHeight := some contentSize },
-    text' label labelFont cardLabelColor .center (some labelMaxWidth)
-  ]
-
 /-- Build a flexible card that fills available space in a grid. -/
 def demoCardFlex (labelFont : FontId) (label : String) (draw : Rect → RenderCommands)
     : WidgetBuilder := do
@@ -101,11 +70,15 @@ def demoCardFlex (labelFont : FontId) (label : String) (draw : Rect → RenderCo
     Creates a grid with the specified number of rows and columns,
     where each cell expands equally to fill the container.
     Uses flexItem.grow to fill remaining space when used as a flex child. -/
-def gridFlex (rows cols : Nat) (gap : Float := 4) (children : Array WidgetBuilder) : WidgetBuilder := do
+def gridFlex (rows cols : Nat) (gap : Float := 4) (children : Array WidgetBuilder)
+    (padding : EdgeInsets := EdgeInsets.uniform 0) : WidgetBuilder := do
   let rowTemplate := Array.replicate rows (.fr 1)
   let colTemplate := Array.replicate cols (.fr 1)
   let props := Trellis.GridContainer.withTemplate rowTemplate colTemplate gap
   -- Use flexItem.grow to fill remaining space in flex parent (e.g., cellWidget column)
-  Afferent.Arbor.gridCustom props { flexItem := some (Trellis.FlexItem.growing 1) } children
+  Afferent.Arbor.gridCustom props {
+    flexItem := some (Trellis.FlexItem.growing 1),
+    padding := padding
+  } children
 
 end Demos

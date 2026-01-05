@@ -15,9 +15,6 @@ namespace Demos
 private structure TextCard where
   label : String
   draw : Rect → RenderCommands
-  contentSize : Float := 90
-  cardWidth : Float := 140
-  cardHeight : Float := 120
 
 /-- Center a single line of text within the rect. -/
 private def centeredText (text : String) (font : FontId) (color : Color) (r : Rect) : RenderCommands :=
@@ -30,9 +27,9 @@ def textWidget (fonts : DemoFonts) : WidgetBuilder := do
   ), (
     { label := "Medium", draw := fun r => centeredText "Medium 24pt" fonts.medium Afferent.Color.white r }
   ), (
-    { label := "Large", draw := fun r => centeredText "Large 36pt" fonts.large Afferent.Color.white r, contentSize := 100 }
+    { label := "Large", draw := fun r => centeredText "Large 36pt" fonts.large Afferent.Color.white r }
   ), (
-    { label := "Huge", draw := fun r => centeredText "Huge 48pt" fonts.huge Afferent.Color.white r, contentSize := 110 }
+    { label := "Huge", draw := fun r => centeredText "Huge 48pt" fonts.huge Afferent.Color.white r }
   ), (
     { label := "Red", draw := fun r => centeredText "Red Text" fonts.medium Afferent.Color.red r }
   ), (
@@ -47,8 +44,7 @@ def textWidget (fonts : DemoFonts) : WidgetBuilder := do
     { label := "Magenta", draw := fun r => centeredText "Magenta Text" fonts.medium Afferent.Color.magenta r }
   ), (
     { label := "Headline",
-      draw := fun r => centeredText "Afferent" fonts.large Afferent.Color.white r,
-      contentSize := 110, cardWidth := 180, cardHeight := 130 }
+      draw := fun r => centeredText "Afferent" fonts.large Afferent.Color.white r }
   ), (
     { label := "Text on Shape",
       draw := fun r =>
@@ -84,8 +80,7 @@ def textWidget (fonts : DemoFonts) : WidgetBuilder := do
         #[
           .fillText "ABCDEFGHIJKLMNOPQRSTUVWXYZ" x y1 fonts.small Afferent.Color.white,
           .fillText "abcdefghijklmnopqrstuvwxyz" x y2 fonts.small Afferent.Color.white
-        ],
-      contentSize := 120, cardWidth := 200, cardHeight := 130 }
+        ] }
   ), (
     { label := "Digits",
       draw := fun r =>
@@ -93,8 +88,7 @@ def textWidget (fonts : DemoFonts) : WidgetBuilder := do
         let y := r.origin.y + r.size.height * 0.55
         #[
           .fillText "0123456789 !@#$%^&*()" x y fonts.small Afferent.Color.white
-        ],
-      contentSize := 110, cardWidth := 200, cardHeight := 130 }
+        ] }
   ), (
     { label := "Transparent",
       draw := fun r =>
@@ -133,8 +127,8 @@ def textWidget (fonts : DemoFonts) : WidgetBuilder := do
   )]
 
   let widgets := cards.map fun card =>
-    demoCard fonts.label card.label card.draw card.contentSize card.cardWidth card.cardHeight
-  grid 4 10 { padding := EdgeInsets.uniform 10 } widgets
+    demoCardFlex fonts.label card.label card.draw
+  gridFlex 4 10 4 widgets (EdgeInsets.uniform 10)
 
 /-- Curated subset of text cards for responsive grid display. -/
 def textSubset (fonts : DemoFonts) : Array (String × (Rect → RenderCommands)) := #[

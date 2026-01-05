@@ -277,8 +277,8 @@ def strokesWidget (labelFont : FontId) : WidgetBuilder := do
   ), (
     "Cross", crossCommands
   )]
-  let widgets := cards.map fun (label, draw) => demoCard labelFont label draw
-  grid 4 10 { padding := EdgeInsets.uniform 10 } widgets
+  let widgets := cards.map fun (label, draw) => demoCardFlex labelFont label draw
+  gridFlex 4 10 4 widgets (EdgeInsets.uniform 10)
 
 /-- Curated subset of strokes for responsive grid display. -/
 def strokesSubset : Array (String × (Rect → RenderCommands)) := #[

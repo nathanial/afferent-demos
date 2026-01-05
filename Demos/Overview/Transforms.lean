@@ -219,8 +219,8 @@ def transformsWidget (labelFont : FontId) : WidgetBuilder := do
   ), (
     "Hearts", heartCommands
   )]
-  let widgets := cards.map fun (label, draw) => demoCard labelFont label draw
-  grid 4 10 { padding := EdgeInsets.uniform 10 } widgets
+  let widgets := cards.map fun (label, draw) => demoCardFlex labelFont label draw
+  gridFlex 4 10 4 widgets (EdgeInsets.uniform 10)
 
 /-- Curated subset of transforms for responsive grid display. -/
 def transformsSubset : Array (String × (Rect → RenderCommands)) := #[

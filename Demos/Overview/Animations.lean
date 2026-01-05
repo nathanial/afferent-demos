@@ -138,8 +138,8 @@ def animationsWidget (labelFont : FontId) (t : Float) : WidgetBuilder := do
   ), (
     "Bouncing Rects", fun r => bouncingRectsCommands r t
   )]
-  let widgets := cards.map fun (label, draw) => demoCard labelFont label draw
-  grid 3 10 { padding := EdgeInsets.uniform 10 } widgets
+  let widgets := cards.map fun (label, draw) => demoCardFlex labelFont label draw
+  gridFlex 3 10 4 widgets (EdgeInsets.uniform 10)
 
 /-- Responsive animations widget that fills available space. -/
 def animationsWidgetFlex (labelFont : FontId) (t : Float) : WidgetBuilder := do

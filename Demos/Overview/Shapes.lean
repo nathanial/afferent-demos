@@ -28,7 +28,7 @@ def shapeCommands (shape : ShapeDef) (rect : Rect) : RenderCommands :=
 
 /-- Build a labeled card for a single shape. -/
 def shapeCard (labelFont : FontId) (shape : ShapeDef) : WidgetBuilder := do
-  demoCard labelFont shape.label (shapeCommands shape)
+  demoCardFlex labelFont shape.label (shapeCommands shape)
 
 /-- Shapes rendered as cards in a grid. -/
 def shapesWidget (labelFont : FontId) : WidgetBuilder := do
@@ -164,7 +164,7 @@ def shapesWidget (labelFont : FontId) : WidgetBuilder := do
   ]
 
   let cards := shapes.map (shapeCard labelFont)
-  grid 6 10 { padding := EdgeInsets.uniform 10 } cards
+  gridFlex 6 10 4 cards (EdgeInsets.uniform 10)
 
 /-- Build a flexible card for a single shape. -/
 def shapeCardFlex (labelFont : FontId) (shape : ShapeDef) : WidgetBuilder := do
