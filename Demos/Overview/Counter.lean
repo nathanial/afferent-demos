@@ -1,5 +1,5 @@
 /-
-  Counter Widget - Interactive counter with buttons using Arbor
+  Counter Widget - Counter with buttons using Arbor.
 -/
 import Afferent
 import Afferent.Arbor
@@ -44,7 +44,7 @@ def counterWidget (fontId : FontId) (smallFontId : FontId) (counter : Int) (scre
     flexItem := some (Trellis.FlexItem.growing 1)
   }) do
     column (gap := s 30) (style := { backgroundColor := some (Color.gray 0.15), padding := EdgeInsets.uniform (s 40) }) #[
-      text' "Interactive Counter Demo" fontId Color.white .center,
+      text' "Counter Demo" fontId Color.white .center,
       center (style := { backgroundColor := some (Color.gray 0.25), minWidth := some (s 200), minHeight := some (s 80), cornerRadius := s 12 }) do
         text' (toString counter) fontId Color.white .center,
       row (gap := s 20) {} #[

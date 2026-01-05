@@ -1,5 +1,5 @@
 /-
-  Path Features Cards - Non-convex polygons, arcTo, and transformed arcs
+  Paths Cards - Non-convex polygons, arcTo, and transformed arcs.
   Rendered as Arbor card widgets.
 -/
 import Afferent
@@ -13,22 +13,22 @@ open Trellis (EdgeInsets)
 
 namespace Demos
 
-structure PathFeatureDef where
+structure PathsCardDef where
   label : String
   commands : Rect → RenderCommands
 
-private def pathCommands (path : Path) (color : Color) : RenderCommands :=
+private def pathsCommands (path : Path) (color : Color) : RenderCommands :=
   #[RenderCommand.fillPath path color]
 
-private def pathCommandsStroke (path : Path) (fillColor strokeColor : Color) (lineWidth : Float)
+private def pathsCommandsStroke (path : Path) (fillColor strokeColor : Color) (lineWidth : Float)
     : RenderCommands :=
   #[RenderCommand.fillPath path fillColor, RenderCommand.strokePath path strokeColor lineWidth]
 
-private def baseRect (r : Rect) : Rect :=
+private def pathsBaseRect (r : Rect) : Rect :=
   insetRect r (minSide r * 0.12)
 
-private def concaveArrowPath (r : Rect) : Path :=
-  let b := baseRect r
+private def pathsConcaveArrowPath (r : Rect) : Path :=
+  let b := pathsBaseRect r
   let x := b.origin.x
   let y := b.origin.y
   let w := b.size.width
@@ -43,8 +43,8 @@ private def concaveArrowPath (r : Rect) : Path :=
     |>.lineTo ⟨x, y + h * 0.4⟩
     |>.closePath
 
-private def lShapePath (r : Rect) : Path :=
-  let b := baseRect r
+private def pathsLShapePath (r : Rect) : Path :=
+  let b := pathsBaseRect r
   let x := b.origin.x
   let y := b.origin.y
   let w := b.size.width
@@ -58,8 +58,8 @@ private def lShapePath (r : Rect) : Path :=
     |>.lineTo ⟨x, y + h⟩
     |>.closePath
 
-private def concaveStarPath (r : Rect) : Path := Id.run do
-  let b := baseRect r
+private def pathsConcaveStarPath (r : Rect) : Path := Id.run do
+  let b := pathsBaseRect r
   let center := rectCenter b
   let outerR := minSide b * 0.48
   let innerR := outerR * 0.45
@@ -70,8 +70,8 @@ private def concaveStarPath (r : Rect) : Path := Id.run do
     star := star.lineTo ⟨center.x + radius * Float.cos angle, center.y + radius * Float.sin angle⟩
   return star.closePath
 
-private def chevronPath (r : Rect) : Path :=
-  let b := baseRect r
+private def pathsChevronPath (r : Rect) : Path :=
+  let b := pathsBaseRect r
   let x := b.origin.x
   let y := b.origin.y
   let w := b.size.width
@@ -85,8 +85,8 @@ private def chevronPath (r : Rect) : Path :=
     |>.lineTo ⟨x, y + h * 0.45⟩
     |>.closePath
 
-private def roundedRectPath (r : Rect) : Path :=
-  let b := baseRect r
+private def pathsRoundedRectPath (r : Rect) : Path :=
+  let b := pathsBaseRect r
   let cr := min b.size.width b.size.height * 0.18
   let x := b.origin.x
   let y := b.origin.y
@@ -104,8 +104,8 @@ private def roundedRectPath (r : Rect) : Path :=
     |>.arcTo ⟨x, y⟩ ⟨x + cr, y⟩ cr
     |>.closePath
 
-private def roundedTrianglePath (r : Rect) : Path :=
-  let b := baseRect r
+private def pathsRoundedTrianglePath (r : Rect) : Path :=
+  let b := pathsBaseRect r
   let cx := b.origin.x + b.size.width / 2
   let topY := b.origin.y
   let bottomY := b.origin.y + b.size.height
@@ -123,8 +123,8 @@ private def roundedTrianglePath (r : Rect) : Path :=
     |>.arcTo p2 p1 triR
     |>.closePath
 
-private def pillTabPath (r : Rect) : Path :=
-  let b := baseRect r
+private def pathsPillTabPath (r : Rect) : Path :=
+  let b := pathsBaseRect r
   let tabH := b.size.height * 0.35
   let tabW := b.size.width * 0.75
   let x := b.origin.x + (b.size.width - tabW) / 2
@@ -140,10 +140,10 @@ private def pillTabPath (r : Rect) : Path :=
     |>.arcTo ⟨x, y⟩ ⟨x + tabR, y⟩ tabR
     |>.closePath
 
-private def circlePath (r : Rect) : Path :=
+private def pathsCirclePath (r : Rect) : Path :=
   Path.circle (rectCenter r) (minSide r * 0.38)
 
-private def scaledCircleCommands (r : Rect) (sx sy : Float) (color : Color) : RenderCommands :=
+private def pathsScaledCircleCommands (r : Rect) (sx sy : Float) (color : Color) : RenderCommands :=
   let center := rectCenter r
   let radius := minSide r * 0.28
   let path := Path.circle ⟨0, 0⟩ radius
@@ -153,7 +153,7 @@ private def scaledCircleCommands (r : Rect) (sx sy : Float) (color : Color) : Re
     RenderCommand.popTransform,
     RenderCommand.popTransform]
 
-private def rotatedPieCommands (r : Rect) : RenderCommands :=
+private def pathsRotatedPieCommands (r : Rect) : RenderCommands :=
   let center := rectCenter r
   let radius := minSide r * 0.38
   let path := Path.pie ⟨0, 0⟩ radius 0 Path.halfPi
@@ -163,7 +163,7 @@ private def rotatedPieCommands (r : Rect) : RenderCommands :=
     RenderCommand.popTransform,
     RenderCommand.popTransform]
 
-private def transformedArcCommands (r : Rect) : RenderCommands :=
+private def pathsTransformedArcCommands (r : Rect) : RenderCommands :=
   let center := rectCenter r
   let radius := minSide r * 0.34
   let path := Path.arcPath ⟨0, 0⟩ radius 0 (Path.pi * 1.5)
@@ -177,24 +177,24 @@ private def transformedArcCommands (r : Rect) : RenderCommands :=
     RenderCommand.popTransform,
     RenderCommand.popTransform]
 
-private def pathFeatureCards : Array PathFeatureDef := #[
-  { label := "Concave Arrow", commands := fun r => pathCommands (concaveArrowPath r) Afferent.Color.blue },
-  { label := "L-Shape", commands := fun r => pathCommands (lShapePath r) Afferent.Color.green },
-  { label := "Concave Star", commands := fun r => pathCommands (concaveStarPath r) Afferent.Color.yellow },
-  { label := "Chevron", commands := fun r => pathCommands (chevronPath r) Afferent.Color.magenta },
-  { label := "Rounded Rect", commands := fun r => pathCommands (roundedRectPath r) Afferent.Color.cyan },
-  { label := "Rounded Tri", commands := fun r => pathCommands (roundedTrianglePath r) Afferent.Color.orange },
-  { label := "Pill Tab", commands := fun r => pathCommands (pillTabPath r) Afferent.Color.purple },
-  { label := "Circle 1:1", commands := fun r => pathCommands (circlePath r) (Afferent.Color.gray 0.6) },
-  { label := "Scale 2:1", commands := fun r => scaledCircleCommands r 2.0 1.0 Afferent.Color.red },
-  { label := "Scale 1:2", commands := fun r => scaledCircleCommands r 1.0 2.0 Afferent.Color.green },
-  { label := "Pie 30deg", commands := fun r => rotatedPieCommands r },
-  { label := "Arc 45deg", commands := fun r => transformedArcCommands r }
+private def pathsCards : Array PathsCardDef := #[
+  { label := "Concave Arrow", commands := fun r => pathsCommands (pathsConcaveArrowPath r) Afferent.Color.blue },
+  { label := "L-Shape", commands := fun r => pathsCommands (pathsLShapePath r) Afferent.Color.green },
+  { label := "Concave Star", commands := fun r => pathsCommands (pathsConcaveStarPath r) Afferent.Color.yellow },
+  { label := "Chevron", commands := fun r => pathsCommands (pathsChevronPath r) Afferent.Color.magenta },
+  { label := "Rounded Rect", commands := fun r => pathsCommands (pathsRoundedRectPath r) Afferent.Color.cyan },
+  { label := "Rounded Tri", commands := fun r => pathsCommands (pathsRoundedTrianglePath r) Afferent.Color.orange },
+  { label := "Pill Tab", commands := fun r => pathsCommands (pathsPillTabPath r) Afferent.Color.purple },
+  { label := "Circle 1:1", commands := fun r => pathsCommands (pathsCirclePath r) (Afferent.Color.gray 0.6) },
+  { label := "Scale 2:1", commands := fun r => pathsScaledCircleCommands r 2.0 1.0 Afferent.Color.red },
+  { label := "Scale 1:2", commands := fun r => pathsScaledCircleCommands r 1.0 2.0 Afferent.Color.green },
+  { label := "Pie 30deg", commands := fun r => pathsRotatedPieCommands r },
+  { label := "Arc 45deg", commands := fun r => pathsTransformedArcCommands r }
 ]
 
 /-- Paths rendered as cards in a grid (overview-friendly). -/
-def pathFeaturesWidgetFlex (labelFont : FontId) : WidgetBuilder := do
-  let cards := pathFeatureCards.map (fun feature =>
+def pathsWidgetFlex (labelFont : FontId) : WidgetBuilder := do
+  let cards := pathsCards.map (fun feature =>
     demoCardFlex labelFont feature.label feature.commands)
   gridFlex 3 4 4 cards (EdgeInsets.uniform 6)
 
