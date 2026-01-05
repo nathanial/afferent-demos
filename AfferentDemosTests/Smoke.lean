@@ -1,0 +1,17 @@
+/-
+  Afferent Demos Smoke Tests
+-/
+import Crucible
+
+namespace AfferentDemosTests.Smoke
+
+open Crucible
+
+testSuite "AfferentDemos"
+
+test "smoke" := do
+  1 ≡ 1
+
+#generate_tests
+
+end AfferentDemosTests.Smoke
