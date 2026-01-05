@@ -547,6 +547,21 @@ def unifiedDemo : IO Unit := do
             let keyCode ← c.getKeyCode
             let click ← FFI.Window.getClick c.ctx.window
             let s := rs.assets.screenScale
+            let (screenW, screenH) ← c.ctx.getCurrentSize
+            if screenW != rs.assets.physWidthF || screenH != rs.assets.physHeightF then
+              let (layoutOffsetX, layoutOffsetY, layoutScale) := calcLayout screenW screenH
+              rs := { rs with
+                assets := {
+                  rs.assets with
+                  physWidthF := screenW
+                  physHeightF := screenH
+                  physWidth := screenW.toUInt32
+                  physHeight := screenH.toUInt32
+                  layoutOffsetX := layoutOffsetX
+                  layoutOffsetY := layoutOffsetY
+                  layoutScale := layoutScale
+                }
+              }
             let tabBarHeightPx := tabBarHeight * s
 
             let buildDemoWidget := fun (tabBar : TabBarResult) (demo : AnyDemo)
@@ -561,8 +576,8 @@ def unifiedDemo : IO Unit := do
 
             let measureRoot := fun (root : Afferent.Arbor.Widget) => do
               let measureResult ← runWithFonts rs.assets.fontPack.registry
-                (Afferent.Arbor.measureWidget root rs.assets.physWidthF rs.assets.physHeightF)
-              let layouts := Trellis.layout measureResult.node rs.assets.physWidthF rs.assets.physHeightF
+                (Afferent.Arbor.measureWidget root screenW screenH)
+              let layouts := Trellis.layout measureResult.node screenW screenH
               pure (measureResult.widget, layouts)
 
             let envFromLayout := fun (layout : Trellis.ComputedLayout) (t dt : Float) (keyCode : UInt16) (clearKey : IO Unit) =>
@@ -585,9 +600,9 @@ def unifiedDemo : IO Unit := do
                 layoutScale := contentLayoutScale
               }
 
-            let fallbackContentH := max 1.0 (rs.assets.physHeightF - tabBarHeightPx)
+            let fallbackContentH := max 1.0 (screenH - tabBarHeightPx)
             let defaultContentRect : Trellis.LayoutRect :=
-              { x := 0, y := tabBarHeightPx, width := rs.assets.physWidthF, height := fallbackContentH }
+              { x := 0, y := tabBarHeightPx, width := screenW, height := fallbackContentH }
             let defaultLayout := Trellis.ComputedLayout.simple 0 defaultContentRect
             let envForView := envFromLayout defaultLayout t dt keyCode c.clearKey
             match rs.demoRefs[rs.displayMode]? with

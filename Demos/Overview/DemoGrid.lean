@@ -1,5 +1,5 @@
 /-
-  Demo Grid - Normal demo mode showing all demos in a 2x3 grid layout
+  Demo Grid - Normal demo mode showing all demos in a 2x4 grid layout
   Uses pure Arbor widgets with responsive demo content.
 -/
 import Afferent
@@ -12,6 +12,7 @@ import Demos.Overview.Gradients
 import Demos.Overview.Text
 import Demos.Overview.Animations
 import Demos.Overview.Card
+import Demos.Interactive
 
 open Afferent CanvasM
 open Afferent.Arbor
@@ -25,7 +26,7 @@ structure CellConfig where
   label : String
   content : Float → DemoFonts → WidgetBuilder
 
-/-- Get cell configuration by index (0-5, left-to-right, top-to-bottom) -/
+/- Get cell configuration by index (0-5, left-to-right, top-to-bottom). -/
 def getCellConfig (idx : Nat) : CellConfig :=
   match idx with
   | 0 => ⟨Color.hsva 0.667 0.25 0.20 1.0, "Shapes",     fun _ fonts => shapesWidgetFlex fonts.label⟩
@@ -52,10 +53,21 @@ def cellWidget (config : CellConfig) (screenScale : Float)
     config.content t demoFonts
   ]
 
-/-- Build the normal demo mode: 2x3 grid of demo cells using Arbor widgets. -/
-def demoGridWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts) : WidgetBuilder := do
+/-- Build the counter overview cell using the interactive counter widget. -/
+def counterCellWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts)
+    (counterValue : Int) : WidgetBuilder := do
+  let config : CellConfig := {
+    bg := Color.hsva 0.92 0.25 0.20 1.0
+    label := "Counter"
+    content := fun _ fonts => counterWidget fonts.medium fonts.small counterValue screenScale
+  }
+  cellWidget config screenScale t demoFonts
+
+/-- Build the normal demo mode: 2x4 grid of demo cells using Arbor widgets. -/
+def demoGridWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts) (counterValue : Int)
+    : WidgetBuilder := do
   let props := GridContainer.withTemplate
-    #[.fr 1, .fr 1, .fr 1]  -- 3 rows, each 1fr
+    #[.fr 1, .fr 1, .fr 1, .fr 1]  -- 4 rows, each 1fr
     #[.fr 1, .fr 1]          -- 2 columns, each 1fr
   let style : BoxStyle := {
     width := .percent 1.0
@@ -68,7 +80,8 @@ def demoGridWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts) : W
     cellWidget (getCellConfig 2) screenScale t demoFonts,
     cellWidget (getCellConfig 3) screenScale t demoFonts,
     cellWidget (getCellConfig 4) screenScale t demoFonts,
-    cellWidget (getCellConfig 5) screenScale t demoFonts
+    cellWidget (getCellConfig 5) screenScale t demoFonts,
+    counterCellWidget screenScale t demoFonts counterValue
   ]
 
 end Demos

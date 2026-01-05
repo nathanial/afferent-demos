@@ -37,7 +37,6 @@ inductive DemoId where
   | layout
   | cssGrid
   | widgets
-  | interactive
   | spinningCubes
   | seascape
   | pathFeatures
@@ -56,18 +55,18 @@ structure CirclesState where
 structure SpritesState where
   particles : Render.Dynamic.ParticleState
 
+structure DemoGridState where
+  counter : CounterState
+
 structure ShapeGalleryState where
   index : Nat
 
 structure WorldmapState where
   mapState : Worldmap.MapState
 
-structure InteractiveState where
-  counter : CounterState
-
 /-- Demo state mapping by id. -/
 def DemoState : DemoId → Type
-  | .demoGrid => Unit
+  | .demoGrid => DemoGridState
   | .gridPerf => Unit
   | .trianglesPerf => Unit
   | .circlesPerf => CirclesState
@@ -75,7 +74,6 @@ def DemoState : DemoId → Type
   | .layout => Unit
   | .cssGrid => Unit
   | .widgets => Unit
-  | .interactive => InteractiveState
   | .spinningCubes => SpinningCubesState
   | .seascape => SeascapeState
   | .pathFeatures => Unit
@@ -104,21 +102,77 @@ structure AnyDemo where
   state : DemoState id
 
 instance : Inhabited AnyDemo :=
-  ⟨{ id := .demoGrid, state := () }⟩
+  ⟨{ id := .demoGrid, state := { counter := CounterState.initial } }⟩
+
+private def demoFontsFromEnv (env : DemoEnv) : DemoFonts := {
+  label := env.fontSmallId,
+  small := env.fontSmallId,
+  medium := env.fontMediumId,
+  large := env.fontLargeId,
+  huge := env.fontHugeId
+}
+
+private partial def findWidgetIdByName (widget : Afferent.Arbor.Widget)
+    (target : String) : Option Afferent.Arbor.WidgetId :=
+  let widgetName := Afferent.Arbor.Widget.name? widget
+  match widgetName with
+  | some name =>
+      if name == target then
+        some (Afferent.Arbor.Widget.id widget)
+      else
+        findInChildren widget target
+  | none =>
+      findInChildren widget target
+where
+  findInChildren (widget : Afferent.Arbor.Widget) (target : String)
+      : Option Afferent.Arbor.WidgetId :=
+    let children := Afferent.Arbor.Widget.children widget
+    let rec loop (idx : Nat) : Option Afferent.Arbor.WidgetId :=
+      if idx >= children.size then
+        none
+      else
+        match children[idx]? with
+        | some child =>
+            match findWidgetIdByName child target with
+            | some result => some result
+            | none => loop (idx + 1)
+        | none => loop (idx + 1)
+    loop 0
+
+private def hitPathHasNamedWidget (widget : Afferent.Arbor.Widget)
+    (hitPath : Array Afferent.Arbor.WidgetId) (name : String) : Bool :=
+  match findWidgetIdByName widget name with
+  | some wid => hitPath.any (· == wid)
+  | none => false
 
 instance : Demo .demoGrid where
   name := "DEMO mode"
   shortName := "Overview"
-  init := fun _ => pure ()
-  view := fun env _ =>
-    let demoFonts : DemoFonts := {
-      label := env.fontSmallId,
-      small := env.fontSmallId,
-      medium := env.fontMediumId,
-      large := env.fontLargeId,
-      huge := env.fontHugeId
-    }
-    some (demoGridWidget env.screenScale env.t demoFonts)
+  init := fun _ => pure { counter := CounterState.initial }
+  view := fun env state =>
+    let demoFonts := demoFontsFromEnv env
+    some (demoGridWidget env.screenScale env.t demoFonts state.counter.value)
+  handleClick := fun env state contentId hitPath click => do
+    if click.button != 0 then
+      pure state
+    else
+      let demoFonts := demoFontsFromEnv env
+      let gridWidget :=
+        Afferent.Arbor.buildFrom contentId
+          (demoGridWidget env.screenScale env.t demoFonts state.counter.value)
+      let clickedIncrement := hitPathHasNamedWidget gridWidget hitPath counterIncrementName
+      let clickedDecrement := hitPathHasNamedWidget gridWidget hitPath counterDecrementName
+      let clickedReset := hitPathHasNamedWidget gridWidget hitPath counterResetName
+      let nextCounter :=
+        if clickedIncrement then
+          CounterState.increment state.counter
+        else if clickedDecrement then
+          CounterState.decrement state.counter
+        else if clickedReset then
+          CounterState.reset state.counter
+        else
+          state.counter
+      pure { state with counter := nextCounter }
   step := fun c _ s => pure (c, s)
 
 instance : Demo .gridPerf where
@@ -188,17 +242,6 @@ instance : Demo .widgets where
   init := fun _ => pure ()
   view := fun env _ =>
     some (widgetDemo env.fontMediumId env.fontSmallId env.screenScale)
-  step := fun c _ s => pure (c, s)
-
-instance : Demo .interactive where
-  name := "INTERACTIVE demo (click the buttons!)"
-  shortName := "Counter"
-  init := fun _ => pure { counter := CounterState.initial }
-  view := fun env s =>
-    some (counterWidget env.fontMediumId env.fontSmallId s.counter.value env.screenScale)
-  handleClick := fun _ s contentId hitPath click => do
-    let nextCounter := handleCounterClick s.counter contentId hitPath click.button
-    pure { s with counter := nextCounter }
   step := fun c _ s => pure (c, s)
 
 instance : Demo .spinningCubes where
@@ -382,7 +425,6 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let layoutDemo ← mkAnyDemo .layout env
   let cssGridDemo ← mkAnyDemo .cssGrid env
   let widgetsDemo ← mkAnyDemo .widgets env
-  let interactiveDemo ← mkAnyDemo .interactive env
   let spinningCubesDemo ← mkAnyDemo .spinningCubes env
   let seascapeDemo ← mkAnyDemo .seascape env
   let pathFeaturesDemo ← mkAnyDemo .pathFeatures env
@@ -394,7 +436,7 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let textureMatrixDemo ← mkAnyDemo .textureMatrix env
   let orbitalInstancedDemo ← mkAnyDemo .orbitalInstanced env
   pure #[demoGrid, gridPerf, trianglesPerf, circlesPerf, spritesPerf, layoutDemo, cssGridDemo,
-    widgetsDemo, interactiveDemo, spinningCubesDemo, seascapeDemo, pathFeaturesDemo,
+    widgetsDemo, spinningCubesDemo, seascapeDemo, pathFeaturesDemo,
     shapeGalleryDemo, worldmapDemo, lineCapsDemo, dashedLinesDemo, linesPerfDemo,
     textureMatrixDemo, orbitalInstancedDemo]
 
