@@ -5,13 +5,13 @@
 import Afferent
 import Afferent.Widget
 import Afferent.Arbor
-import Demos.Shapes
-import Demos.Transforms
-import Demos.Strokes
-import Demos.Gradients
-import Demos.Text
-import Demos.Animations
-import Demos.Card
+import Demos.Overview.Shapes
+import Demos.Overview.Transforms
+import Demos.Overview.Strokes
+import Demos.Overview.Gradients
+import Demos.Overview.Text
+import Demos.Overview.Animations
+import Demos.Overview.Card
 
 open Afferent CanvasM
 open Trellis

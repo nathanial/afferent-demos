@@ -2,7 +2,7 @@
   Demo Runner - Main orchestration for all demos
 -/
 import Afferent
-import Demos.Text
+import Demos.Overview.Text
 import Demos.Demo
 import Demos.DemoRegistry
 import Wisp

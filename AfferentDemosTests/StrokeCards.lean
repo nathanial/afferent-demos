@@ -6,7 +6,7 @@ import Crucible
 import Afferent
 import Afferent.Arbor
 import Afferent.Widget
-import Demos.Strokes
+import Demos.Overview.Strokes
 import Trellis
 
 namespace AfferentDemosTests.StrokeCards

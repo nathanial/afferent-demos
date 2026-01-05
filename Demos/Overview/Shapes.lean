@@ -5,7 +5,7 @@ import Afferent
 import Afferent.Widget
 import Afferent.Arbor
 import Trellis
-import Demos.Card
+import Demos.Overview.Card
 
 open Afferent.Arbor
 open Trellis (EdgeInsets)

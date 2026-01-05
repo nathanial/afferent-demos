@@ -4,7 +4,7 @@
 import Afferent
 import Afferent.Widget
 import Afferent.Arbor
-import Demos.Card
+import Demos.Overview.Card
 import Trellis
 
 open Afferent.Arbor

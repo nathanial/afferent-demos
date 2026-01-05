@@ -2,8 +2,8 @@
   Demo Registry - Demo ids, states, and instances.
 -/
 import Demos.Demo
-import Demos.DemoGrid
-import Demos.Card
+import Demos.Overview.DemoGrid
+import Demos.Overview.Card
 import Demos.GridPerf
 import Demos.TrianglesPerf
 import Demos.CirclesPerf
