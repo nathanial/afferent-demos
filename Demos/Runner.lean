@@ -351,6 +351,8 @@ private def mkEnvFromAssets (a : LoadedAssets) (t dt : Float) (keyCode : UInt16)
   physHeightF := a.physHeightF
   physWidth := a.physWidth
   physHeight := a.physHeight
+  contentOffsetX := 0.0
+  contentOffsetY := 0.0
   layoutOffsetX := a.layoutOffsetX
   layoutOffsetY := a.layoutOffsetY
   layoutScale := a.layoutScale
@@ -528,6 +530,8 @@ def unifiedDemo : IO Unit := do
                   initEnv with
                   physHeightF := contentHeightF
                   physHeight := contentHeight
+                  contentOffsetX := 0.0
+                  contentOffsetY := tabBarHeightPx
                   layoutOffsetX := contentLayoutOffsetX
                   layoutOffsetY := contentLayoutOffsetY
                   layoutScale := contentLayoutScale
@@ -561,6 +565,7 @@ def unifiedDemo : IO Unit := do
             let tabBarHeightPx := tabBarHeight * s
 
             -- Check for click events on tabbar
+            let mut clickOutsideTabBar := false
             let click ← FFI.Window.getClick c.ctx.window
             match click with
             | some ce =>
@@ -572,6 +577,20 @@ def unifiedDemo : IO Unit := do
                   if newTabIdx != rs.displayMode then
                     -- Switch to new tab
                     let exitEnv := mkEnvFromAssets rs.assets 0.0 0.0 keyCode
+                    let contentHeightF := max 1.0 (rs.assets.physHeightF - tabBarHeightPx)
+                    let contentHeight := contentHeightF.toUInt32
+                    let (contentLayoutOffsetX, contentLayoutOffsetY, contentLayoutScale) :=
+                      calcLayout rs.assets.physWidthF contentHeightF
+                    let exitEnv := {
+                      exitEnv with
+                      physHeightF := contentHeightF
+                      physHeight := contentHeight
+                      contentOffsetX := 0.0
+                      contentOffsetY := tabBarHeightPx
+                      layoutOffsetX := contentLayoutOffsetX
+                      layoutOffsetY := contentLayoutOffsetY
+                      layoutScale := contentLayoutScale
+                    }
                     let currentDemo ← AnyDemo.onExit (rs.demos[rs.displayMode]!) c exitEnv
                     rs := { rs with demos := rs.demos.set! rs.displayMode currentDemo }
                     rs := { rs with displayMode := newTabIdx }
@@ -584,6 +603,8 @@ def unifiedDemo : IO Unit := do
                     rs := { rs with tabBar := newTabBar }
                     IO.println s!"Switched to {AnyDemo.name (rs.demos[rs.displayMode]!)}"
                 | none => pure ()
+              else
+                clickOutsideTabBar := true
             | none => pure ()
 
             -- Set up scissor to clip demo content to area below tabbar
@@ -605,6 +626,8 @@ def unifiedDemo : IO Unit := do
               env with
               physHeightF := contentHeightF
               physHeight := contentHeight
+              contentOffsetX := 0.0
+              contentOffsetY := tabBarHeightPx
               layoutOffsetX := contentLayoutOffsetX
               layoutOffsetY := contentLayoutOffsetY
               layoutScale := contentLayoutScale
@@ -615,6 +638,8 @@ def unifiedDemo : IO Unit := do
             let (c', nextDemo) ← AnyDemo.step demo c env
             c := c'
             rs := { rs with demos := rs.demos.set! rs.displayMode nextDemo }
+            if clickOutsideTabBar then
+              FFI.Window.clearClick c.ctx.window
 
             -- Reset base transform and scissor, then render tabbar on top
             c := c.modifyState (CanvasState.setBaseTransform Transform.identity)

@@ -166,16 +166,19 @@ def hitTestCounter (widget : Widget) (layouts : Trellis.LayoutResult)
   Afferent.Arbor.hitTestId widget layouts localX localY
 
 def stepInteractiveDemoFrame (c : Canvas) (reg : FontRegistry) (fontId : FontId) (smallFontId : FontId)
-    (width height screenScale : Float) (state : CounterState) (fontMedium : Font)
+    (width height screenScale : Float) (contentOffsetX contentOffsetY : Float)
+    (state : CounterState) (fontMedium : Font)
     : IO (Canvas × CounterState) := do
   let mut nextState := state
   let click ← FFI.Window.getClick c.ctx.window
   match click with
   | some ce =>
     FFI.Window.clearClick c.ctx.window
+    let localX := ce.x - contentOffsetX
+    let localY := ce.y - contentOffsetY
     let (widget, layouts, ids, offsetX, offsetY) ←
       prepareCounterForHitTest reg fontId smallFontId width height nextState screenScale
-    let hitId := hitTestCounter widget layouts offsetX offsetY ce.x ce.y
+    let hitId := hitTestCounter widget layouts offsetX offsetY localX localY
     nextState := { nextState with widgetIds := some ids }
     nextState := processClick nextState hitId
   | none => pure ()

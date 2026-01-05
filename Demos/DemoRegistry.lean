@@ -196,7 +196,10 @@ instance : Demo .interactive where
   init := fun _ => pure { counter := CounterState.initial }
   step := fun c env s => do
     let (c', nextCounter) ←
-      stepInteractiveDemoFrame c env.fontRegistry env.fontMediumId env.fontSmallId env.physWidthF env.physHeightF env.screenScale s.counter env.fontMedium
+      stepInteractiveDemoFrame c env.fontRegistry env.fontMediumId env.fontSmallId
+        env.physWidthF env.physHeightF env.screenScale
+        env.contentOffsetX env.contentOffsetY
+        s.counter env.fontMedium
     pure (c', { s with counter := nextCounter })
 
 instance : Demo .spinningCubes where

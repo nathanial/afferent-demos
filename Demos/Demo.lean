@@ -39,6 +39,8 @@ structure DemoEnv where
   physHeightF : Float
   physWidth : UInt32
   physHeight : UInt32
+  contentOffsetX : Float
+  contentOffsetY : Float
   layoutOffsetX : Float
   layoutOffsetY : Float
   layoutScale : Float
