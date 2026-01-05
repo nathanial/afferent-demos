@@ -2,9 +2,12 @@
   Demo Runner - Main orchestration for all demos
 -/
 import Afferent
+import Afferent.Arbor
+import Afferent.Widget
 import Demos.Overview.Text
 import Demos.Demo
 import Demos.DemoRegistry
+import Demos.TabBar
 import Wisp
 import Init.Data.FloatArray
 
@@ -62,6 +65,17 @@ private structure LoadedAssets where
   layoutOffsetY : Float
   layoutScale : Float
 
+/-- Tabbar UI state. -/
+private structure TabBarState where
+  selectedTab : Nat
+  tabIds : Array Afferent.Arbor.WidgetId
+  cachedWidget : Option Afferent.Arbor.Widget
+  cachedLayouts : Option Trellis.LayoutResult
+deriving Inhabited
+
+/-- Fixed tabbar height in logical pixels. -/
+def tabBarHeight : Float := 44.0
+
 private structure RunningState where
   assets : LoadedAssets
   demos : Array AnyDemo
@@ -71,6 +85,7 @@ private structure RunningState where
   fpsAccumulator : Float
   displayFps : Float
   framesLeft : Nat
+  tabBar : TabBarState
 
 private inductive AppState where
   | loading (state : LoadingState)
@@ -341,6 +356,51 @@ private def mkEnvFromAssets (a : LoadedAssets) (t dt : Float) (keyCode : UInt16)
   layoutScale := a.layoutScale
 }
 
+/-- Build tab configurations from the demo list. -/
+private def buildTabConfigs (demos : Array AnyDemo) (selectedIdx : Nat) : Array TabConfig :=
+  demos.mapIdx fun idx demo => {
+    id := idx
+    label := AnyDemo.shortName demo
+    isActive := idx == selectedIdx
+  }
+
+/-- Build or rebuild the tabbar widget. -/
+private def rebuildTabBar (demos : Array AnyDemo) (selectedIdx : Nat)
+    (fontId : Afferent.Arbor.FontId) (screenScale : Float) : TabBarState :=
+  let configs := buildTabConfigs demos selectedIdx
+  let result := buildTabBar configs fontId {} screenScale
+  { selectedTab := selectedIdx
+    tabIds := result.tabIds
+    cachedWidget := some result.widget
+    cachedLayouts := none  -- Will be computed during render
+  }
+
+/-- Render the tabbar widget using CanvasM. Returns updated canvas and layouts for hit testing. -/
+private def renderTabBarWidgetM (tabBarState : TabBarState)
+    (fontRegistry : FontRegistry) (physWidth : Float) (screenScale : Float)
+    : CanvasM (Option Trellis.LayoutResult) := do
+  match tabBarState.cachedWidget with
+  | none => pure none
+  | some widget =>
+    -- Render the tabbar using the standard Arbor widget renderer
+    let availWidth := physWidth
+    let availHeight := tabBarHeight * screenScale
+    Afferent.Widget.renderArborWidget fontRegistry widget availWidth availHeight
+    -- Compute layouts separately for hit testing
+    let measureResult ← runWithFonts fontRegistry (Afferent.Arbor.measureWidget widget availWidth availHeight)
+    let layouts := Trellis.layout measureResult.node availWidth availHeight
+    pure (some layouts)
+
+/-- Handle click events for the tabbar. Returns Some newTabIndex if a tab was clicked. -/
+private def handleTabBarClick (tabBarState : TabBarState) (clickX clickY : Float)
+    : Option Nat := do
+  let widget ← tabBarState.cachedWidget
+  let layouts ← tabBarState.cachedLayouts
+  -- Check if click is in the tabbar area
+  let hitWidgetId ← Afferent.Arbor.hitTestId widget layouts clickX clickY
+  -- Find which tab was clicked
+  findClickedTab tabBarState.tabIds hitWidgetId
+
 /-- Unified visual demo - runs all demos in a grid layout -/
 def unifiedDemo : IO Unit := do
   IO.println "Unified Visual Demo (with Animations!)"
@@ -461,8 +521,10 @@ def unifiedDemo : IO Unit := do
                 let displayMode : Nat := startMode % demos.size
                 let msaaEnabled : Bool := AnyDemo.msaaEnabled (demos[displayMode]!)
                 FFI.Renderer.setMSAAEnabled c.ctx.renderer msaaEnabled
+                -- Build initial tabbar state
+                let tabBarState := rebuildTabBar demos displayMode assets.fontPack.smallId screenScale
                 IO.println "Rendering animated demo... (close window to exit)"
-                IO.println "Press SPACE to toggle performance test mode (10000 spinning squares)"
+                IO.println "Click tabs to switch demos"
                 state := .running {
                   assets := assets
                   demos := demos
@@ -472,31 +534,69 @@ def unifiedDemo : IO Unit := do
                   fpsAccumulator := 0.0
                   displayFps := 0.0
                   framesLeft := exitAfterFrames
+                  tabBar := tabBarState
                 }
             | none =>
                 state := .loading ls
             c ← c.endFrame
         | .running rs =>
             let mut rs := rs
-            -- Check for Space key to cycle through modes
             let keyCode ← c.getKeyCode
-            if keyCode == FFI.Key.space then
-              let exitEnv := mkEnvFromAssets rs.assets 0.0 0.0 keyCode
-              let currentDemo ← AnyDemo.onExit (rs.demos[rs.displayMode]!) c exitEnv
-              rs := { rs with demos := rs.demos.set! rs.displayMode currentDemo }
-              rs := { rs with displayMode := (rs.displayMode + 1) % rs.demos.size }
-              c.clearKey
-              c := c.resetState
-              c.ctx.resetScissor
-              rs := { rs with msaaEnabled := AnyDemo.msaaEnabled (rs.demos[rs.displayMode]!) }
-              FFI.Renderer.setMSAAEnabled c.ctx.renderer rs.msaaEnabled
-              IO.println s!"Switched to {AnyDemo.name (rs.demos[rs.displayMode]!)}"
+            let s := rs.assets.screenScale
+            let tabBarHeightPx := tabBarHeight * s
 
-            let env := mkEnvFromAssets rs.assets t dt keyCode
+            -- Check for click events on tabbar
+            let click ← FFI.Window.getClick c.ctx.window
+            match click with
+            | some ce =>
+              FFI.Window.clearClick c.ctx.window
+              -- Check if click is on a tab
+              match handleTabBarClick rs.tabBar ce.x ce.y with
+              | some newTabIdx =>
+                if newTabIdx != rs.displayMode then
+                  -- Switch to new tab
+                  let exitEnv := mkEnvFromAssets rs.assets 0.0 0.0 keyCode
+                  let currentDemo ← AnyDemo.onExit (rs.demos[rs.displayMode]!) c exitEnv
+                  rs := { rs with demos := rs.demos.set! rs.displayMode currentDemo }
+                  rs := { rs with displayMode := newTabIdx }
+                  c := c.resetState
+                  c.ctx.resetScissor
+                  rs := { rs with msaaEnabled := AnyDemo.msaaEnabled (rs.demos[rs.displayMode]!) }
+                  FFI.Renderer.setMSAAEnabled c.ctx.renderer rs.msaaEnabled
+                  -- Rebuild tabbar with new selection
+                  let newTabBar := rebuildTabBar rs.demos newTabIdx rs.assets.fontPack.smallId s
+                  rs := { rs with tabBar := newTabBar }
+                  IO.println s!"Switched to {AnyDemo.name (rs.demos[rs.displayMode]!)}"
+              | none => pure ()
+            | none => pure ()
+
+            -- Set up scissor to clip demo content to area below tabbar
+            let tabBarHeightPxU32 := tabBarHeightPx.toUInt32
+            let contentHeight := (rs.assets.physHeightF - tabBarHeightPx).toUInt32
+            c.setScissor 0 tabBarHeightPxU32 rs.assets.physWidth contentHeight
+
+            -- Set up translation for demo content area (below tabbar)
+            c ← run' c do
+              resetTransform
+              translate 0 tabBarHeightPx
+
+            -- Create adjusted environment with reduced height for demo area
+            let adjustedPhysHeightF := rs.assets.physHeightF - tabBarHeightPx
+            let mut env := mkEnvFromAssets rs.assets t dt keyCode
+            env := { env with physHeightF := adjustedPhysHeightF }
+
+            -- Render the current demo (clipped to content area)
             let demo := rs.demos[rs.displayMode]!
             let (c', nextDemo) ← AnyDemo.step demo c env
             c := c'
             rs := { rs with demos := rs.demos.set! rs.displayMode nextDemo }
+
+            -- Reset scissor and render tabbar on top
+            c.resetScissor
+            let (layouts, c') ← run c (renderTabBarWidgetM rs.tabBar rs.assets.fontPack.registry rs.assets.physWidthF s)
+            c := c'
+            -- Cache the layouts for hit testing
+            rs := { rs with tabBar := { rs.tabBar with cachedLayouts := layouts } }
 
             -- Update FPS counter (update display every 10 frames for stability)
             rs := { rs with frameCount := rs.frameCount + 1 }
@@ -512,17 +612,16 @@ def unifiedDemo : IO Unit := do
               }
 
             -- Render FPS counter in top-right corner (after all other rendering)
-            -- Use current drawable size for proper positioning after resize
+            -- Reset transform to draw in screen coordinates
             let fpsText := s!"{rs.displayFps.toUInt32} FPS"
             let (textWidth, _) ← rs.assets.fontSmall.measureText fpsText
             c ← run' c do
               resetTransform
               let (fpsW, _) ← getCurrentSize
-              let s := rs.assets.screenScale
               setFillColor (Color.hsva 0.0 0.0 0.0 0.6)
-              fillRectXYWH (fpsW - textWidth - 20 * s) (5 * s) (textWidth + 15 * s) (25 * s)
+              fillRectXYWH (fpsW - textWidth - 20 * s) (tabBarHeightPx + 5 * s) (textWidth + 15 * s) (25 * s)
               setFillColor Color.white
-              fillTextXY fpsText (fpsW - textWidth - 12 * s) (22 * s) rs.assets.fontSmall
+              fillTextXY fpsText (fpsW - textWidth - 12 * s) (tabBarHeightPx + 22 * s) rs.assets.fontSmall
 
             c ← c.endFrame
 

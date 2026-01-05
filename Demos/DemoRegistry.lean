@@ -95,6 +95,7 @@ def DemoState : DemoId → Type
 
 class Demo (id : DemoId) where
   name : String
+  shortName : String  -- Short name for tab display
   msaaEnabled : Bool := true
   init : DemoEnv → IO (DemoState id)
   step : Canvas → DemoEnv → DemoState id → IO (Canvas × DemoState id)
@@ -109,6 +110,7 @@ instance : Inhabited AnyDemo :=
 
 instance : Demo .demoGrid where
   name := "DEMO mode"
+  shortName := "Overview"
   init := fun _ => pure ()
   step := fun c env s => do
     let (currentW, currentH) ← c.ctx.getCurrentSize
@@ -124,6 +126,7 @@ instance : Demo .demoGrid where
 
 instance : Demo .gridPerf where
   name := "GRID (squares) performance test"
+  shortName := "Grid"
   init := fun _ => pure ()
   step := fun c env s => do
     let c ← renderGridPerfFrame c env.t env.fontMedium env.gridParticles env.halfSize
@@ -131,6 +134,7 @@ instance : Demo .gridPerf where
 
 instance : Demo .trianglesPerf where
   name := "TRIANGLES performance test"
+  shortName := "Triangles"
   init := fun _ => pure ()
   step := fun c env s => do
     let c ← renderTrianglesPerfFrame c env.t env.fontMedium env.gridParticles env.halfSize
@@ -138,6 +142,7 @@ instance : Demo .trianglesPerf where
 
 instance : Demo .circlesPerf where
   name := "CIRCLES (bouncing) performance test"
+  shortName := "Circles"
   init := fun env => do
     let particles := Render.Dynamic.ParticleState.create 1000000 env.physWidthF env.physHeightF 42
     IO.println s!"Created {particles.count} bouncing circles"
@@ -149,6 +154,7 @@ instance : Demo .circlesPerf where
 
 instance : Demo .spritesPerf where
   name := "SPRITES (Bunnymark) performance test"
+  shortName := "Sprites"
   msaaEnabled := false
   init := fun env => do
     let particles := Render.Dynamic.ParticleState.create 1000000 env.physWidthF env.physHeightF 123
@@ -161,6 +167,7 @@ instance : Demo .spritesPerf where
 
 instance : Demo .layout where
   name := "LAYOUT demo (full-size)"
+  shortName := "Layout"
   init := fun _ => pure ()
   step := fun c env s => do
     let c ← renderLayoutDemoFrame c env.layoutFont env.fontMedium env.layoutOffsetX env.layoutOffsetY env.layoutScale env.screenScale
@@ -168,6 +175,7 @@ instance : Demo .layout where
 
 instance : Demo .cssGrid where
   name := "CSS GRID demo (full-size)"
+  shortName := "CSS Grid"
   init := fun _ => pure ()
   step := fun c env s => do
     let c ← renderCssGridDemoFrame c env.layoutFont env.fontMedium env.layoutOffsetX env.layoutOffsetY env.layoutScale env.screenScale
@@ -175,6 +183,7 @@ instance : Demo .cssGrid where
 
 instance : Demo .widgets where
   name := "WIDGET demo (full-size)"
+  shortName := "Widgets"
   init := fun _ => pure ()
   step := fun c env s => do
     let c ← renderWidgetDemoFrame c env.fontRegistry env.fontMediumId env.fontSmallId env.physWidthF env.physHeightF env.screenScale env.fontMedium
@@ -182,6 +191,7 @@ instance : Demo .widgets where
 
 instance : Demo .interactive where
   name := "INTERACTIVE demo (click the buttons!)"
+  shortName := "Counter"
   init := fun _ => pure { counter := CounterState.initial }
   step := fun c env s => do
     let (c', nextCounter) ←
@@ -190,6 +200,7 @@ instance : Demo .interactive where
 
 instance : Demo .spinningCubes where
   name := "3D SPINNING CUBES demo"
+  shortName := "3D Cubes"
   init := fun _ => pure { camera := default }
   step := fun c env s => do
     let (c', nextCamera) ←
@@ -201,6 +212,7 @@ instance : Demo .spinningCubes where
 
 instance : Demo .seascape where
   name := "SEASCAPE demo (Gerstner waves)"
+  shortName := "Seascape"
   msaaEnabled := false
   init := fun _ => pure { camera := Demos.seascapeCamera }
   step := fun c env s => do
@@ -213,6 +225,7 @@ instance : Demo .seascape where
 
 instance : Demo .pathFeatures where
   name := "PATH FEATURES demo (non-convex, arcTo, transforms)"
+  shortName := "Paths"
   init := fun _ => pure ()
   step := fun c env s => do
     let c ← renderPathFeaturesDemoFrame c env.screenScale env.fontSmall env.fontMedium
@@ -220,6 +233,7 @@ instance : Demo .pathFeatures where
 
 instance : Demo .shapeGallery where
   name := "SHAPE GALLERY (arrow keys to navigate)"
+  shortName := "Shapes"
   init := fun _ => pure { index := 0 }
   step := fun c env s => do
     let mut idx := s.index
@@ -234,6 +248,7 @@ instance : Demo .shapeGallery where
 
 instance : Demo .worldmap where
   name := "WORLDMAP demo (drag to pan, scroll to zoom)"
+  shortName := "Map"
   init := fun env => do
     let diskConfig : Worldmap.TileDiskCacheConfig := {
       cacheDir := "./tile_cache"
@@ -249,6 +264,7 @@ instance : Demo .worldmap where
 
 instance : Demo .lineCaps where
   name := "LINE CAPS & JOINS demo"
+  shortName := "Line Caps"
   init := fun _ => pure ()
   step := fun c env s => do
     let c ← renderLineCapsDemoFrame c env.screenScale env.fontSmall env.fontMedium
@@ -256,6 +272,7 @@ instance : Demo .lineCaps where
 
 instance : Demo .dashedLines where
   name := "DASHED LINES demo"
+  shortName := "Dashed"
   init := fun _ => pure ()
   step := fun c env s => do
     let c ← renderDashedLinesDemoFrame c env.screenScale env.fontSmall env.fontMedium
@@ -263,6 +280,7 @@ instance : Demo .dashedLines where
 
 instance : Demo .linesPerf where
   name := "100k LINES performance test"
+  shortName := "Lines"
   msaaEnabled := false
   init := fun _ => pure ()
   step := fun c env s => do
@@ -271,6 +289,7 @@ instance : Demo .linesPerf where
 
 instance : Demo .textureMatrix where
   name := "TEXTURE MATRIX demo (u_matrix scaling)"
+  shortName := "Textures"
   init := fun _ => pure ()
   step := fun c env s => do
     let c ← renderTextureMatrixDemoFrame c env.t env.screenScale env.fontMedium env.fontSmall env.spriteTexture
@@ -278,6 +297,7 @@ instance : Demo .textureMatrix where
 
 instance : Demo .orbitalInstanced where
   name := "ORBITAL instanced demo"
+  shortName := "Orbital"
   msaaEnabled := false
   init := fun _ => pure ()
   step := fun c env s => do
@@ -291,6 +311,9 @@ namespace AnyDemo
 
 def name (d : AnyDemo) : String :=
   (demoInstance d.id).name
+
+def shortName (d : AnyDemo) : String :=
+  (demoInstance d.id).shortName
 
 def msaaEnabled (d : AnyDemo) : Bool :=
   (demoInstance d.id).msaaEnabled
