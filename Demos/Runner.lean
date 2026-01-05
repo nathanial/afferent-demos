@@ -564,25 +564,26 @@ def unifiedDemo : IO Unit := do
             let click ← FFI.Window.getClick c.ctx.window
             match click with
             | some ce =>
-              FFI.Window.clearClick c.ctx.window
-              -- Check if click is on a tab
-              match handleTabBarClick rs.tabBar ce.x ce.y with
-              | some newTabIdx =>
-                if newTabIdx != rs.displayMode then
-                  -- Switch to new tab
-                  let exitEnv := mkEnvFromAssets rs.assets 0.0 0.0 keyCode
-                  let currentDemo ← AnyDemo.onExit (rs.demos[rs.displayMode]!) c exitEnv
-                  rs := { rs with demos := rs.demos.set! rs.displayMode currentDemo }
-                  rs := { rs with displayMode := newTabIdx }
-                  c := c.resetState
-                  c.ctx.resetScissor
-                  rs := { rs with msaaEnabled := AnyDemo.msaaEnabled (rs.demos[rs.displayMode]!) }
-                  FFI.Renderer.setMSAAEnabled c.ctx.renderer rs.msaaEnabled
-                  -- Rebuild tabbar with new selection
-                  let newTabBar := rebuildTabBar rs.demos newTabIdx rs.assets.fontPack.smallId s
-                  rs := { rs with tabBar := newTabBar }
-                  IO.println s!"Switched to {AnyDemo.name (rs.demos[rs.displayMode]!)}"
-              | none => pure ()
+              if ce.y <= tabBarHeightPx then
+                FFI.Window.clearClick c.ctx.window
+                -- Check if click is on a tab
+                match handleTabBarClick rs.tabBar ce.x ce.y with
+                | some newTabIdx =>
+                  if newTabIdx != rs.displayMode then
+                    -- Switch to new tab
+                    let exitEnv := mkEnvFromAssets rs.assets 0.0 0.0 keyCode
+                    let currentDemo ← AnyDemo.onExit (rs.demos[rs.displayMode]!) c exitEnv
+                    rs := { rs with demos := rs.demos.set! rs.displayMode currentDemo }
+                    rs := { rs with displayMode := newTabIdx }
+                    c := c.resetState
+                    c.ctx.resetScissor
+                    rs := { rs with msaaEnabled := AnyDemo.msaaEnabled (rs.demos[rs.displayMode]!) }
+                    FFI.Renderer.setMSAAEnabled c.ctx.renderer rs.msaaEnabled
+                    -- Rebuild tabbar with new selection
+                    let newTabBar := rebuildTabBar rs.demos newTabIdx rs.assets.fontPack.smallId s
+                    rs := { rs with tabBar := newTabBar }
+                    IO.println s!"Switched to {AnyDemo.name (rs.demos[rs.displayMode]!)}"
+                | none => pure ()
             | none => pure ()
 
             -- Set up scissor to clip demo content to area below tabbar
