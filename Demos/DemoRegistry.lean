@@ -268,6 +268,7 @@ instance : Demo .worldmap where
     pure { mapState := mapState }
   step := fun c env s => do
     let (c', nextState) ← stepWorldmapDemoFrame c s.mapState env.screenScale env.fontMedium env.fontSmall
+      env.physWidthF env.physHeightF env.contentOffsetX env.contentOffsetY
     pure (c', { s with mapState := nextState })
 
 instance : Demo .lineCaps where

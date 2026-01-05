@@ -450,12 +450,11 @@ def tileScreenPosFrac (vp : MapViewport) (tile : TileCoord) (displayZoom : Float
   let offsetY := (tileY - centerTileY) * (intToFloat vp.tileSize) + (intToFloat vp.screenHeight) / 2.0
   (offsetX, offsetY)
 
-/-- Render all visible tiles with fractional zoom scaling -/
-def renderTiles (renderer : Renderer) (state : MapState) : IO Unit := do
+/-- Render all visible tiles with fractional zoom scaling. -/
+def renderTilesAt (renderer : Renderer) (state : MapState)
+    (offsetX offsetY canvasWidth canvasHeight : Float) : IO Unit := do
   let visible := state.viewport.visibleTiles
   let textureSize : Float := 512.0  -- @2x retina tiles are 512px
-  let canvasWidth := (intToFloat state.viewport.screenWidth)
-  let canvasHeight := (intToFloat state.viewport.screenHeight)
 
   -- Compute scale factor for fractional zoom
   let tileZoom := state.viewport.zoom
@@ -471,9 +470,11 @@ def renderTiles (renderer : Renderer) (state : MapState) : IO Unit := do
       match state.cache.get parentCoord with
       | some (.loaded texture _) =>
         let (px, py) := tileScreenPosFrac state.viewport parentCoord state.displayZoom
+        let dstX := px + offsetX
+        let dstY := py + offsetY
         Renderer.drawTexturedRect renderer texture
           0.0 0.0 textureSize textureSize  -- Source (full texture)
-          px py parentTileSize parentTileSize  -- Destination
+          dstX dstY parentTileSize parentTileSize  -- Destination
           canvasWidth canvasHeight
           1.0  -- Alpha
       | _ => pure ()
@@ -483,29 +484,43 @@ def renderTiles (renderer : Renderer) (state : MapState) : IO Unit := do
     let (x, y) := tileScreenPosFrac state.viewport coord state.displayZoom
     match state.cache.get coord with
     | some (.loaded texture _) =>
+      let dstX := x + offsetX
+      let dstY := y + offsetY
       Renderer.drawTexturedRect renderer texture
         0.0 0.0 textureSize textureSize  -- Source
-        x y scaledTileSize scaledTileSize  -- Destination
+        dstX dstY scaledTileSize scaledTileSize  -- Destination
         canvasWidth canvasHeight
         1.0  -- Alpha
     | _ =>
       -- Not loaded - try fallback from parent
       match findParentFallback state.cache coord with
       | some (ancestor, tex, delta) =>
-        let (offsetX, offsetY) := computeAncestorOffset coord ancestor delta
+        let (srcOffsetX, srcOffsetY) := computeAncestorOffset coord ancestor delta
         let srcScale := Float.pow 2.0 (intToFloat (natToInt delta))
         let srcSize := textureSize / srcScale
-        let srcX := offsetX * textureSize
-        let srcY := offsetY * textureSize
+        let srcX := srcOffsetX * textureSize
+        let srcY := srcOffsetY * textureSize
+        let dstX := x + offsetX
+        let dstY := y + offsetY
         Renderer.drawTexturedRect renderer tex
           srcX srcY srcSize srcSize  -- Source (sub-region of ancestor)
-          x y scaledTileSize scaledTileSize  -- Destination
+          dstX dstY scaledTileSize scaledTileSize  -- Destination
           canvasWidth canvasHeight
           1.0
       | none => pure ()
 
+/-- Render all visible tiles with fractional zoom scaling -/
+def renderTiles (renderer : Renderer) (state : MapState) : IO Unit := do
+  let canvasWidth := (intToFloat state.viewport.screenWidth)
+  let canvasHeight := (intToFloat state.viewport.screenHeight)
+  renderTilesAt renderer state 0.0 0.0 canvasWidth canvasHeight
+
 /-- Main render function -/
 def render (renderer : Renderer) (state : MapState) : IO Unit := do
   renderTiles renderer state
+
+def renderAt (renderer : Renderer) (state : MapState)
+    (offsetX offsetY canvasWidth canvasHeight : Float) : IO Unit := do
+  renderTilesAt renderer state offsetX offsetY canvasWidth canvasHeight
 
 end Worldmap

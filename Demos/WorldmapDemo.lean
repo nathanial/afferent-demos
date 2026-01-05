@@ -10,16 +10,20 @@ open Afferent CanvasM
 namespace Demos
 
 def stepWorldmapDemoFrame (c : Canvas) (state : Worldmap.MapState) (screenScale : Float)
-    (fontMedium fontSmall : Font) : IO (Canvas × Worldmap.MapState) := do
+    (fontMedium fontSmall : Font)
+    (contentWidth contentHeight contentOffsetX contentOffsetY : Float)
+    : IO (Canvas × Worldmap.MapState) := do
   let mut mapState := state
-  let (w, h) ← FFI.Window.getSize c.ctx.window
-  mapState := mapState.updateScreenSize w.toNat h.toNat
-  mapState ← Worldmap.handleInput c.ctx.window mapState
+  let width := (max 1.0 contentWidth).toUInt32
+  let height := (max 1.0 contentHeight).toUInt32
+  mapState := mapState.updateScreenSize width.toNat height.toNat
+  mapState ← Worldmap.handleInputAt c.ctx.window mapState contentOffsetX contentOffsetY
   mapState := Worldmap.updateZoomAnimation mapState
   Worldmap.cancelStaleTasks mapState
   mapState ← Worldmap.updateTileCache mapState
 
-  Worldmap.render c.ctx.renderer mapState
+  let (canvasW, canvasH) ← FFI.Window.getSize c.ctx.window
+  Worldmap.renderAt c.ctx.renderer mapState contentOffsetX contentOffsetY canvasW.toFloat canvasH.toFloat
 
   let c ← run' c do
     resetTransform

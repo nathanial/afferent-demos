@@ -5,6 +5,7 @@
 -/
 import Worldmap.State
 import Worldmap.Zoom
+import Worldmap.Utils
 import Worldmap.KeyCode
 import Afferent.FFI.Window
 
@@ -20,6 +21,12 @@ def keyboardPanSpeed : Float := 100.0
 def isLeftButtonDown (buttons : UInt8) : Bool :=
   (buttons &&& 1) != 0
 
+def isInsideViewport (state : MapState) (x y : Float) : Bool :=
+  x >= 0.0 &&
+  y >= 0.0 &&
+  x <= (intToFloat state.viewport.screenWidth) &&
+  y <= (intToFloat state.viewport.screenHeight)
+
 /-- Update cursor geographic position from screen position -/
 def updateCursorPosition (window : Window) (state : MapState) : IO MapState := do
   let (mouseX, mouseY) ← Window.getMousePos window
@@ -30,6 +37,22 @@ def updateCursorPosition (window : Window) (state : MapState) : IO MapState := d
     cursorScreenX := mouseX
     cursorScreenY := mouseY
   }
+
+def updateCursorPositionAt (window : Window) (state : MapState)
+    (offsetX offsetY : Float) : IO MapState := do
+  let (rawX, rawY) ← Window.getMousePos window
+  let mouseX := rawX - offsetX
+  let mouseY := rawY - offsetY
+  if isInsideViewport state mouseX mouseY then
+    let (cursorLat, cursorLon) := screenToGeo state.viewport mouseX mouseY
+    pure { state with
+      cursorLat := cursorLat
+      cursorLon := cursorLon
+      cursorScreenX := mouseX
+      cursorScreenY := mouseY
+    }
+  else
+    pure state
 
 /-- Velocity smoothing factor (0 = no smoothing, 1 = only use new value) -/
 def velocitySmoothingFactor : Float := 0.8
@@ -78,6 +101,46 @@ def handlePanInput (window : Window) (state : MapState) : IO MapState := do
       panVelocityY := state.panVelocityY * velocityDecayFactor
     }
 
+def handlePanInputAt (window : Window) (state : MapState)
+    (offsetX offsetY : Float) : IO MapState := do
+  let (rawX, rawY) ← Window.getMousePos window
+  let mouseX := rawX - offsetX
+  let mouseY := rawY - offsetY
+  let inside := isInsideViewport state mouseX mouseY
+  let buttons ← Window.getMouseButtons window
+  let leftDown := isLeftButtonDown buttons
+
+  if leftDown then
+    if state.isDragging then
+      let dx := state.dragStartX - mouseX
+      let dy := state.dragStartY - mouseY
+      let (dLon, dLat) := state.viewport.pixelsToDegrees dx dy
+      let newLat := state.mapBounds.clampLat (clampLatitude (state.dragStartLat - dLat))
+      let newLon := state.mapBounds.clampLon (state.dragStartLon + dLon)
+      let frameDx := mouseX - state.lastMouseX
+      let frameDy := mouseY - state.lastMouseY
+      let newVelX := velocitySmoothingFactor * frameDx + (1.0 - velocitySmoothingFactor) * state.panVelocityX
+      let newVelY := velocitySmoothingFactor * frameDy + (1.0 - velocitySmoothingFactor) * state.panVelocityY
+      pure { state with
+        viewport := { state.viewport with centerLat := newLat, centerLon := newLon }
+        panVelocityX := newVelX
+        panVelocityY := newVelY
+        lastMouseX := mouseX
+        lastMouseY := mouseY
+      }
+    else if inside then
+      pure { (state.startDrag mouseX mouseY) with
+        lastMouseX := mouseX
+        lastMouseY := mouseY
+      }
+    else
+      pure state
+  else
+    pure { state.stopDrag with
+      panVelocityX := state.panVelocityX * velocityDecayFactor
+      panVelocityY := state.panVelocityY * velocityDecayFactor
+    }
+
 /-- Handle mouse wheel for zooming at cursor position.
     Starts zoom animation - the geographic point under the cursor stays fixed. -/
 def handleZoomInput (window : Window) (state : MapState) : IO MapState := do
@@ -110,6 +173,38 @@ def handleZoomInput (window : Window) (state : MapState) : IO MapState := do
         zoomAnchorLon := anchorLon
         lastZoomChangeFrame := state.frameCount
       }
+  else
+    pure state
+
+def handleZoomInputAt (window : Window) (state : MapState)
+    (offsetX offsetY : Float) : IO MapState := do
+  let (_, wheelY) ← Window.getScrollDelta window
+  if wheelY != 0.0 then
+    Window.clearScroll window
+    let (rawX, rawY) ← Window.getMousePos window
+    let mouseX := rawX - offsetX
+    let mouseY := rawY - offsetY
+    if !isInsideViewport state mouseX mouseY then
+      pure state
+    else
+      let delta := if wheelY > 0.0 then 1 else -1
+      let newTarget := state.mapBounds.clampZoom (clampZoom (state.targetZoom + delta))
+      if state.isAnimatingZoom then
+        pure { state with
+          targetZoom := newTarget
+          lastZoomChangeFrame := state.frameCount
+        }
+      else
+        let (anchorLat, anchorLon) := screenToGeo state.viewport mouseX mouseY
+        pure { state with
+          targetZoom := newTarget
+          isAnimatingZoom := true
+          zoomAnchorScreenX := mouseX
+          zoomAnchorScreenY := mouseY
+          zoomAnchorLat := anchorLat
+          zoomAnchorLon := anchorLon
+          lastZoomChangeFrame := state.frameCount
+        }
   else
     pure state
 
@@ -169,5 +264,12 @@ def handleInput (window : Window) (state : MapState) : IO MapState := do
   let state ← handleZoomInput window state
   let state ← handleKeyboardInput window state
   updateCursorPosition window state
+
+def handleInputAt (window : Window) (state : MapState)
+    (offsetX offsetY : Float) : IO MapState := do
+  let state ← handlePanInputAt window state offsetX offsetY
+  let state ← handleZoomInputAt window state offsetX offsetY
+  let state ← handleKeyboardInput window state
+  updateCursorPositionAt window state offsetX offsetY
 
 end Worldmap
