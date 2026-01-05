@@ -44,6 +44,7 @@ def cellWidget (config : CellConfig) (screenScale : Float)
   let style : BoxStyle := {
     backgroundColor := some config.bg
     padding := EdgeInsets.uniform (4 * screenScale)
+    height := .percent 1.0
   }
   -- Column with label at top and demo content filling the rest
   column (gap := 4 * screenScale) (style := style) #[

@@ -75,7 +75,8 @@ def cardStyleFlex : BoxStyle :=
     borderColor := some (Afferent.Color.gray 0.35)
     borderWidth := 1
     cornerRadius := 6
-    padding := EdgeInsets.uniform 4 }
+    padding := EdgeInsets.uniform 4
+    height := .percent 1.0 }
 
 /-- Build a labeled card with a custom drawing spec. -/
 def demoCard (labelFont : FontId) (label : String) (draw : Rect → RenderCommands)
@@ -91,17 +92,20 @@ def demoCard (labelFont : FontId) (label : String) (draw : Rect → RenderComman
 def demoCardFlex (labelFont : FontId) (label : String) (draw : Rect → RenderCommands)
     : WidgetBuilder := do
   column (gap := 4) (style := cardStyleFlex) #[
-    custom (cardSpecFlex draw) {},
+    -- Shape area uses flex-grow to fill remaining space after label
+    custom (cardSpecFlex draw) { flexItem := some (Trellis.FlexItem.growing 1) },
     text' label labelFont cardLabelColor .center none
   ]
 
 /-- Create a flexible grid that fills available space using fr units.
     Creates a grid with the specified number of rows and columns,
-    where each cell expands equally to fill the container. -/
+    where each cell expands equally to fill the container.
+    Uses flexItem.grow to fill remaining space when used as a flex child. -/
 def gridFlex (rows cols : Nat) (gap : Float := 4) (children : Array WidgetBuilder) : WidgetBuilder := do
   let rowTemplate := Array.replicate rows (.fr 1)
   let colTemplate := Array.replicate cols (.fr 1)
   let props := Trellis.GridContainer.withTemplate rowTemplate colTemplate gap
-  Afferent.Arbor.gridCustom props {} children
+  -- Use flexItem.grow to fill remaining space in flex parent (e.g., cellWidget column)
+  Afferent.Arbor.gridCustom props { flexItem := some (Trellis.FlexItem.growing 1) } children
 
 end Demos
