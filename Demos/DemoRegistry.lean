@@ -98,6 +98,8 @@ class Demo (id : DemoId) where
   shortName : String  -- Short name for tab display
   msaaEnabled : Bool := true
   init : DemoEnv → IO (DemoState id)
+  update : DemoEnv → DemoState id → IO (DemoState id) := fun _ s => pure s
+  view : DemoEnv → DemoState id → Option Afferent.Arbor.WidgetBuilder := fun _ _ => none
   step : Canvas → DemoEnv → DemoState id → IO (Canvas × DemoState id)
   onExit : Canvas → DemoEnv → DemoState id → IO (DemoState id) := fun _ _ s => pure s
 
@@ -170,17 +172,17 @@ instance : Demo .layout where
   name := "LAYOUT demo (full-size)"
   shortName := "Layout"
   init := fun _ => pure ()
-  step := fun c env s => do
-    let c ← renderLayoutDemoFrame c env.layoutFont env.fontMedium env.layoutOffsetX env.layoutOffsetY env.layoutScale env.screenScale
-    pure (c, s)
+  view := fun env _ =>
+    some (layoutWidget env.layoutFont env.fontMedium env.layoutOffsetX env.layoutOffsetY env.layoutScale env.screenScale)
+  step := fun c _ s => pure (c, s)
 
 instance : Demo .cssGrid where
   name := "CSS GRID demo (full-size)"
   shortName := "CSS Grid"
   init := fun _ => pure ()
-  step := fun c env s => do
-    let c ← renderCssGridDemoFrame c env.layoutFont env.fontMedium env.layoutOffsetX env.layoutOffsetY env.layoutScale env.screenScale
-    pure (c, s)
+  view := fun env _ =>
+    some (cssGridWidget env.layoutFont env.fontMedium env.layoutOffsetX env.layoutOffsetY env.layoutScale env.screenScale)
+  step := fun c _ s => pure (c, s)
 
 instance : Demo .widgets where
   name := "WIDGET demo (full-size)"
@@ -235,24 +237,26 @@ instance : Demo .pathFeatures where
   name := "PATH FEATURES demo (non-convex, arcTo, transforms)"
   shortName := "Paths"
   init := fun _ => pure ()
-  step := fun c env s => do
-    let c ← renderPathFeaturesDemoFrame c env.screenScale env.fontSmall env.fontMedium
-    pure (c, s)
+  view := fun env _ =>
+    some (pathFeaturesWidget env.screenScale env.fontSmall env.fontMedium)
+  step := fun c _ s => pure (c, s)
 
 instance : Demo .shapeGallery where
   name := "SHAPE GALLERY (arrow keys to navigate)"
   shortName := "Shapes"
   init := fun _ => pure { index := 0 }
-  step := fun c env s => do
+  update := fun env s => do
     let mut idx := s.index
     if env.keyCode == FFI.Key.right then
       idx := (idx + 1) % Demos.shapeGalleryCount
-      c.clearKey
+      env.clearKey
     else if env.keyCode == FFI.Key.left then
       idx := if idx == 0 then Demos.shapeGalleryCount - 1 else idx - 1
-      c.clearKey
-    let c ← renderShapeGalleryDemoFrame c idx env.physWidthF env.physHeightF env.screenScale env.fontLarge env.fontSmall env.fontMedium
-    pure (c, { s with index := idx })
+      env.clearKey
+    pure { s with index := idx }
+  view := fun env s =>
+    some (shapeGalleryWidget s.index env.screenScale env.fontLarge env.fontSmall env.fontMedium)
+  step := fun c _ s => pure (c, s)
 
 instance : Demo .worldmap where
   name := "WORLDMAP demo (drag to pan, scroll to zoom)"
@@ -275,17 +279,17 @@ instance : Demo .lineCaps where
   name := "LINE CAPS & JOINS demo"
   shortName := "Line Caps"
   init := fun _ => pure ()
-  step := fun c env s => do
-    let c ← renderLineCapsDemoFrame c env.screenScale env.fontSmall env.fontMedium
-    pure (c, s)
+  view := fun env _ =>
+    some (lineCapsWidget env.screenScale env.fontSmall env.fontMedium)
+  step := fun c _ s => pure (c, s)
 
 instance : Demo .dashedLines where
   name := "DASHED LINES demo"
   shortName := "Dashed"
   init := fun _ => pure ()
-  step := fun c env s => do
-    let c ← renderDashedLinesDemoFrame c env.screenScale env.fontSmall env.fontMedium
-    pure (c, s)
+  view := fun env _ =>
+    some (dashedLinesWidget env.screenScale env.fontSmall env.fontMedium)
+  step := fun c _ s => pure (c, s)
 
 instance : Demo .linesPerf where
   name := "100k LINES performance test"
@@ -301,11 +305,9 @@ instance : Demo .textureMatrix where
   name := "TEXTURE MATRIX demo (u_matrix scaling)"
   shortName := "Textures"
   init := fun _ => pure ()
-  step := fun c env s => do
-    let c ← renderTextureMatrixDemoFrame c env.t env.screenScale
-      env.physWidthF env.physHeightF
-      env.fontMedium env.fontSmall env.spriteTexture
-    pure (c, s)
+  view := fun env _ =>
+    some (textureMatrixWidget env.t env.screenScale env.fontMedium env.fontSmall env.spriteTexture)
+  step := fun c _ s => pure (c, s)
 
 instance : Demo .orbitalInstanced where
   name := "ORBITAL instanced demo"
@@ -331,6 +333,14 @@ def shortName (d : AnyDemo) : String :=
 
 def msaaEnabled (d : AnyDemo) : Bool :=
   (demoInstance d.id).msaaEnabled
+
+def update (d : AnyDemo) (env : DemoEnv) : IO AnyDemo := do
+  let inst := demoInstance d.id
+  let state' ← inst.update env d.state
+  pure { id := d.id, state := state' }
+
+def view? (d : AnyDemo) (env : DemoEnv) : Option Afferent.Arbor.WidgetBuilder :=
+  (demoInstance d.id).view env d.state
 
 def step (d : AnyDemo) (c : Canvas) (env : DemoEnv) : IO (Canvas × AnyDemo) := do
   let inst := demoInstance d.id

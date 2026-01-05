@@ -2,6 +2,8 @@
   Layout Demo - CSS Flexbox and Grid layout visualization
 -/
 import Afferent
+import Afferent.Widget
+import Afferent.Arbor
 import Trellis
 
 open Afferent CanvasM
@@ -228,16 +230,28 @@ def renderLayoutM (font : Font) : CanvasM Unit := do
   renderLayoutShapesM
   renderLayoutLabelsM font
 
+def layoutWidget (layoutFont fontMedium : Font)
+    (offsetX offsetY layoutScale screenScale : Float) : Afferent.Arbor.WidgetBuilder := do
+  Afferent.Arbor.custom (spec := {
+    measure := fun _ _ => (0, 0)
+    collect := fun _ => #[]
+    draw := some (fun _ => do
+      resetTransform
+      saved do
+        translate offsetX offsetY
+        scale layoutScale layoutScale
+        renderLayoutShapesM
+      renderLayoutLabelsMappedM layoutFont offsetX offsetY layoutScale
+      setFillColor Color.white
+      fillTextXY "CSS Flexbox Layout Demo (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
+    )
+  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+
 def renderLayoutDemoFrame (c : Canvas) (layoutFont : Font) (fontMedium : Font)
-    (offsetX offsetY layoutScale screenScale : Float) : IO Canvas := do
+    (offsetX offsetY layoutScale screenScale : Float)
+    (width height : Float) : IO Canvas := do
+  let widget := Afferent.Arbor.build (layoutWidget layoutFont fontMedium offsetX offsetY layoutScale screenScale)
   run' c do
-    resetTransform
-    saved do
-      translate offsetX offsetY
-      scale layoutScale layoutScale
-      renderLayoutShapesM
-    renderLayoutLabelsMappedM layoutFont offsetX offsetY layoutScale
-    setFillColor Color.white
-    fillTextXY "CSS Flexbox Layout Demo (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
+    Afferent.Widget.renderArborWidgetWithCustom FontRegistry.empty widget width height
 
 end Demos

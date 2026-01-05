@@ -4,6 +4,9 @@
   Includes both untransformed and transformed versions to test tessellation.
 -/
 import Afferent
+import Afferent.Widget
+import Afferent.Arbor
+import Trellis
 import Linalg.Core
 
 open Afferent CanvasM Linalg
@@ -185,12 +188,24 @@ def renderShapeGalleryM (idx : Nat) (screenW screenH : Float) (screenScale : Flo
   setFillColor (Color.gray 0.5)
   fillTextXY navText ((screenW - navWidth) / 2) (screenH - 40 * screenScale) fontSmall
 
+def shapeGalleryWidget (idx : Nat) (screenScale : Float)
+    (fontLarge fontSmall fontMedium : Font) : Afferent.Arbor.WidgetBuilder := do
+  Afferent.Arbor.custom (spec := {
+    measure := fun _ _ => (0, 0)
+    collect := fun _ => #[]
+    draw := some (fun layout => do
+      let rect := layout.contentRect
+      resetTransform
+      renderShapeGalleryM idx rect.width rect.height screenScale fontLarge fontSmall
+      setFillColor Color.white
+      fillTextXY "Shape Gallery (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
+    )
+  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+
 def renderShapeGalleryDemoFrame (c : Canvas) (idx : Nat) (screenW screenH screenScale : Float)
     (fontLarge fontSmall fontMedium : Font) : IO Canvas := do
+  let widget := Afferent.Arbor.build (shapeGalleryWidget idx screenScale fontLarge fontSmall fontMedium)
   run' c do
-    resetTransform
-    renderShapeGalleryM idx screenW screenH screenScale fontLarge fontSmall
-    setFillColor Color.white
-    fillTextXY "Shape Gallery (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
+    Afferent.Widget.renderArborWidgetWithCustom FontRegistry.empty widget screenW screenH
 
 end Demos

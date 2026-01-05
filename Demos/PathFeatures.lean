@@ -6,6 +6,9 @@
   3. Arc transform handling with non-uniform scaling
 -/
 import Afferent
+import Afferent.Widget
+import Afferent.Arbor
+import Trellis
 
 open Afferent CanvasM Linalg
 
@@ -189,14 +192,24 @@ def renderPathFeaturesM (screenScale : Float) (font : Font) : CanvasM Unit := do
   setFillColor Color.white
   fillTextXY "45+scale" (730 * screenScale) (550 * screenScale) font
 
+def pathFeaturesWidget (screenScale : Float) (fontSmall fontMedium : Font) : Afferent.Arbor.WidgetBuilder := do
+  Afferent.Arbor.custom (spec := {
+    measure := fun _ _ => (0, 0)
+    collect := fun _ => #[]
+    draw := some (fun _ => do
+      resetTransform
+      renderPathFeaturesM screenScale fontSmall
+      setFillColor Color.white
+      fillTextXY
+        "Path Features Demo - Non-convex, arcTo, transforms (Space to advance)"
+        (20 * screenScale) (30 * screenScale) fontMedium
+    )
+  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+
 def renderPathFeaturesDemoFrame (c : Canvas) (screenScale : Float) (fontSmall fontMedium : Font)
-    : IO Canvas := do
+    (width height : Float) : IO Canvas := do
+  let widget := Afferent.Arbor.build (pathFeaturesWidget screenScale fontSmall fontMedium)
   run' c do
-    resetTransform
-    renderPathFeaturesM screenScale fontSmall
-    setFillColor Color.white
-    fillTextXY
-      "Path Features Demo - Non-convex, arcTo, transforms (Space to advance)"
-      (20 * screenScale) (30 * screenScale) fontMedium
+    Afferent.Widget.renderArborWidgetWithCustom FontRegistry.empty widget width height
 
 end Demos

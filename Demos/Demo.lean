@@ -14,6 +14,7 @@ structure DemoEnv where
   t : Float
   dt : Float
   keyCode : UInt16
+  clearKey : IO Unit
   fontSmall : Afferent.Font
   fontMedium : Afferent.Font
   fontLarge : Afferent.Font
