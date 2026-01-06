@@ -78,8 +78,8 @@ def counterWidget (fontId : FontId) (smallFontId : FontId) (counter : Int) (_scr
     width := .percent 1.0
     height := .percent 1.0
     flexItem := some (Trellis.FlexItem.growing 1)
-    -- Enable content scaling: contain mode keeps aspect ratio, allows upscale for larger screens
-    contentScale := some { mode := .contain, allowUpscale := true }
+    -- Enable content scaling: contain mode keeps aspect ratio, no upscale for larger screens
+    contentScale := some { mode := .contain, allowUpscale := false }
   }) do
     counterContent fontId smallFontId counter
 
