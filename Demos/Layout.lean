@@ -2,31 +2,29 @@
   Layout Demo - CSS Flexbox layout visualization (Arbor widgets)
   Using monadic do-notation for child building.
   All dimensions in logical units (DPI scaling handled by renderer).
+  Demonstrates the css! macro for CSS-like style definitions.
 -/
 import Afferent
 import Afferent.Widget
 import Afferent.Arbor
+import Afferent.Arbor.Style.CSS
 import Demos.Demo
 import Trellis
 open Tincture (Color)
 open Tincture.Named
 
 open Afferent.Arbor
+open Afferent.Arbor.CSS
 open Trellis
 
 namespace Demos
-
-/-- FlexItem alias for grow factor 1 -/
-private abbrev grow1 := some (Trellis.FlexItem.growing 1)
-/-- FlexItem alias for grow factor 2 -/
-private abbrev grow2 := some (Trellis.FlexItem.growing 2)
-
 
 /-- Convert a size to an option (0 or less becomes none). -/
 def layoutOptSize (v : Float) : Option Float :=
   if v <= 0 then none else some v
 
-/-- Style for a layout demo cell. -/
+/-- Style for a layout demo cell.
+    Note: Uses traditional syntax because it needs dynamic color values. -/
 def layoutCellStyle (color : Color) (minW minH : Float)
     (flexItem : Option Trellis.FlexItem := none) : BoxStyle := {
   backgroundColor := some (color.withAlpha 0.7)
@@ -37,32 +35,54 @@ def layoutCellStyle (color : Color) (minW minH : Float)
   flexItem := flexItem
 }
 
-/-- Build a colored flex cell. -/
+/-- Build a colored flex cell with optional flex item. -/
 def layoutCell (color : Color) (minW minH : Float := 0)
     (flexItem : Option Trellis.FlexItem := none) : WidgetBuilder := do
   box (layoutCellStyle color minW minH flexItem)
 
-/-- Style for layout demo sections. -/
-def layoutSectionStyle (minHeight : Float) : BoxStyle := {
-  backgroundColor := some ((Afferent.Color.gray 0.5).withAlpha 0.25)
-  borderColor := some ((Afferent.Color.gray 0.6).withAlpha 0.35)
-  borderWidth := 1
-  cornerRadius := 6
-  padding := EdgeInsets.uniform 8
-  flexItem := grow1
-  minHeight := some minHeight
-  height := .percent 1.0
+/-- Build a colored flex cell that grows (flex-grow: 1). -/
+def layoutCellGrow1 (color : Color) (minW minH : Float := 0) : WidgetBuilder := do
+  box { layoutCellStyle color minW minH with
+    flexItem := some (FlexItem.growing 1) }
+
+/-- Build a colored flex cell that grows twice as much (flex-grow: 2). -/
+def layoutCellGrow2 (color : Color) (minW minH : Float := 0) : WidgetBuilder := do
+  box { layoutCellStyle color minW minH with
+    flexItem := some (FlexItem.growing 2) }
+
+/-- Style for layout demo sections.
+    Uses css! for colors with hsva() for HSV color space. -/
+def layoutSectionStyle (minHeight : Float) : BoxStyle :=
+  { css! {
+      background-color: hsva(0.0, 0.0, 0.5, 0.25);
+      border-color: hsva(0.0, 0.0, 0.6, 0.35);
+      border-width: 1;
+      corner-radius: 6;
+      padding: 8;
+      flex-grow: 1;
+      height: 100pct;
+    } with
+    minHeight := some minHeight
+  }
+
+/-- Style for layout demo content containers - fully CSS-defined with hsv()! -/
+def layoutContentStyle : BoxStyle := css! {
+  background-color: hsv(0.0, 0.0, 0.12);
+  border-color: hsv(0.0, 0.0, 0.3);
+  border-width: 1;
+  corner-radius: 4;
+  padding: 4;
+  flex-grow: 1;
+  height: 100pct;
 }
 
-/-- Style for layout demo content containers. -/
-def layoutContentStyle : BoxStyle := {
-  backgroundColor := some (Afferent.Color.gray 0.12)
-  borderColor := some (Afferent.Color.gray 0.3)
-  borderWidth := 1
-  cornerRadius := 4
-  padding := EdgeInsets.uniform 4
-  flexItem := grow1
-  height := .percent 1.0
+/-- Root style for the demo - fully CSS-defined with hsv()! -/
+def layoutRootStyle : BoxStyle := css! {
+  background-color: hsv(0.67, 0.32, 0.15);
+  padding: 20;
+  flex-grow: 1;
+  width: 100pct;
+  height: 100pct;
 }
 
 /-- Build a labeled layout demo section. -/
@@ -80,18 +100,15 @@ def layoutSection (font : FontId) (title desc : String) (minHeight : Float)
 
 /-- Build all flexbox demos using Arbor widgets with monadic style. -/
 def layoutWidgetFlex (fontTitle fontSmall : FontId) (_screenScale : Float) : WidgetBuilder :=
-  let rootStyle : BoxStyle := {
-    BoxStyle.fill with
-    backgroundColor := some (Afferent.Color.rgba 0.1 0.1 0.15 1.0)
-    padding := EdgeInsets.uniform 20
-    flexItem := grow1
-  }
   let sec := fun title desc minHeight content ↦ layoutSection fontSmall title desc minHeight content
-  vbox (gap := 16) (style := rootStyle) do
+  -- Styles defined with css! macro
+  let growStyle := css! { flex-grow: 1; }
+  let growFillStyle := css! { flex-grow: 1; height: 100pct; }
+  vbox (gap := 16) (style := layoutRootStyle) do
     text' "CSS Flexbox Layout Demo (Space to advance)" fontTitle Afferent.Color.white .left
-    hbox (gap := 20) (style := BoxStyle.grow) do
+    hbox (gap := 20) (style := growStyle) do
       -- Left column
-      vbox (gap := 12) (style := BoxStyle.growFill) do
+      vbox (gap := 12) (style := growFillStyle) do
         sec "Row: flex-start" "Items packed to start" 90 <|
           hbox (gap := 10) (style := layoutContentStyle) do
             layoutCell green 80 50; layoutCell blue 100 50; layoutCell yellow 70 50
@@ -103,34 +120,34 @@ def layoutWidgetFlex (fontTitle fontSmall : FontId) (_screenScale : Float) : Wid
             layoutCell cyan 50 50; layoutCell magenta 50 50; layoutCell orange 50 50
         sec "Row: flex-grow 1:2:1" "Middle item grows twice as much" 90 <|
           hbox (gap := 10) (style := layoutContentStyle) do
-            layoutCell green 0 50 grow1; layoutCell blue 0 50 grow2; layoutCell yellow 0 50 grow1
+            layoutCellGrow1 green 0 50; layoutCellGrow2 blue 0 50; layoutCellGrow1 yellow 0 50
         sec "Column direction" "Items stacked vertically" 180 <|
           vbox (gap := 10) (style := layoutContentStyle) do
             layoutCell green 100 40; layoutCell blue 120 48; layoutCell yellow 80 40
       -- Right column
-      vbox (gap := 12) (style := BoxStyle.growFill) do
+      vbox (gap := 12) (style := growFillStyle) do
         sec "Row: align-items center" "Items centered on cross-axis" 110 <|
           hboxWith { FlexContainer.row 10 with alignItems := .center } layoutContentStyle do
             layoutCell green 60 30; layoutCell blue 60 60; layoutCell yellow 60 45
         sec "Nested containers" "Outer row with inner column" 130 <|
           hbox 10 layoutContentStyle (do
             layoutCell green 60 0
-            center (style := BoxStyle.growFill) <| vbox 10 BoxStyle.growFill (do
-              layoutCell cyan 0 35 grow1; layoutCell magenta 0 35 grow1)
+            center (style := growFillStyle) <| vbox 10 growFillStyle (do
+              layoutCellGrow1 cyan 0 35; layoutCellGrow1 magenta 0 35)
             layoutCell blue 60 0)
         sec "Complex layout" "Header + sidebar + main" 220 <|
           vbox 10 layoutContentStyle (do
-            layoutCell green 0 30 grow1
-            hbox 10 BoxStyle.grow (do
+            layoutCellGrow1 green 0 30
+            hbox 10 growStyle (do
               vbox 10 {} (do layoutCell blue 80 40; layoutCell yellow 80 40; layoutCell cyan 80 40)
-              layoutCell magenta 0 0 grow1))
+              layoutCellGrow1 magenta 0 0))
         sec "Overview layout" "Header + 2x2 grid + footer" 200 <|
           vbox (gap := 10) (style := layoutContentStyle) do
-            layoutCell green 0 25 grow1
-            hbox (gap := 10) (style := BoxStyle.grow) do
-              layoutCell blue 0 0 grow1; layoutCell yellow 0 0 grow1
-            hbox (gap := 10) (style := BoxStyle.grow) do
-              layoutCell cyan 0 0 grow1; layoutCell magenta 0 0 grow1
-            layoutCell orange 0 20 grow1
+            layoutCellGrow1 green 0 25
+            hbox (gap := 10) (style := growStyle) do
+              layoutCellGrow1 blue 0 0; layoutCellGrow1 yellow 0 0
+            hbox (gap := 10) (style := growStyle) do
+              layoutCellGrow1 cyan 0 0; layoutCellGrow1 magenta 0 0
+            layoutCellGrow1 orange 0 20
 
 end Demos
