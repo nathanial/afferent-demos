@@ -12,7 +12,7 @@ import Demos.Layout
 import Demos.Grid
 import Demos.Widgets
 import Demos.Overview.Counter
-import Demos.SpinningCubes
+import Demos.Overview.SpinningCubes
 import Demos.Seascape
 import Demos.ShapeGallery
 import Demos.LineCaps
@@ -54,6 +54,7 @@ structure SpritesState where
 
 structure DemoGridState where
   counter : CounterState
+  spinningCubes : SpinningCubesState
 
 structure ShapeGalleryState where
   index : Nat
@@ -97,7 +98,10 @@ structure AnyDemo where
   state : DemoState id
 
 instance : Inhabited AnyDemo :=
-  ⟨{ id := .demoGrid, state := { counter := CounterState.initial } }⟩
+  ⟨{ id := .demoGrid, state := {
+    counter := CounterState.initial
+    spinningCubes := spinningCubesInitialState
+  } }⟩
 
 private def demoFontsFromEnv (env : DemoEnv) : DemoFonts := {
   label := env.fontSmallId,
@@ -143,10 +147,17 @@ private def hitPathHasNamedWidget (widget : Afferent.Arbor.Widget)
 instance : Demo .demoGrid where
   name := "DEMO mode"
   shortName := "Overview"
-  init := fun _ => pure { counter := CounterState.initial }
+  init := fun _ => pure {
+    counter := CounterState.initial
+    spinningCubes := spinningCubesInitialState
+  }
+  update := fun env state => do
+    let nextCubes ← updateSpinningCubesState env state.spinningCubes
+    pure { state with spinningCubes := nextCubes }
   view := fun env state =>
     let demoFonts := demoFontsFromEnv env
-    some (demoGridWidget env.screenScale env.t demoFonts state.counter.value env.windowWidthF env.windowHeightF)
+    some (demoGridWidget env.screenScale env.t demoFonts state.counter.value state.spinningCubes
+      env.windowWidthF env.windowHeightF)
   handleClick := fun env state contentId hitPath click => do
     if click.button != 0 then
       pure state
@@ -154,10 +165,14 @@ instance : Demo .demoGrid where
       let demoFonts := demoFontsFromEnv env
       let gridWidget :=
         Afferent.Arbor.buildFrom contentId
-          (demoGridWidget env.screenScale env.t demoFonts state.counter.value env.windowWidthF env.windowHeightF)
+          (demoGridWidget env.screenScale env.t demoFonts state.counter.value state.spinningCubes
+            env.windowWidthF env.windowHeightF)
       let clickedIncrement := hitPathHasNamedWidget gridWidget hitPath counterIncrementName
       let clickedDecrement := hitPathHasNamedWidget gridWidget hitPath counterDecrementName
       let clickedReset := hitPathHasNamedWidget gridWidget hitPath counterResetName
+      let clickedSpinningCubes := hitPathHasNamedWidget gridWidget hitPath spinningCubesWidgetName
+      if clickedSpinningCubes then
+        FFI.Window.setPointerLock env.window true
       let nextCounter :=
         if clickedIncrement then
           CounterState.increment state.counter

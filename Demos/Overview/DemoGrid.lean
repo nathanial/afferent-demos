@@ -76,17 +76,17 @@ def pathsCellWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts) : 
 
 /-- Build the SpinningCubes overview cell. -/
 def spinningCubesCellWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts)
-    (windowW windowH : Float) : WidgetBuilder := do
+    (windowW windowH : Float) (state : SpinningCubesState) : WidgetBuilder := do
   let config : CellConfig := {
     bg := Color.hsva 0.55 0.35 0.18 1.0
     label := "3D Cubes"
-    content := fun t _ => spinningCubesOverviewWidget t windowW windowH
+    content := fun t _ => spinningCubesOverviewWidget t windowW windowH state.camera
   }
   cellWidget config screenScale t demoFonts
 
 /-- Build the normal demo mode: 3x3 grid of demo cells using Arbor widgets. -/
 def demoGridWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts) (counterValue : Int)
-    (windowW windowH : Float) : WidgetBuilder := do
+    (spinningState : SpinningCubesState) (windowW windowH : Float) : WidgetBuilder := do
   let props := GridContainer.withTemplate
     #[.fr 1, .fr 1, .fr 1]  -- 3 rows, each 1fr
     #[.fr 1, .fr 1, .fr 1]  -- 3 columns, each 1fr
@@ -107,7 +107,7 @@ def demoGridWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts) (co
     -- Row 3
     pathsCellWidget screenScale t demoFonts,               -- Paths
     counterCellWidget screenScale t demoFonts counterValue, -- Counter
-    spinningCubesCellWidget screenScale t demoFonts windowW windowH  -- 3D Cubes
+    spinningCubesCellWidget screenScale t demoFonts windowW windowH spinningState  -- 3D Cubes
   ]
 
 end Demos
