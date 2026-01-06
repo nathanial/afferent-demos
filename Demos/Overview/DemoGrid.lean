@@ -14,6 +14,7 @@ import Demos.Overview.Animations
 import Demos.Overview.Card
 import Demos.Overview.Counter
 import Demos.Overview.Paths
+import Demos.Overview.SpinningCubes
 
 open Afferent CanvasM
 open Afferent.Arbor
@@ -73,26 +74,40 @@ def pathsCellWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts) : 
   }
   cellWidget config screenScale t demoFonts
 
-/-- Build the normal demo mode: 2x4 grid of demo cells using Arbor widgets. -/
+/-- Build the SpinningCubes overview cell. -/
+def spinningCubesCellWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts)
+    (windowW windowH : Float) : WidgetBuilder := do
+  let config : CellConfig := {
+    bg := Color.hsva 0.55 0.35 0.18 1.0
+    label := "3D Cubes"
+    content := fun t _ => spinningCubesOverviewWidget t windowW windowH
+  }
+  cellWidget config screenScale t demoFonts
+
+/-- Build the normal demo mode: 3x3 grid of demo cells using Arbor widgets. -/
 def demoGridWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts) (counterValue : Int)
-    : WidgetBuilder := do
+    (windowW windowH : Float) : WidgetBuilder := do
   let props := GridContainer.withTemplate
-    #[.fr 1, .fr 1, .fr 1, .fr 1]  -- 4 rows, each 1fr
-    #[.fr 1, .fr 1]          -- 2 columns, each 1fr
+    #[.fr 1, .fr 1, .fr 1]  -- 3 rows, each 1fr
+    #[.fr 1, .fr 1, .fr 1]  -- 3 columns, each 1fr
   let style : BoxStyle := {
     width := .percent 1.0
     height := .percent 1.0
     flexItem := some (Trellis.FlexItem.growing 1)
   }
   Afferent.Arbor.gridCustom props style #[
-    cellWidget (getCellConfig 0) screenScale t demoFonts,
-    cellWidget (getCellConfig 1) screenScale t demoFonts,
-    cellWidget (getCellConfig 2) screenScale t demoFonts,
-    cellWidget (getCellConfig 3) screenScale t demoFonts,
-    cellWidget (getCellConfig 4) screenScale t demoFonts,
-    cellWidget (getCellConfig 5) screenScale t demoFonts,
-    pathsCellWidget screenScale t demoFonts,
-    counterCellWidget screenScale t demoFonts counterValue
+    -- Row 1
+    cellWidget (getCellConfig 0) screenScale t demoFonts,  -- Shapes
+    cellWidget (getCellConfig 1) screenScale t demoFonts,  -- Transforms
+    cellWidget (getCellConfig 2) screenScale t demoFonts,  -- Strokes
+    -- Row 2
+    cellWidget (getCellConfig 3) screenScale t demoFonts,  -- Gradients
+    cellWidget (getCellConfig 4) screenScale t demoFonts,  -- Text
+    cellWidget (getCellConfig 5) screenScale t demoFonts,  -- Animations
+    -- Row 3
+    pathsCellWidget screenScale t demoFonts,               -- Paths
+    counterCellWidget screenScale t demoFonts counterValue, -- Counter
+    spinningCubesCellWidget screenScale t demoFonts windowW windowH  -- 3D Cubes
   ]
 
 end Demos

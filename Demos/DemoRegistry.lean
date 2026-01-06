@@ -36,7 +36,6 @@ inductive DemoId where
   | layout
   | cssGrid
   | widgets
-  | spinningCubes
   | seascape
   | shapeGallery
   | worldmap
@@ -72,7 +71,6 @@ def DemoState : DemoId → Type
   | .layout => Unit
   | .cssGrid => Unit
   | .widgets => Unit
-  | .spinningCubes => SpinningCubesState
   | .seascape => SeascapeState
   | .shapeGallery => ShapeGalleryState
   | .worldmap => WorldmapState
@@ -148,7 +146,7 @@ instance : Demo .demoGrid where
   init := fun _ => pure { counter := CounterState.initial }
   view := fun env state =>
     let demoFonts := demoFontsFromEnv env
-    some (demoGridWidget env.screenScale env.t demoFonts state.counter.value)
+    some (demoGridWidget env.screenScale env.t demoFonts state.counter.value env.windowWidthF env.windowHeightF)
   handleClick := fun env state contentId hitPath click => do
     if click.button != 0 then
       pure state
@@ -156,7 +154,7 @@ instance : Demo .demoGrid where
       let demoFonts := demoFontsFromEnv env
       let gridWidget :=
         Afferent.Arbor.buildFrom contentId
-          (demoGridWidget env.screenScale env.t demoFonts state.counter.value)
+          (demoGridWidget env.screenScale env.t demoFonts state.counter.value env.windowWidthF env.windowHeightF)
       let clickedIncrement := hitPathHasNamedWidget gridWidget hitPath counterIncrementName
       let clickedDecrement := hitPathHasNamedWidget gridWidget hitPath counterDecrementName
       let clickedReset := hitPathHasNamedWidget gridWidget hitPath counterResetName
@@ -240,24 +238,6 @@ instance : Demo .widgets where
   view := fun env _ =>
     some (widgetDemo env.fontMediumId env.fontSmallId env.screenScale)
   step := fun c _ s => pure (c, s)
-
-instance : Demo .spinningCubes where
-  name := "3D SPINNING CUBES demo"
-  shortName := "3D Cubes"
-  init := fun _ => pure { camera := default }
-  update := fun env s => updateSpinningCubesState env s
-  view := fun env s =>
-    some (spinningCubesWidget env.t env.screenScale env.windowWidthF env.windowHeightF env.fontMedium env.fontSmall s)
-  handleClick := fun env s _ _ click => do
-    if click.button == 0 && !s.locked then
-      FFI.Window.setPointerLock env.window true
-      pure { s with locked := true }
-    else
-      pure s
-  step := fun c _ s => pure (c, s)
-  onExit := fun c _ s => do
-    FFI.Window.setPointerLock c.ctx.window false
-    pure s
 
 instance : Demo .seascape where
   name := "SEASCAPE demo (Gerstner waves)"
@@ -414,7 +394,6 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let layoutDemo ← mkAnyDemo .layout env
   let cssGridDemo ← mkAnyDemo .cssGrid env
   let widgetsDemo ← mkAnyDemo .widgets env
-  let spinningCubesDemo ← mkAnyDemo .spinningCubes env
   let seascapeDemo ← mkAnyDemo .seascape env
   let shapeGalleryDemo ← mkAnyDemo .shapeGallery env
   let worldmapDemo ← mkAnyDemo .worldmap env
@@ -424,7 +403,7 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let textureMatrixDemo ← mkAnyDemo .textureMatrix env
   let orbitalInstancedDemo ← mkAnyDemo .orbitalInstanced env
   pure #[demoGrid, gridPerf, trianglesPerf, circlesPerf, spritesPerf, layoutDemo, cssGridDemo,
-    widgetsDemo, spinningCubesDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
+    widgetsDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
     lineCapsDemo, dashedLinesDemo, linesPerfDemo,
     textureMatrixDemo, orbitalInstancedDemo]
 

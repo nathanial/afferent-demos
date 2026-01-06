@@ -109,6 +109,17 @@ def renderSpinningCubesWithCameraViewport (renderer : Renderer) (t : Float)
   let view := camera.viewMatrix
   renderCubesWithView renderer t proj view
 
+/-- Render spinning cubes with static camera into a viewport sub-region.
+    Used for thumbnail/overview display where no FPS camera controls are needed. -/
+def renderSpinningCubesViewport (renderer : Renderer) (t : Float)
+    (contentW contentH offsetX offsetY fullW fullH : Float) : IO Unit := do
+  let aspect := contentW / contentH
+  let fovY := Float.pi / 4.0
+  let proj := Mat4.perspective fovY aspect 0.1 100.0
+  let proj := applyViewport proj offsetX offsetY contentW contentH fullW fullH
+  let view := Mat4.lookAt ⟨0, 0, 12⟩ ⟨0, 0, 0⟩ Vec3.unitY
+  renderCubesWithView renderer t proj view
+
 def updateSpinningCubesState (env : DemoEnv) (state : SpinningCubesState) : IO SpinningCubesState := do
   let mut camera := state.camera
   let mut locked ← FFI.Window.getPointerLock env.window
