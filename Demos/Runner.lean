@@ -67,6 +67,7 @@ private structure LoadedAssets where
 
 /-- Fixed tabbar height in logical pixels. -/
 def tabBarHeight : Float := ({} : TabBarStyle).height
+def footerBarHeight : Float := 32
 
 private def tabBarStartId : Nat := 1
 
@@ -84,6 +85,8 @@ private structure RunningState where
   frameCount : Nat
   fpsAccumulator : Float
   displayFps : Float
+  renderCommandCount : Nat
+  widgetCount : Nat
   framesLeft : Nat
   tabBar : TabBarResult
 
@@ -377,11 +380,32 @@ private def rebuildTabBar (demos : Array AnyDemo) (selectedIdx : Nat)
   let configs := buildTabConfigs demos selectedIdx
   buildTabBar configs fontId {} screenScale tabBarStartId
 
-private def buildRootWidget (tabBar : TabBarResult) (content : Afferent.Arbor.Widget) : RootBuild :=
+private def nextWidgetId (w : Afferent.Arbor.Widget) : Nat :=
+  (Afferent.Arbor.Widget.allIds w).foldl (fun acc wid => max acc wid) 0 + 1
+
+private def buildFooterWidget (startId : Nat) (fontId : Afferent.Arbor.FontId)
+    (screenScale : Float) (text : String) : Afferent.Arbor.Widget :=
+  Afferent.Arbor.buildFrom startId do
+    let s := fun (v : Float) => v * screenScale
+    let props := { Trellis.FlexContainer.row (s 12) with alignItems := .center }
+    let style : Afferent.Arbor.BoxStyle := {
+      backgroundColor := some (Color.gray 0.08)
+      padding := Trellis.EdgeInsets.symmetric (s 12) 0
+      height := .length (s footerBarHeight)
+      flexItem := some (Trellis.FlexItem.fixed (s footerBarHeight))
+    }
+    Afferent.Arbor.flexRow props style #[
+      Afferent.Arbor.text' text fontId (Color.gray 0.7) .left none
+    ]
+
+private def buildRootWidget (tabBar : TabBarResult) (content : Afferent.Arbor.Widget)
+    (footerText : String) (fontId : Afferent.Arbor.FontId) (screenScale : Float) : RootBuild :=
+  let footerStartId := nextWidgetId content
+  let footer := buildFooterWidget footerStartId fontId screenScale footerText
   let root : Afferent.Arbor.Widget :=
     .flex 0 none (Trellis.FlexContainer.column 0)
       { width := .percent 1.0, height := .percent 1.0 }
-      #[tabBar.widget, content]
+      #[tabBar.widget, content, footer]
   { widget := root, tabBar := tabBar, contentId := Afferent.Arbor.Widget.id content }
 
 /-- Unified visual demo - runs all demos in a grid layout -/
@@ -503,7 +527,8 @@ def unifiedDemo : IO Unit := do
             match assetsOpt with
             | some assets =>
                 let tabBarHeightPx := tabBarHeight * screenScale
-                let contentHeightF := max 1.0 (assets.physHeightF - tabBarHeightPx)
+                let footerHeightPx := footerBarHeight * screenScale
+                let contentHeightF := max 1.0 (assets.physHeightF - tabBarHeightPx - footerHeightPx)
                 let contentHeight := contentHeightF.toUInt32
                 let (contentLayoutOffsetX, contentLayoutOffsetY, contentLayoutScale) :=
                   calcLayout assets.physWidthF contentHeightF
@@ -536,6 +561,8 @@ def unifiedDemo : IO Unit := do
                   frameCount := 0
                   fpsAccumulator := 0.0
                   displayFps := 0.0
+                  renderCommandCount := 0
+                  widgetCount := 0
                   framesLeft := exitAfterFrames
                   tabBar := tabBar
                 }
@@ -563,6 +590,10 @@ def unifiedDemo : IO Unit := do
                 }
               }
             let tabBarHeightPx := tabBarHeight * s
+            let footerHeightPx := footerBarHeight * s
+
+            let footerText :=
+              s!"{rs.displayFps.toUInt32} FPS  |  cmds {rs.renderCommandCount}  |  widgets {rs.widgetCount}"
 
             let buildDemoWidget := fun (tabBar : TabBarResult) (demo : AnyDemo)
                 (envForView : DemoEnv) =>
@@ -573,6 +604,7 @@ def unifiedDemo : IO Unit := do
             let buildRoot := fun (tabBar : TabBarResult) (demo : AnyDemo)
                 (envForView : DemoEnv) =>
               buildRootWidget tabBar (buildDemoWidget tabBar demo envForView)
+                footerText rs.assets.fontPack.smallId s
 
             let measureRoot := fun (root : Afferent.Arbor.Widget) => do
               let measureResult ← runWithFonts rs.assets.fontPack.registry
@@ -603,7 +635,7 @@ def unifiedDemo : IO Unit := do
                 layoutScale := contentLayoutScale
               }
 
-            let fallbackContentH := max 1.0 (screenH - tabBarHeightPx)
+            let fallbackContentH := max 1.0 (screenH - tabBarHeightPx - footerHeightPx)
             let defaultContentRect : Trellis.LayoutRect :=
               { x := 0, y := tabBarHeightPx, width := screenW, height := fallbackContentH }
             let defaultLayout := Trellis.ComputedLayout.simple 0 defaultContentRect
@@ -620,7 +652,8 @@ def unifiedDemo : IO Unit := do
                   let demo ← demoRef.get
                   pure (buildRoot rs.tabBar demo envForView)
               | none =>
-                  pure (buildRootWidget rs.tabBar (.spacer rs.tabBar.finalId none 0 0))
+                  pure (buildRootWidget rs.tabBar (.spacer rs.tabBar.finalId none 0 0)
+                    footerText rs.assets.fontPack.smallId s)
 
             let initRootBuild ← buildRootBuild
             let ((measuredWidget, layouts, clickedTab, demoClickPath), rootBuild) ←
@@ -708,8 +741,10 @@ def unifiedDemo : IO Unit := do
                   | none => pure ()
               | none => pure ()
 
+            let commands := Afferent.Arbor.collectCommands measuredWidget layouts
+            let widgetCount := Afferent.Arbor.Widget.widgetCount measuredWidget
+            rs := { rs with renderCommandCount := commands.size, widgetCount := widgetCount }
             c ← run' c do
-              let commands := Afferent.Arbor.collectCommands measuredWidget layouts
               Afferent.Widget.executeCommands rs.assets.fontPack.registry commands
               Afferent.Widget.renderCustomWidgets measuredWidget layouts
 
@@ -728,18 +763,6 @@ def unifiedDemo : IO Unit := do
                 fpsAccumulator := 0.0
                 frameCount := 0
               }
-
-            -- Render FPS counter in top-right corner (after all other rendering)
-            -- Reset transform to draw in screen coordinates
-            let fpsText := s!"{rs.displayFps.toUInt32} FPS"
-            let (textWidth, _) ← rs.assets.fontSmall.measureText fpsText
-            c ← run' c do
-              resetTransform
-              let (fpsW, _) ← getCurrentSize
-              setFillColor (Color.hsva 0.0 0.0 0.0 0.6)
-              fillRectXYWH (fpsW - textWidth - 20 * s) (tabBarHeightPx + 5 * s) (textWidth + 15 * s) (25 * s)
-              setFillColor Color.white
-              fillTextXY fpsText (fpsW - textWidth - 12 * s) (tabBarHeightPx + 22 * s) rs.assets.fontSmall
 
             c ← c.endFrame
 
