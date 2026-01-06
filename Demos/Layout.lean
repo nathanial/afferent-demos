@@ -8,6 +8,8 @@ import Afferent.Widget
 import Afferent.Arbor
 import Demos.Demo
 import Trellis
+open Tincture (Color)
+open Tincture.Named
 
 open Afferent.Arbor
 open Trellis
@@ -19,23 +21,6 @@ private abbrev grow1 := some (Trellis.FlexItem.growing 1)
 /-- FlexItem alias for grow factor 2 -/
 private abbrev grow2 := some (Trellis.FlexItem.growing 2)
 
-/-- Colors for layout cells -/
-def layoutCellColors : Array Color := #[
-  Afferent.Color.red,
-  Afferent.Color.green,
-  Afferent.Color.blue,
-  Afferent.Color.yellow,
-  Afferent.Color.cyan,
-  Afferent.Color.magenta,
-  Afferent.Color.orange,
-  Afferent.Color.purple,
-  Afferent.Color.hsv 0.9 0.6 1.0,   -- pink
-  Afferent.Color.hsv 0.5 0.7 0.8    -- teal
-]
-
-/-- Get a color for a node ID -/
-def layoutColorForId (id : Nat) : Color :=
-  layoutCellColors[id % layoutCellColors.size]!
 
 /-- Convert a size to an option (0 or less becomes none). -/
 def layoutOptSize (v : Float) : Option Float :=
@@ -53,9 +38,9 @@ def layoutCellStyle (color : Color) (minW minH : Float)
 }
 
 /-- Build a colored flex cell. -/
-def layoutCell (id : Nat) (minW minH : Float := 0)
+def layoutCell (color : Color) (minW minH : Float := 0)
     (flexItem : Option Trellis.FlexItem := none) : WidgetBuilder := do
-  box (layoutCellStyle (layoutColorForId id) minW minH flexItem)
+  box (layoutCellStyle color minW minH flexItem)
 
 /-- Style for layout demo sections. -/
 def layoutSectionStyle (minHeight : Float) : BoxStyle := {
@@ -101,50 +86,51 @@ def layoutWidgetFlex (fontTitle fontSmall : FontId) (_screenScale : Float) : Wid
     padding := EdgeInsets.uniform 20
     flexItem := grow1
   }
+  let sec := fun title desc minHeight content ↦ layoutSection fontSmall title desc minHeight content
   vbox (gap := 16) (style := rootStyle) do
     text' "CSS Flexbox Layout Demo (Space to advance)" fontTitle Afferent.Color.white .left
     hbox (gap := 20) (style := BoxStyle.grow) do
       -- Left column
       vbox (gap := 12) (style := BoxStyle.growFill) do
-        layoutSection fontSmall "Row: flex-start" "Items packed to start" 90 <|
+        sec "Row: flex-start" "Items packed to start" 90 <|
           hbox (gap := 10) (style := layoutContentStyle) do
-            layoutCell 1 80 50; layoutCell 2 100 50; layoutCell 3 70 50
-        layoutSection fontSmall "Row: center" "Items centered horizontally" 90 <|
+            layoutCell green 80 50; layoutCell blue 100 50; layoutCell yellow 70 50
+        sec "Row: center" "Items centered horizontally" 90 <|
           hcenter (gap := 10) (style := layoutContentStyle) do
-            layoutCell 1 60 50; layoutCell 2 60 50; layoutCell 3 60 50
-        layoutSection fontSmall "Row: space-between" "Items spread with space between" 90 <|
+            layoutCell green 60 50; layoutCell blue 60 50; layoutCell yellow 60 50
+        sec "Row: space-between" "Items spread with space between" 90 <|
           hspaced (style := layoutContentStyle) do
-            layoutCell 4 50 50; layoutCell 5 50 50; layoutCell 6 50 50
-        layoutSection fontSmall "Row: flex-grow 1:2:1" "Middle item grows twice as much" 90 <|
+            layoutCell cyan 50 50; layoutCell magenta 50 50; layoutCell orange 50 50
+        sec "Row: flex-grow 1:2:1" "Middle item grows twice as much" 90 <|
           hbox (gap := 10) (style := layoutContentStyle) do
-            layoutCell 1 0 50 grow1; layoutCell 2 0 50 grow2; layoutCell 3 0 50 grow1
-        layoutSection fontSmall "Column direction" "Items stacked vertically" 180 <|
+            layoutCell green 0 50 grow1; layoutCell blue 0 50 grow2; layoutCell yellow 0 50 grow1
+        sec "Column direction" "Items stacked vertically" 180 <|
           vbox (gap := 10) (style := layoutContentStyle) do
-            layoutCell 1 100 40; layoutCell 2 120 48; layoutCell 3 80 40
+            layoutCell green 100 40; layoutCell blue 120 48; layoutCell yellow 80 40
       -- Right column
       vbox (gap := 12) (style := BoxStyle.growFill) do
-        layoutSection fontSmall "Row: align-items center" "Items centered on cross-axis" 110 <|
-          hboxWith { Trellis.FlexContainer.row 10 with alignItems := .center } layoutContentStyle do
-            layoutCell 1 60 30; layoutCell 2 60 60; layoutCell 3 60 45
-        layoutSection fontSmall "Nested containers" "Outer row with inner column" 130 <|
+        sec "Row: align-items center" "Items centered on cross-axis" 110 <|
+          hboxWith { FlexContainer.row 10 with alignItems := .center } layoutContentStyle do
+            layoutCell green 60 30; layoutCell blue 60 60; layoutCell yellow 60 45
+        sec "Nested containers" "Outer row with inner column" 130 <|
           hbox 10 layoutContentStyle (do
-            layoutCell 1 60 0
-            center (style := BoxStyle.growFill) <| vbox 10 {} (do
-              layoutCell 4 0 35 grow1; layoutCell 5 0 35 grow1)
-            layoutCell 2 60 0)
-        layoutSection fontSmall "Complex layout" "Header + sidebar + main" 220 <|
+            layoutCell green 60 0
+            center (style := BoxStyle.growFill) <| vbox 10 BoxStyle.growFill (do
+              layoutCell cyan 0 35 grow1; layoutCell magenta 0 35 grow1)
+            layoutCell blue 60 0)
+        sec "Complex layout" "Header + sidebar + main" 220 <|
           vbox 10 layoutContentStyle (do
-            layoutCell 1 0 30 grow1
+            layoutCell green 0 30 grow1
             hbox 10 BoxStyle.grow (do
-              vbox 10 {} (do layoutCell 2 80 40; layoutCell 3 80 40; layoutCell 4 80 40)
-              layoutCell 5 0 0 grow1))
-        layoutSection fontSmall "Overview layout" "Header + 2x2 grid + footer" 200 <|
+              vbox 10 {} (do layoutCell blue 80 40; layoutCell yellow 80 40; layoutCell cyan 80 40)
+              layoutCell magenta 0 0 grow1))
+        sec "Overview layout" "Header + 2x2 grid + footer" 200 <|
           vbox (gap := 10) (style := layoutContentStyle) do
-            layoutCell 1 0 25 grow1
+            layoutCell green 0 25 grow1
             hbox (gap := 10) (style := BoxStyle.grow) do
-              layoutCell 2 0 0 grow1; layoutCell 3 0 0 grow1
+              layoutCell blue 0 0 grow1; layoutCell yellow 0 0 grow1
             hbox (gap := 10) (style := BoxStyle.grow) do
-              layoutCell 4 0 0 grow1; layoutCell 5 0 0 grow1
-            layoutCell 6 0 20 grow1
+              layoutCell cyan 0 0 grow1; layoutCell magenta 0 0 grow1
+            layoutCell orange 0 20 grow1
 
 end Demos
