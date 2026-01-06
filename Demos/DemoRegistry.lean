@@ -235,7 +235,7 @@ instance : Demo .layout where
   shortName := "Layout"
   init := fun _ => pure ()
   view := fun env _ =>
-    some (layoutWidgetFlex env.fontSmallId)
+    some (layoutWidgetFlex env.fontMediumId env.fontSmallId env.screenScale)
   step := fun c _ s => pure (c, s)
 
 instance : Demo .cssGrid where

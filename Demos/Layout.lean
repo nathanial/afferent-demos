@@ -1,19 +1,19 @@
 /-
-  Layout Cards - Flexbox layout visualization using Trellis.
-  Rendered as Arbor card widgets in a 3x3 grid.
+  Layout Demo - CSS Flexbox layout visualization (Arbor widgets)
 -/
 import Afferent
+import Afferent.Widget
 import Afferent.Arbor
+import Demos.Demo
 import Trellis
-import Demos.Overview.Card
 
 open Afferent.Arbor
-open Trellis (EdgeInsets LayoutNode LayoutResult FlexContainer FlexItem ContentSize)
+open Trellis
 
 namespace Demos
 
 /-- Colors for layout cells -/
-private def cellColors : Array Color := #[
+def layoutCellColors : Array Color := #[
   Afferent.Color.red,
   Afferent.Color.green,
   Afferent.Color.blue,
@@ -27,186 +27,239 @@ private def cellColors : Array Color := #[
 ]
 
 /-- Get a color for a node ID -/
-private def colorForId (id : Nat) : Color :=
-  cellColors[id % cellColors.size]!
+def layoutColorForId (id : Nat) : Color :=
+  layoutCellColors[id % layoutCellColors.size]!
 
-/-- Convert a Trellis LayoutResult to RenderCommands -/
-private def layoutResultToCommands (result : LayoutResult) (offset : Point) : RenderCommands := Id.run do
-  let mut cmds : RenderCommands := #[]
-  for cl in result.layouts do
-    let rect := cl.borderRect
-    let x := rect.x + offset.x
-    let y := rect.y + offset.y
-    let w := rect.width
-    let h := rect.height
-    -- Fill rectangle with node color
-    let color := colorForId cl.nodeId |>.withAlpha 0.7
-    cmds := cmds.push (.fillRect (Rect.mk' x y w h) color)
-    -- White border
-    let path := Path.rectangle (Rect.mk' x y w h)
-    cmds := cmds.push (.strokePath path Afferent.Color.white 2)
-  return cmds
+/-- Convert a size to an option (0 or less becomes none). -/
+def layoutOptSize (v : Float) : Option Float :=
+  if v <= 0 then none else some v
 
-/-- Layout card definition -/
-structure LayoutCardDef where
-  label : String
-  tree : Float → Float → LayoutNode
+/-- Style for a layout demo cell. -/
+def layoutCellStyle (color : Color) (screenScale : Float) (minW minH : Float)
+    (flexItem : Option Trellis.FlexItem := none) : BoxStyle := {
+  backgroundColor := some (color.withAlpha 0.7)
+  borderColor := some Afferent.Color.white
+  borderWidth := 1 * screenScale
+  minWidth := layoutOptSize minW
+  minHeight := layoutOptSize minH
+  flexItem := flexItem
+}
 
-/-- Demo 1: Basic flex row with items left-aligned -/
-private def flexRowTree (w h : Float) : LayoutNode :=
-  let gap := min w h * 0.04
-  let itemW := w * 0.25
-  let itemH := h * 0.6
-  LayoutNode.row 0 #[
-    LayoutNode.leaf 1 (ContentSize.mk' itemW itemH),
-    LayoutNode.leaf 2 (ContentSize.mk' (itemW * 1.2) itemH),
-    LayoutNode.leaf 3 (ContentSize.mk' (itemW * 0.9) itemH)
-  ] (gap := gap)
+/-- Build a colored flex cell. -/
+def layoutCell (color : Color) (screenScale : Float) (minW minH : Float := 0)
+    (flexItem : Option Trellis.FlexItem := none) : WidgetBuilder := do
+  box (layoutCellStyle color screenScale minW minH flexItem)
 
-/-- Demo 2: Flex row with justify-content: center -/
-private def flexRowCenterTree (w h : Float) : LayoutNode :=
-  let gap := min w h * 0.04
-  let itemW := w * 0.2
-  let itemH := h * 0.5
-  let props := { FlexContainer.row with justifyContent := .center, gap := gap }
-  LayoutNode.flexBox 0 props #[
-    LayoutNode.leaf 1 (ContentSize.mk' itemW itemH),
-    LayoutNode.leaf 2 (ContentSize.mk' itemW itemH),
-    LayoutNode.leaf 3 (ContentSize.mk' itemW itemH)
+/-- Style for layout demo sections. -/
+def layoutSectionStyle (screenScale : Float) (minHeight : Float) : BoxStyle := {
+  backgroundColor := some ((Afferent.Color.gray 0.5).withAlpha 0.25)
+  borderColor := some ((Afferent.Color.gray 0.6).withAlpha 0.35)
+  borderWidth := 1 * screenScale
+  cornerRadius := 6 * screenScale
+  padding := EdgeInsets.uniform (8 * screenScale)
+  flexItem := some (Trellis.FlexItem.growing 1)
+  minHeight := some minHeight
+  height := .percent 1.0
+}
+
+/-- Style for layout demo content containers. -/
+def layoutContentStyle (screenScale : Float) : BoxStyle := {
+  backgroundColor := some (Afferent.Color.gray 0.12)
+  borderColor := some (Afferent.Color.gray 0.3)
+  borderWidth := 1 * screenScale
+  cornerRadius := 4 * screenScale
+  padding := EdgeInsets.uniform (4 * screenScale)
+  flexItem := some (Trellis.FlexItem.growing 1)
+  height := .percent 1.0
+}
+
+/-- Build a labeled layout demo section. -/
+def layoutSection (title desc : String) (fontLabel fontSmall : FontId)
+    (screenScale minHeight : Float) (content : WidgetBuilder) : WidgetBuilder := do
+  let gap := 4 * screenScale
+  let style := layoutSectionStyle screenScale minHeight
+  let mut children : Array WidgetBuilder := #[(text' title fontLabel (Afferent.Color.gray 0.95) .left)]
+  if desc != "" then
+    children := children.push (text' desc fontSmall (Afferent.Color.gray 0.75) .left)
+  children := children.push content
+  column (gap := gap) (style := style) children
+
+/-- Demo 1: Basic flex row with items left-aligned (justify-content: flex-start) -/
+def demoFlexRow (screenScale : Float) : WidgetBuilder := do
+  let gap := 10 * screenScale
+  let cellH := 50 * screenScale
+  row (gap := gap) (style := layoutContentStyle screenScale) #[
+    layoutCell (layoutColorForId 1) screenScale (80 * screenScale) cellH,
+    layoutCell (layoutColorForId 2) screenScale (100 * screenScale) cellH,
+    layoutCell (layoutColorForId 3) screenScale (70 * screenScale) cellH
   ]
 
-/-- Demo 3: Flex row with space-between -/
-private def spaceBetweenTree (w h : Float) : LayoutNode :=
-  let itemW := w * 0.18
-  let itemH := h * 0.5
-  let props := { FlexContainer.row with justifyContent := .spaceBetween }
-  LayoutNode.flexBox 0 props #[
-    LayoutNode.leaf 1 (ContentSize.mk' itemW itemH),
-    LayoutNode.leaf 2 (ContentSize.mk' itemW itemH),
-    LayoutNode.leaf 3 (ContentSize.mk' itemW itemH)
+/-- Demo 2: Flex row with justify-content: center -/
+def demoFlexRowCenter (screenScale : Float) : WidgetBuilder := do
+  let gap := 10 * screenScale
+  let cellW := 60 * screenScale
+  let cellH := 50 * screenScale
+  let props := { Trellis.FlexContainer.row gap with justifyContent := .center }
+  flexRow props (layoutContentStyle screenScale) #[
+    layoutCell (layoutColorForId 1) screenScale cellW cellH,
+    layoutCell (layoutColorForId 2) screenScale cellW cellH,
+    layoutCell (layoutColorForId 3) screenScale cellW cellH
+  ]
+
+/-- Demo 3: Flex row with justify-content: space-between -/
+def demoFlexRowSpaceBetween (screenScale : Float) : WidgetBuilder := do
+  let cellW := 50 * screenScale
+  let cellH := 50 * screenScale
+  spaceBetween .row (layoutContentStyle screenScale) #[
+    layoutCell (layoutColorForId 4) screenScale cellW cellH,
+    layoutCell (layoutColorForId 5) screenScale cellW cellH,
+    layoutCell (layoutColorForId 6) screenScale cellW cellH
   ]
 
 /-- Demo 4: Flex grow with 1:2:1 ratio -/
-private def flexGrowTree (w h : Float) : LayoutNode :=
-  let gap := min w h * 0.04
-  let itemH := h * 0.5
-  LayoutNode.flexBox 0 (FlexContainer.row gap) #[
-    LayoutNode.leaf' 1 0 itemH {} (.flexChild (FlexItem.growing 1)),
-    LayoutNode.leaf' 2 0 itemH {} (.flexChild (FlexItem.growing 2)),
-    LayoutNode.leaf' 3 0 itemH {} (.flexChild (FlexItem.growing 1))
+def demoFlexGrow (screenScale : Float) : WidgetBuilder := do
+  let gap := 10 * screenScale
+  let cellH := 50 * screenScale
+  row (gap := gap) (style := layoutContentStyle screenScale) #[
+    layoutCell (layoutColorForId 1) screenScale 0 cellH (some (Trellis.FlexItem.growing 1)),
+    layoutCell (layoutColorForId 2) screenScale 0 cellH (some (Trellis.FlexItem.growing 2)),
+    layoutCell (layoutColorForId 3) screenScale 0 cellH (some (Trellis.FlexItem.growing 1))
   ]
 
-/-- Demo 5: Column layout -/
-private def flexColumnTree (w h : Float) : LayoutNode :=
-  let gap := min w h * 0.04
-  let itemW := w * 0.6
-  let itemH := h * 0.2
-  LayoutNode.column 0 #[
-    LayoutNode.leaf 1 (ContentSize.mk' itemW itemH),
-    LayoutNode.leaf 2 (ContentSize.mk' (itemW * 1.1) (itemH * 1.2)),
-    LayoutNode.leaf 3 (ContentSize.mk' (itemW * 0.8) itemH)
-  ] (gap := gap)
-
-/-- Demo 6: Align items center (cross-axis) -/
-private def alignCenterTree (w h : Float) : LayoutNode :=
-  let gap := min w h * 0.04
-  let itemW := w * 0.2
-  let props := { FlexContainer.row with alignItems := .center, gap := gap }
-  LayoutNode.flexBox 0 props #[
-    LayoutNode.leaf 1 (ContentSize.mk' itemW (h * 0.3)),
-    LayoutNode.leaf 2 (ContentSize.mk' itemW (h * 0.6)),
-    LayoutNode.leaf 3 (ContentSize.mk' itemW (h * 0.45))
+/-- Demo 5: Flex column direction -/
+def demoFlexColumn (screenScale : Float) : WidgetBuilder := do
+  let gap := 10 * screenScale
+  let cellW := 100 * screenScale
+  let cellH := 40 * screenScale
+  column (gap := gap) (style := layoutContentStyle screenScale) #[
+    layoutCell (layoutColorForId 1) screenScale cellW cellH,
+    layoutCell (layoutColorForId 2) screenScale (cellW * 1.2) (cellH * 1.2),
+    layoutCell (layoutColorForId 3) screenScale (cellW * 0.8) cellH
   ]
 
-/-- Demo 7: Nested containers -/
-private def nestedTree (w h : Float) : LayoutNode :=
-  let gap := min w h * 0.04
-  let sideW := w * 0.2
-  let innerColumn := LayoutNode.column 10 #[
-    LayoutNode.leaf 11 (ContentSize.mk' (w * 0.3) (h * 0.25)),
-    LayoutNode.leaf 12 (ContentSize.mk' (w * 0.3) (h * 0.25))
-  ] (gap := gap)
-  LayoutNode.row 0 #[
-    LayoutNode.leaf 1 (ContentSize.mk' sideW (h * 0.8)),
-    innerColumn.withItem (.flexChild (FlexItem.growing 1)),
-    LayoutNode.leaf 2 (ContentSize.mk' sideW (h * 0.8))
-  ] (gap := gap)
-
-/-- Demo 8: Complex layout with header + sidebar + main -/
-private def complexTree (w h : Float) : LayoutNode :=
-  let gap := min w h * 0.03
-  let headerH := h * 0.15
-  let sidebarW := w * 0.25
-  let itemH := (h - headerH - gap * 4) / 3
-
-  let header := LayoutNode.row 100 #[
-    LayoutNode.leaf' 101 0 headerH {} (.flexChild (FlexItem.growing 1))
+/-- Demo 6: Align items center (cross-axis alignment) -/
+def demoAlignCenter (screenScale : Float) : WidgetBuilder := do
+  let gap := 10 * screenScale
+  let cellW := 60 * screenScale
+  let props := { Trellis.FlexContainer.row gap with alignItems := .center }
+  flexRow props (layoutContentStyle screenScale) #[
+    layoutCell (layoutColorForId 1) screenScale cellW (30 * screenScale),
+    layoutCell (layoutColorForId 2) screenScale cellW (60 * screenScale),
+    layoutCell (layoutColorForId 3) screenScale cellW (45 * screenScale)
   ]
 
-  let sidebar := LayoutNode.column 200 #[
-    LayoutNode.leaf 201 (ContentSize.mk' sidebarW itemH),
-    LayoutNode.leaf 202 (ContentSize.mk' sidebarW itemH),
-    LayoutNode.leaf 203 (ContentSize.mk' sidebarW itemH)
-  ] (gap := gap)
+/-- Demo 7: Nested containers (row containing column) -/
+def demoNested (screenScale : Float) : WidgetBuilder := do
+  let gap := 10 * screenScale
+  let sideW := 60 * screenScale
+  let innerH := 35 * screenScale
+  let innerColumn := column (gap := gap) {} #[
+    layoutCell (layoutColorForId 4) screenScale 0 innerH (some (Trellis.FlexItem.growing 1)),
+    layoutCell (layoutColorForId 5) screenScale 0 innerH (some (Trellis.FlexItem.growing 1))
+  ]
+  row (gap := gap) (style := layoutContentStyle screenScale) #[
+    layoutCell (layoutColorForId 1) screenScale sideW 0,
+    center (style := { flexItem := some (Trellis.FlexItem.growing 1), height := .percent 1.0 }) innerColumn,
+    layoutCell (layoutColorForId 2) screenScale sideW 0
+  ]
 
-  let mainContent := LayoutNode.flexBox 300
-    { FlexContainer.column with alignItems := .stretch }
-    #[LayoutNode.leaf' 301 0 0 {} (.flexChild (FlexItem.growing 1))]
+/-- Demo 8: Complex layout (header + sidebar + main) -/
+def demoComplex (screenScale : Float) : WidgetBuilder := do
+  let gap := 10 * screenScale
+  let headerH := 30 * screenScale
+  let sidebarW := 80 * screenScale
+  let itemH := 40 * screenScale
 
-  let content := LayoutNode.row 400 #[
+  let header := layoutCell (layoutColorForId 1) screenScale 0 headerH (some (Trellis.FlexItem.growing 1))
+
+  let sidebar := column (gap := gap) {} #[
+    layoutCell (layoutColorForId 2) screenScale sidebarW itemH,
+    layoutCell (layoutColorForId 3) screenScale sidebarW itemH,
+    layoutCell (layoutColorForId 4) screenScale sidebarW itemH
+  ]
+
+  let mainContent := layoutCell (layoutColorForId 5) screenScale 0 0 (some (Trellis.FlexItem.growing 1))
+
+  let content := row (gap := gap) (style := { flexItem := some (Trellis.FlexItem.growing 1) }) #[
     sidebar,
-    mainContent.withItem (.flexChild (FlexItem.growing 1))
-  ] (gap := gap)
+    mainContent
+  ]
 
-  LayoutNode.column 0 #[
-    header,
-    content.withItem (.flexChild (FlexItem.growing 1))
-  ] (gap := gap)
+  column (gap := gap) (style := layoutContentStyle screenScale) #[header, content]
 
-/-- Demo 9: Overview - header + 2x2 grid + footer -/
-private def overviewTree (w h : Float) : LayoutNode :=
-  let gap := min w h * 0.03
-  let headerH := h * 0.12
-  let footerH := h * 0.1
-  let cellW := (w - gap) / 2
-  let cellH := (h - headerH - footerH - gap * 4) / 2
+/-- Demo 9: Overview layout (header + grid + footer) -/
+def demoOverview (screenScale : Float) : WidgetBuilder := do
+  let gap := 10 * screenScale
+  let headerH := 25 * screenScale
+  let footerH := 20 * screenScale
 
-  let header := LayoutNode.leaf' 100 0 headerH {} (.flexChild (FlexItem.growing 1))
+  let header := layoutCell (layoutColorForId 1) screenScale 0 headerH (some (Trellis.FlexItem.growing 1))
 
-  let gridRow1 := LayoutNode.row 200 #[
-    LayoutNode.leaf 201 (ContentSize.mk' cellW cellH),
-    LayoutNode.leaf 202 (ContentSize.mk' cellW cellH)
-  ] (gap := gap)
+  let gridRow1 := row (gap := gap) (style := { flexItem := some (Trellis.FlexItem.growing 1) }) #[
+    layoutCell (layoutColorForId 2) screenScale 0 0 (some (Trellis.FlexItem.growing 1)),
+    layoutCell (layoutColorForId 3) screenScale 0 0 (some (Trellis.FlexItem.growing 1))
+  ]
 
-  let gridRow2 := LayoutNode.row 300 #[
-    LayoutNode.leaf 301 (ContentSize.mk' cellW cellH),
-    LayoutNode.leaf 302 (ContentSize.mk' cellW cellH)
-  ] (gap := gap)
+  let gridRow2 := row (gap := gap) (style := { flexItem := some (Trellis.FlexItem.growing 1) }) #[
+    layoutCell (layoutColorForId 4) screenScale 0 0 (some (Trellis.FlexItem.growing 1)),
+    layoutCell (layoutColorForId 5) screenScale 0 0 (some (Trellis.FlexItem.growing 1))
+  ]
 
-  let footer := LayoutNode.leaf' 400 0 footerH {} (.flexChild (FlexItem.growing 1))
+  let footer := layoutCell (layoutColorForId 6) screenScale 0 footerH (some (Trellis.FlexItem.growing 1))
 
-  LayoutNode.column 0 #[header, gridRow1, gridRow2, footer] (gap := gap)
+  column (gap := gap) (style := layoutContentStyle screenScale) #[header, gridRow1, gridRow2, footer]
 
-/-- All layout cards -/
-private def layoutCards : Array LayoutCardDef := #[
-  { label := "Row: justify-content: flex-start",     tree := flexRowTree },
-  { label := "Row: justify-content: center",         tree := flexRowCenterTree },
-  { label := "Row: justify-content: space-between",  tree := spaceBetweenTree },
-  { label := "Row: flex-grow ratio 1:2:1",           tree := flexGrowTree },
-  { label := "Column: flex-direction: column",       tree := flexColumnTree },
-  { label := "Row: align-items: center",             tree := alignCenterTree },
-  { label := "Nested: row containing column",        tree := nestedTree },
-  { label := "Complex: header + sidebar + main",     tree := complexTree },
-  { label := "Overview: header + grid + footer",     tree := overviewTree }
-]
+/-- Build all flexbox demos using Arbor widgets. -/
+def layoutWidgetFlex (fontTitle fontSmall : FontId) (screenScale : Float) : WidgetBuilder := do
+  let s := screenScale
+  let rootStyle : BoxStyle := {
+    backgroundColor := some (Afferent.Color.rgba 0.1 0.1 0.15 1.0)
+    padding := EdgeInsets.uniform (20 * s)
+    width := .percent 1.0
+    height := .percent 1.0
+    flexItem := some (Trellis.FlexItem.growing 1)
+  }
+  let columnStyle : BoxStyle := {
+    flexItem := some (Trellis.FlexItem.growing 1)
+    height := .percent 1.0
+  }
+  let titleWidget := text' "CSS Flexbox Layout Demo (Space to advance)" fontTitle Afferent.Color.white .left
 
-/-- Layout demo rendered as cards in a 3x3 grid. -/
-def layoutWidgetFlex (labelFont : FontId) : WidgetBuilder := do
-  let cards := layoutCards.map (fun card =>
-    demoCardFlex labelFont card.label (fun r =>
-      let tree := card.tree r.size.width r.size.height
-      let result := Trellis.layout tree r.size.width r.size.height
-      layoutResultToCommands result r.origin))
-  gridFlex 3 3 4 cards (EdgeInsets.uniform 6)
+  let leftCol := column (gap := 12 * s) (style := columnStyle) #[(
+    layoutSection "Row: justify-content: flex-start" "Items packed to start (default)"
+      fontSmall fontSmall s (90 * s) (demoFlexRow s)
+    ),(
+    layoutSection "Row: justify-content: center" "Items centered horizontally"
+      fontSmall fontSmall s (90 * s) (demoFlexRowCenter s)
+    ),(
+    layoutSection "Row: justify-content: space-between" "Items spread with space between"
+      fontSmall fontSmall s (90 * s) (demoFlexRowSpaceBetween s)
+    ),(
+    layoutSection "Row: flex-grow 1:2:1" "Middle item grows twice as much"
+      fontSmall fontSmall s (90 * s) (demoFlexGrow s)
+    ),(
+    layoutSection "Column: flex-direction: column" "Items stacked vertically"
+      fontSmall fontSmall s (180 * s) (demoFlexColumn s)
+    )]
+
+  let rightCol := column (gap := 12 * s) (style := columnStyle) #[(
+    layoutSection "Row: align-items: center" "Items centered on cross-axis"
+      fontSmall fontSmall s (110 * s) (demoAlignCenter s)
+    ),(
+    layoutSection "Nested: row containing column" "Outer row with inner column"
+      fontSmall fontSmall s (130 * s) (demoNested s)
+    ),(
+    layoutSection "Complex: header + sidebar + main" "App-like layout structure"
+      fontSmall fontSmall s (220 * s) (demoComplex s)
+    ),(
+    layoutSection "Overview: header + 2x2 grid + footer" "Dashboard-like layout"
+      fontSmall fontSmall s (200 * s) (demoOverview s)
+    )]
+
+  column (gap := 16 * s) (style := rootStyle) #[(
+    titleWidget
+    ),(
+    row (gap := 20 * s) (style := { flexItem := some (Trellis.FlexItem.growing 1) }) #[leftCol, rightCol]
+    )]
 
 end Demos
