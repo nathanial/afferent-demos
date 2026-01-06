@@ -1,5 +1,5 @@
 /-
-  Grid Demo - CSS Grid layout visualization
+  Grid Demo - CSS Grid layout visualization (Arbor widgets)
 -/
 import Afferent
 import Afferent.Widget
@@ -7,151 +7,170 @@ import Afferent.Arbor
 import Demos.Demo
 import Trellis
 
-open Afferent CanvasM
+open Afferent.Arbor
 open Trellis
 
 namespace Demos
 
 /-- Colors for layout cells -/
 def gridCellColors : Array Color := #[
-  Color.red,
-  Color.green,
-  Color.blue,
-  Color.yellow,
-  Color.cyan,
-  Color.magenta,
-  Color.orange,
-  Color.purple,
-  Color.hsv 0.9 0.6 1.0,   -- pink
-  Color.hsv 0.5 0.7 0.8    -- teal
+  Afferent.Color.red,
+  Afferent.Color.green,
+  Afferent.Color.blue,
+  Afferent.Color.yellow,
+  Afferent.Color.cyan,
+  Afferent.Color.magenta,
+  Afferent.Color.orange,
+  Afferent.Color.purple,
+  Afferent.Color.hsv 0.9 0.6 1.0,   -- pink
+  Afferent.Color.hsv 0.5 0.7 0.8    -- teal
 ]
 
 /-- Get a color for a node ID -/
 def gridColorForId (id : Nat) : Color :=
   gridCellColors[id % gridCellColors.size]!
 
-/-- Draw a layout result onto the canvas -/
-def drawGridResult (result : LayoutResult) (offsetX offsetY : Float := 0) : CanvasM Unit := do
-  for cl in result.layouts do
-    let rect := cl.borderRect
-    -- Draw fill
-    setFillColor (gridColorForId cl.nodeId |>.withAlpha 0.7)
-    fillRectXYWH (rect.x + offsetX) (rect.y + offsetY) rect.width rect.height
-    -- Draw border
-    setStrokeColor Color.white
-    setLineWidth 2
-    strokeRectXYWH (rect.x + offsetX) (rect.y + offsetY) rect.width rect.height
+/-- Convert a size to an option (0 or less becomes none). -/
+def optSize (v : Float) : Option Float :=
+  if v <= 0 then none else some v
+
+/-- Style for a grid demo cell. -/
+def gridCellStyle (color : Color) (screenScale : Float) (minW minH : Float)
+    (gridItem : Option GridItem := none) : BoxStyle := {
+  backgroundColor := some (color.withAlpha 0.7)
+  borderColor := some Afferent.Color.white
+  borderWidth := 1 * screenScale
+  minWidth := optSize minW
+  minHeight := optSize minH
+  gridItem := gridItem
+}
+
+/-- Build a colored grid cell. -/
+def gridCell (color : Color) (screenScale : Float) (minW minH : Float := 0)
+    (gridItem : Option GridItem := none) : WidgetBuilder := do
+  box (gridCellStyle color screenScale minW minH gridItem)
+
+/-- Style for grid demo sections. -/
+def gridSectionStyle (screenScale : Float) (minHeight : Float) : BoxStyle := {
+  backgroundColor := some ((Afferent.Color.gray 0.5).withAlpha 0.25)
+  borderColor := some ((Afferent.Color.gray 0.6).withAlpha 0.35)
+  borderWidth := 1 * screenScale
+  cornerRadius := 6 * screenScale
+  padding := EdgeInsets.uniform (8 * screenScale)
+  flexItem := some (Trellis.FlexItem.growing 1)
+  minHeight := some minHeight
+  height := .percent 1.0
+}
+
+/-- Style for grid demo content containers. -/
+def gridContentStyle (screenScale : Float) : BoxStyle := {
+  backgroundColor := some (Afferent.Color.gray 0.12)
+  borderColor := some (Afferent.Color.gray 0.3)
+  borderWidth := 1 * screenScale
+  cornerRadius := 4 * screenScale
+  padding := EdgeInsets.uniform (4 * screenScale)
+  flexItem := some (Trellis.FlexItem.growing 1)
+  height := .percent 1.0
+}
+
+/-- Build a labeled grid demo section. -/
+def gridSection (title desc : String) (fontLabel fontSmall : FontId)
+    (screenScale minHeight : Float) (content : WidgetBuilder) : WidgetBuilder := do
+  let gap := 4 * screenScale
+  let style := gridSectionStyle screenScale minHeight
+  let mut children : Array WidgetBuilder := #[(text' title fontLabel (Afferent.Color.gray 0.95) .left)]
+  if desc != "" then
+    children := children.push (text' desc fontSmall (Afferent.Color.gray 0.75) .left)
+  children := children.push content
+  column (gap := gap) (style := style) children
 
 /-- Demo 1: Simple 3-column grid with equal fr units -/
-def demoGrid3Col : CanvasM Unit := do
-  -- Grid with 3 equal columns (1fr 1fr 1fr)
-  let props := GridContainer.columns 3 (gap := 10)
-  let tree := LayoutNode.gridBox 0 props #[
-    LayoutNode.leaf 1 (ContentSize.mk' 0 60),  -- Content size doesn't matter with stretch
-    LayoutNode.leaf 2 (ContentSize.mk' 0 60),
-    LayoutNode.leaf 3 (ContentSize.mk' 0 60)
+def demoGrid3Col (screenScale : Float) : WidgetBuilder := do
+  let gap := 10 * screenScale
+  let props := GridContainer.withTemplate #[.fr 1] #[.fr 1, .fr 1, .fr 1] (gap := gap)
+  gridCustom props (gridContentStyle screenScale) #[
+    gridCell (gridColorForId 1) screenScale,
+    gridCell (gridColorForId 2) screenScale,
+    gridCell (gridColorForId 3) screenScale
   ]
-
-  let result := layout tree 350 80
-  drawGridResult result 50 50
 
 /-- Demo 2: Mixed track sizes (100px, 1fr, 2fr) -/
-def demoGridMixed : CanvasM Unit := do
-  let props := GridContainer.withColumns #[.px 80, .fr 1, .fr 2] (gap := 10)
-  let tree := LayoutNode.gridBox 0 props #[
-    LayoutNode.leaf 1 (ContentSize.mk' 0 60),
-    LayoutNode.leaf 2 (ContentSize.mk' 0 60),
-    LayoutNode.leaf 3 (ContentSize.mk' 0 60)
+def demoGridMixed (screenScale : Float) : WidgetBuilder := do
+  let gap := 10 * screenScale
+  let props := GridContainer.withTemplate #[.fr 1] #[.px (80 * screenScale), .fr 1, .fr 2] (gap := gap)
+  gridCustom props (gridContentStyle screenScale) #[
+    gridCell (gridColorForId 4) screenScale,
+    gridCell (gridColorForId 5) screenScale,
+    gridCell (gridColorForId 6) screenScale
   ]
-
-  let result := layout tree 350 80
-  drawGridResult result 50 150
 
 /-- Demo 3: Auto-placement (6 items in 3 cols) -/
-def demoGridAuto : CanvasM Unit := do
-  let props := GridContainer.columns 3 (gap := 10)
-  let tree := LayoutNode.gridBox 0 props #[
-    LayoutNode.leaf 1 (ContentSize.mk' 0 50),
-    LayoutNode.leaf 2 (ContentSize.mk' 0 50),
-    LayoutNode.leaf 3 (ContentSize.mk' 0 50),
-    LayoutNode.leaf 4 (ContentSize.mk' 0 50),
-    LayoutNode.leaf 5 (ContentSize.mk' 0 50),
-    LayoutNode.leaf 6 (ContentSize.mk' 0 50)
+def demoGridAuto (screenScale : Float) : WidgetBuilder := do
+  let gap := 10 * screenScale
+  let props := GridContainer.withTemplate #[.fr 1, .fr 1] #[.fr 1, .fr 1, .fr 1] (gap := gap)
+  gridCustom props (gridContentStyle screenScale) #[
+    gridCell (gridColorForId 1) screenScale,
+    gridCell (gridColorForId 2) screenScale,
+    gridCell (gridColorForId 3) screenScale,
+    gridCell (gridColorForId 4) screenScale,
+    gridCell (gridColorForId 5) screenScale,
+    gridCell (gridColorForId 6) screenScale
   ]
-
-  let result := layout tree 350 130
-  drawGridResult result 50 250
 
 /-- Demo 4: Explicit item placement -/
-def demoGridExplicit : CanvasM Unit := do
-  let props := GridContainer.withTemplate
-    #[.fr 1, .fr 1]  -- 2 rows
-    #[.fr 1, .fr 1, .fr 1]  -- 3 cols
-    (gap := 10)
-
-  -- Place items at specific positions
-  let tree := LayoutNode.gridBox 0 props #[
-    -- Item at row 1, col 1
-    LayoutNode.leaf' 1 0 0 {} (.gridChild (GridItem.atPosition 1 1)),
-    -- Item at row 2, col 3
-    LayoutNode.leaf' 2 0 0 {} (.gridChild (GridItem.atPosition 2 3)),
-    -- Item at row 1, col 3
-    LayoutNode.leaf' 3 0 0 {} (.gridChild (GridItem.atPosition 1 3))
+def demoGridExplicit (screenScale : Float) : WidgetBuilder := do
+  let gap := 10 * screenScale
+  let props := GridContainer.withTemplate #[.fr 1, .fr 1] #[.fr 1, .fr 1, .fr 1] (gap := gap)
+  gridCustom props (gridContentStyle screenScale) #[
+    gridCell (gridColorForId 1) screenScale 0 0 (some (GridItem.atPosition 1 1)),
+    gridCell (gridColorForId 2) screenScale 0 0 (some (GridItem.atPosition 2 3)),
+    gridCell (gridColorForId 3) screenScale 0 0 (some (GridItem.atPosition 1 3))
   ]
 
-  let result := layout tree 300 120
-  drawGridResult result 450 50
-
 /-- Demo 5: Items spanning multiple cells -/
-def demoGridSpan : CanvasM Unit := do
-  let props := GridContainer.columns 3 (gap := 10)
-
-  -- First item spans 2 columns
+def demoGridSpan (screenScale : Float) : WidgetBuilder := do
+  let gap := 10 * screenScale
+  let props := GridContainer.withTemplate #[.fr 1, .fr 1] #[.fr 1, .fr 1, .fr 1] (gap := gap)
   let spanItem := { GridItem.default with
     placement := { column := GridSpan.spanTracks 2 }
   }
-
-  let tree := LayoutNode.gridBox 0 props #[
-    LayoutNode.leaf' 1 0 50 {} (.gridChild spanItem),  -- spans 2 cols
-    LayoutNode.leaf 2 (ContentSize.mk' 0 50),
-    LayoutNode.leaf 3 (ContentSize.mk' 0 50),
-    LayoutNode.leaf 4 (ContentSize.mk' 0 50)
+  gridCustom props (gridContentStyle screenScale) #[
+    gridCell (gridColorForId 4) screenScale 0 0 (some spanItem),
+    gridCell (gridColorForId 5) screenScale,
+    gridCell (gridColorForId 6) screenScale,
+    gridCell (gridColorForId 7) screenScale
   ]
 
-  let result := layout tree 350 130
-  drawGridResult result 450 200
-
 /-- Demo 6: Item alignment (justifySelf, alignSelf) -/
-def demoGridAlign : CanvasM Unit := do
-  let props := { GridContainer.columns 3 (gap := 10) with
+def demoGridAlign (screenScale : Float) : WidgetBuilder := do
+  let gap := 10 * screenScale
+  let props := { GridContainer.withTemplate #[.fr 1] #[.fr 1, .fr 1, .fr 1] (gap := gap) with
     justifyItems := .stretch
     alignItems := .stretch
   }
-
-  let tree := LayoutNode.gridBox 0 props #[
-    -- Stretch (default)
-    LayoutNode.leaf' 1 50 40 {} (.gridChild GridItem.default),
-    -- Center
-    LayoutNode.leaf' 2 50 40 {} (.gridChild { placement := {}, justifySelf := some .center, alignSelf := some .center }),
-    -- End
-    LayoutNode.leaf' 3 50 40 {} (.gridChild { placement := {}, justifySelf := some .flexEnd, alignSelf := some .flexEnd })
+  let cellW := 50 * screenScale
+  let cellH := 40 * screenScale
+  let centerItem : GridItem := { placement := {}, justifySelf := some .center, alignSelf := some .center }
+  let endItem : GridItem := { placement := {}, justifySelf := some .flexEnd, alignSelf := some .flexEnd }
+  gridCustom props (gridContentStyle screenScale) #[
+    gridCell (gridColorForId 1) screenScale cellW cellH (some GridItem.default),
+    gridCell (gridColorForId 2) screenScale cellW cellH (some centerItem),
+    gridCell (gridColorForId 3) screenScale cellW cellH (some endItem)
   ]
 
-  let result := layout tree 350 80
-  drawGridResult result 450 360
-
 /-- Demo 7: Complex grid layout (header, sidebar, main, footer) -/
-def demoGridComplex : CanvasM Unit := do
+def demoGridComplex (screenScale : Float) : WidgetBuilder := do
+  let gap := 10 * screenScale
   let props := GridContainer.withTemplate
-    #[.px 40, .fr 1, .px 30]  -- header, content, footer
-    #[.px 80, .fr 1]          -- sidebar, main
-    (gap := 10)
+    #[.px (40 * screenScale), .fr 1, .px (30 * screenScale)]  -- header, content, footer
+    #[.px (80 * screenScale), .fr 1]  -- sidebar, main
+    (gap := gap)
 
   -- Header spans both columns (row 1, cols 1-2)
   let headerPlacement := { GridItem.default with
     placement := {
       row := GridSpan.lines 1 2
-      column := GridSpan.lines 1 3  -- span both columns
+      column := GridSpan.lines 1 3
     }
   }
 
@@ -173,92 +192,58 @@ def demoGridComplex : CanvasM Unit := do
     }
   }
 
-  let tree := LayoutNode.gridBox 0 props #[
-    LayoutNode.leaf' 1 0 0 {} (.gridChild headerPlacement),   -- header
-    LayoutNode.leaf' 2 0 0 {} (.gridChild sidebarPlacement),  -- sidebar
-    LayoutNode.leaf' 3 0 0 {} (.gridChild mainPlacement),     -- main
-    LayoutNode.leaf' 4 0 0 {} (.gridChild footerPlacement)    -- footer
+  gridCustom props (gridContentStyle screenScale) #[
+    gridCell (gridColorForId 1) screenScale 0 0 (some headerPlacement),
+    gridCell (gridColorForId 2) screenScale 0 0 (some sidebarPlacement),
+    gridCell (gridColorForId 3) screenScale 0 0 (some mainPlacement),
+    gridCell (gridColorForId 4) screenScale 0 0 (some footerPlacement)
   ]
 
-  let result := layout tree 350 220
-  drawGridResult result 50 420
+/-- Build all grid demos using Arbor widgets. -/
+def cssGridWidget (fontTitle fontSmall : FontId) (screenScale : Float) : WidgetBuilder := do
+  let s := screenScale
+  let rootStyle : BoxStyle := {
+    backgroundColor := some (Afferent.Color.rgba 0.1 0.1 0.15 1.0)
+    padding := EdgeInsets.uniform (20 * s)
+    width := .percent 1.0
+    height := .percent 1.0
+    flexItem := some (Trellis.FlexItem.growing 1)
+  }
+  let columnStyle : BoxStyle := {
+    flexItem := some (Trellis.FlexItem.growing 1)
+    height := .percent 1.0
+  }
+  let titleWidget := text' "CSS Grid Layout Demo (Space to advance)" fontTitle Afferent.Color.white .left
 
-/-- Labels for grid demos -/
-def gridLabels : Array (String × Float × Float) := #[
-  ("Grid: 3 equal columns (1fr 1fr 1fr)", 50, 38),
-  ("Expected: 3 cells of equal width", 50, 125),
-  ("Grid: Mixed sizes (80px 1fr 2fr)", 50, 138),
-  ("Expected: fixed + 1 part + 2 parts", 50, 225),
-  ("Grid: Auto-placement (6 items, 3 cols)", 50, 238),
-  ("Expected: 2 rows x 3 cols, items flow left-to-right", 50, 375),
-  ("Explicit Placement", 450, 38),
-  ("Items placed at specific row/col positions", 450, 165),
-  ("Spanning Cells", 450, 188),
-  ("First item spans 2 columns", 450, 325),
-  ("Alignment within cells", 450, 348),
-  ("stretch / center / end", 450, 435),
-  ("Complex: header + sidebar + main + footer", 50, 408),
-  ("Header and footer span 2 columns", 50, 635)
-]
+  let leftCol := column (gap := 12 * s) (style := columnStyle) #[(
+    gridSection "Grid: 3 equal columns (1fr 1fr 1fr)" "Expected: 3 cells of equal width"
+      fontSmall fontSmall s (90 * s) (demoGrid3Col s)
+    ),(
+    gridSection "Grid: Mixed sizes (80px 1fr 2fr)" "Expected: fixed + 1 part + 2 parts"
+      fontSmall fontSmall s (90 * s) (demoGridMixed s)
+    ),(
+    gridSection "Grid: Auto-placement (6 items, 3 cols)" "Expected: 2 rows x 3 cols, items flow left-to-right"
+      fontSmall fontSmall s (130 * s) (demoGridAuto s)
+    ),(
+    gridSection "Complex: header + sidebar + main + footer" "Header and footer span 2 columns"
+      fontSmall fontSmall s (220 * s) (demoGridComplex s)
+    )]
 
-/-- Draw the grid demo shapes (background and layout results). -/
-def renderGridShapesM : CanvasM Unit := do
-  -- Background
-  setFillColor (Color.rgba 0.1 0.1 0.15 1.0)
-  fillRectXYWH 0 0 1000 800
+  let rightCol := column (gap := 12 * s) (style := columnStyle) #[(
+    gridSection "Explicit Placement" "Items placed at specific row/col positions"
+      fontSmall fontSmall s (140 * s) (demoGridExplicit s)
+    ),(
+    gridSection "Spanning Cells" "First item spans 2 columns"
+      fontSmall fontSmall s (140 * s) (demoGridSpan s)
+    ),(
+    gridSection "Alignment within cells" "stretch / center / end"
+      fontSmall fontSmall s (90 * s) (demoGridAlign s)
+    )]
 
-  -- Draw section labels as colored bars
-  setFillColor ((Color.gray 0.5).withAlpha 0.3)
-  fillRectXYWH 40 40 370 100   -- 3-col grid
-  fillRectXYWH 40 140 370 100  -- mixed sizes
-  fillRectXYWH 40 240 370 150  -- auto-placement
-  fillRectXYWH 440 40 370 150  -- explicit placement
-  fillRectXYWH 440 200 370 150 -- spanning
-  fillRectXYWH 440 360 370 90  -- alignment
-  fillRectXYWH 40 410 370 240  -- complex
-
-  -- Run demos
-  demoGrid3Col
-  demoGridMixed
-  demoGridAuto
-  demoGridExplicit
-  demoGridSpan
-  demoGridAlign
-  demoGridComplex
-
-/-- Draw grid demo labels in layout-canvas coordinates. -/
-def renderGridLabelsM (font : Font) : CanvasM Unit := do
-  setFillColor Color.white
-  for (text, x, y) in gridLabels do
-    fillTextXY text x y font
-
-/-- Draw grid demo labels in screen coordinates, mapping from layout-canvas space. -/
-def renderGridLabelsMappedM (font : Font) (offsetX offsetY scale : Float) : CanvasM Unit := do
-  setFillColor Color.white
-  for (text, x, y) in gridLabels do
-    fillTextXY text (offsetX + x * scale) (offsetY + y * scale) font
-
-/-- Draw all grid demos (shapes + labels). -/
-def renderGridM (font : Font) : CanvasM Unit := do
-  renderGridShapesM
-  renderGridLabelsM font
-
-def cssGridWidget (gridFont fontMedium : Font)
-    (offsetX offsetY gridScale screenScale : Float) : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun _ _ => do
-        resetTransform
-        saved do
-          translate offsetX offsetY
-          scale gridScale gridScale
-          renderGridShapesM
-        renderGridLabelsMappedM gridFont offsetX offsetY gridScale
-        setFillColor Color.white
-        fillTextXY "CSS Grid Layout Demo (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  column (gap := 16 * s) (style := rootStyle) #[(
+    titleWidget
+    ),(
+    row (gap := 20 * s) (style := { flexItem := some (Trellis.FlexItem.growing 1) }) #[leftCol, rightCol]
+    )]
 
 end Demos

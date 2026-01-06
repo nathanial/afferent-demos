@@ -1,252 +1,212 @@
 /-
-  Layout Demo - CSS Flexbox and Grid layout visualization
+  Layout Cards - Flexbox layout visualization using Trellis.
+  Rendered as Arbor card widgets in a 3x3 grid.
 -/
 import Afferent
-import Afferent.Widget
 import Afferent.Arbor
-import Demos.Demo
 import Trellis
+import Demos.Overview.Card
 
-open Afferent CanvasM
-open Trellis
+open Afferent.Arbor
+open Trellis (EdgeInsets LayoutNode LayoutResult FlexContainer FlexItem ContentSize)
 
 namespace Demos
 
 /-- Colors for layout cells -/
-def cellColors : Array Color := #[
-  Color.red,
-  Color.green,
-  Color.blue,
-  Color.yellow,
-  Color.cyan,
-  Color.magenta,
-  Color.orange,
-  Color.purple,
-  Color.hsv 0.9 0.6 1.0,   -- pink
-  Color.hsv 0.5 0.7 0.8    -- teal
+private def cellColors : Array Color := #[
+  Afferent.Color.red,
+  Afferent.Color.green,
+  Afferent.Color.blue,
+  Afferent.Color.yellow,
+  Afferent.Color.cyan,
+  Afferent.Color.magenta,
+  Afferent.Color.orange,
+  Afferent.Color.purple,
+  Afferent.Color.hsv 0.9 0.6 1.0,   -- pink
+  Afferent.Color.hsv 0.5 0.7 0.8    -- teal
 ]
 
 /-- Get a color for a node ID -/
-def colorForId (id : Nat) : Color :=
+private def colorForId (id : Nat) : Color :=
   cellColors[id % cellColors.size]!
 
-/-- Draw a layout result onto the canvas -/
-def drawLayoutResult (result : LayoutResult) (offsetX offsetY : Float := 0) : CanvasM Unit := do
+/-- Convert a Trellis LayoutResult to RenderCommands -/
+private def layoutResultToCommands (result : LayoutResult) (offset : Point) : RenderCommands := Id.run do
+  let mut cmds : RenderCommands := #[]
   for cl in result.layouts do
     let rect := cl.borderRect
-    -- Draw fill
-    setFillColor (colorForId cl.nodeId |>.withAlpha 0.7)
-    fillRectXYWH (rect.x + offsetX) (rect.y + offsetY) rect.width rect.height
-    -- Draw border
-    setStrokeColor Color.white
-    setLineWidth 2
-    strokeRectXYWH (rect.x + offsetX) (rect.y + offsetY) rect.width rect.height
+    let x := rect.x + offset.x
+    let y := rect.y + offset.y
+    let w := rect.width
+    let h := rect.height
+    -- Fill rectangle with node color
+    let color := colorForId cl.nodeId |>.withAlpha 0.7
+    cmds := cmds.push (.fillRect (Rect.mk' x y w h) color)
+    -- White border
+    let path := Path.rectangle (Rect.mk' x y w h)
+    cmds := cmds.push (.strokePath path Afferent.Color.white 2)
+  return cmds
 
-/-- Demo 1: Basic Flex Row -/
-def demoFlexRow : CanvasM Unit := do
-  -- Title
-  -- setFillColor Color.white
-  -- fillTextXY "Flex Row (justify-content: flex-start)" 50 30 font
+/-- Layout card definition -/
+structure LayoutCardDef where
+  label : String
+  tree : Float → Float → LayoutNode
 
-  let tree := LayoutNode.row 0 #[
-    LayoutNode.leaf 1 (ContentSize.mk' 80 60),
-    LayoutNode.leaf 2 (ContentSize.mk' 100 60),
-    LayoutNode.leaf 3 (ContentSize.mk' 70 60)
-  ] (gap := 10)
+/-- Demo 1: Basic flex row with items left-aligned -/
+private def flexRowTree (w h : Float) : LayoutNode :=
+  let gap := min w h * 0.04
+  let itemW := w * 0.25
+  let itemH := h * 0.6
+  LayoutNode.row 0 #[
+    LayoutNode.leaf 1 (ContentSize.mk' itemW itemH),
+    LayoutNode.leaf 2 (ContentSize.mk' (itemW * 1.2) itemH),
+    LayoutNode.leaf 3 (ContentSize.mk' (itemW * 0.9) itemH)
+  ] (gap := gap)
 
-  let result := layout tree 350 80
-  drawLayoutResult result 50 50
-
-/-- Demo 2: Flex Row with justify-content: center -/
-def demoFlexRowCenter : CanvasM Unit := do
-  let props := { FlexContainer.row with justifyContent := .center, gap := 10 }
-  let tree := LayoutNode.flexBox 0 props #[
-    LayoutNode.leaf 1 (ContentSize.mk' 60 50),
-    LayoutNode.leaf 2 (ContentSize.mk' 60 50),
-    LayoutNode.leaf 3 (ContentSize.mk' 60 50)
+/-- Demo 2: Flex row with justify-content: center -/
+private def flexRowCenterTree (w h : Float) : LayoutNode :=
+  let gap := min w h * 0.04
+  let itemW := w * 0.2
+  let itemH := h * 0.5
+  let props := { FlexContainer.row with justifyContent := .center, gap := gap }
+  LayoutNode.flexBox 0 props #[
+    LayoutNode.leaf 1 (ContentSize.mk' itemW itemH),
+    LayoutNode.leaf 2 (ContentSize.mk' itemW itemH),
+    LayoutNode.leaf 3 (ContentSize.mk' itemW itemH)
   ]
 
-  let result := layout tree 350 70
-  drawLayoutResult result 50 160
-
-/-- Demo 3: Flex Row with space-between -/
-def demoFlexRowSpaceBetween : CanvasM Unit := do
+/-- Demo 3: Flex row with space-between -/
+private def spaceBetweenTree (w h : Float) : LayoutNode :=
+  let itemW := w * 0.18
+  let itemH := h * 0.5
   let props := { FlexContainer.row with justifyContent := .spaceBetween }
-  let tree := LayoutNode.flexBox 0 props #[
-    LayoutNode.leaf 1 (ContentSize.mk' 50 50),
-    LayoutNode.leaf 2 (ContentSize.mk' 50 50),
-    LayoutNode.leaf 3 (ContentSize.mk' 50 50)
+  LayoutNode.flexBox 0 props #[
+    LayoutNode.leaf 1 (ContentSize.mk' itemW itemH),
+    LayoutNode.leaf 2 (ContentSize.mk' itemW itemH),
+    LayoutNode.leaf 3 (ContentSize.mk' itemW itemH)
   ]
 
-  let result := layout tree 350 70
-  drawLayoutResult result 50 260
-
-/-- Demo 4: Flex Grow -/
-def demoFlexGrow : CanvasM Unit := do
-  let tree := LayoutNode.flexBox 0 (FlexContainer.row 10) #[
-    LayoutNode.leaf' 1 0 50 {} (.flexChild (FlexItem.growing 1)),
-    LayoutNode.leaf' 2 0 50 {} (.flexChild (FlexItem.growing 2)),
-    LayoutNode.leaf' 3 0 50 {} (.flexChild (FlexItem.growing 1))
+/-- Demo 4: Flex grow with 1:2:1 ratio -/
+private def flexGrowTree (w h : Float) : LayoutNode :=
+  let gap := min w h * 0.04
+  let itemH := h * 0.5
+  LayoutNode.flexBox 0 (FlexContainer.row gap) #[
+    LayoutNode.leaf' 1 0 itemH {} (.flexChild (FlexItem.growing 1)),
+    LayoutNode.leaf' 2 0 itemH {} (.flexChild (FlexItem.growing 2)),
+    LayoutNode.leaf' 3 0 itemH {} (.flexChild (FlexItem.growing 1))
   ]
 
-  let result := layout tree 350 70
-  drawLayoutResult result 50 360
+/-- Demo 5: Column layout -/
+private def flexColumnTree (w h : Float) : LayoutNode :=
+  let gap := min w h * 0.04
+  let itemW := w * 0.6
+  let itemH := h * 0.2
+  LayoutNode.column 0 #[
+    LayoutNode.leaf 1 (ContentSize.mk' itemW itemH),
+    LayoutNode.leaf 2 (ContentSize.mk' (itemW * 1.1) (itemH * 1.2)),
+    LayoutNode.leaf 3 (ContentSize.mk' (itemW * 0.8) itemH)
+  ] (gap := gap)
 
-/-- Demo 5: Flex Column -/
-def demoFlexColumn : CanvasM Unit := do
-  let tree := LayoutNode.column 0 #[
-    LayoutNode.leaf 1 (ContentSize.mk' 100 40),
-    LayoutNode.leaf 2 (ContentSize.mk' 120 50),
-    LayoutNode.leaf 3 (ContentSize.mk' 80 45)
-  ] (gap := 10)
-
-  let result := layout tree 150 200
-  drawLayoutResult result 450 50
-
-/-- Demo 6: Align Items -/
-def demoAlignItems : CanvasM Unit := do
-  let props := { FlexContainer.row with alignItems := .center, gap := 10 }
-  let tree := LayoutNode.flexBox 0 props #[
-    LayoutNode.leaf 1 (ContentSize.mk' 60 30),
-    LayoutNode.leaf 2 (ContentSize.mk' 60 60),
-    LayoutNode.leaf 3 (ContentSize.mk' 60 45)
+/-- Demo 6: Align items center (cross-axis) -/
+private def alignCenterTree (w h : Float) : LayoutNode :=
+  let gap := min w h * 0.04
+  let itemW := w * 0.2
+  let props := { FlexContainer.row with alignItems := .center, gap := gap }
+  LayoutNode.flexBox 0 props #[
+    LayoutNode.leaf 1 (ContentSize.mk' itemW (h * 0.3)),
+    LayoutNode.leaf 2 (ContentSize.mk' itemW (h * 0.6)),
+    LayoutNode.leaf 3 (ContentSize.mk' itemW (h * 0.45))
   ]
 
-  let result := layout tree 250 80
-  drawLayoutResult result 450 280
-
-/-- Demo 7: Nested Containers -/
-def demoNested : CanvasM Unit := do
+/-- Demo 7: Nested containers -/
+private def nestedTree (w h : Float) : LayoutNode :=
+  let gap := min w h * 0.04
+  let sideW := w * 0.2
   let innerColumn := LayoutNode.column 10 #[
-    LayoutNode.leaf 11 (ContentSize.mk' 50 30),
-    LayoutNode.leaf 12 (ContentSize.mk' 50 30)
-  ] (gap := 5)
-
-  let tree := LayoutNode.row 0 #[
-    LayoutNode.leaf 1 (ContentSize.mk' 60 80),
+    LayoutNode.leaf 11 (ContentSize.mk' (w * 0.3) (h * 0.25)),
+    LayoutNode.leaf 12 (ContentSize.mk' (w * 0.3) (h * 0.25))
+  ] (gap := gap)
+  LayoutNode.row 0 #[
+    LayoutNode.leaf 1 (ContentSize.mk' sideW (h * 0.8)),
     innerColumn.withItem (.flexChild (FlexItem.growing 1)),
-    LayoutNode.leaf 2 (ContentSize.mk' 60 80)
-  ] (gap := 10)
+    LayoutNode.leaf 2 (ContentSize.mk' sideW (h * 0.8))
+  ] (gap := gap)
 
-  let result := layout tree 300 100
-  drawLayoutResult result 450 390
+/-- Demo 8: Complex layout with header + sidebar + main -/
+private def complexTree (w h : Float) : LayoutNode :=
+  let gap := min w h * 0.03
+  let headerH := h * 0.15
+  let sidebarW := w * 0.25
+  let itemH := (h - headerH - gap * 4) / 3
 
-/-- Demo 8: Complex Layout -/
-def demoComplex : CanvasM Unit := do
-  -- Header row
   let header := LayoutNode.row 100 #[
-    LayoutNode.leaf' 101 0 40 {} (.flexChild (FlexItem.growing 1))
+    LayoutNode.leaf' 101 0 headerH {} (.flexChild (FlexItem.growing 1))
   ]
 
-  -- Content area with sidebar
   let sidebar := LayoutNode.column 200 #[
-    LayoutNode.leaf 201 (ContentSize.mk' 80 50),
-    LayoutNode.leaf 202 (ContentSize.mk' 80 50),
-    LayoutNode.leaf 203 (ContentSize.mk' 80 50)
-  ] (gap := 5)
+    LayoutNode.leaf 201 (ContentSize.mk' sidebarW itemH),
+    LayoutNode.leaf 202 (ContentSize.mk' sidebarW itemH),
+    LayoutNode.leaf 203 (ContentSize.mk' sidebarW itemH)
+  ] (gap := gap)
 
   let mainContent := LayoutNode.flexBox 300
     { FlexContainer.column with alignItems := .stretch }
-    #[
-      LayoutNode.leaf' 301 0 0 {} (.flexChild (FlexItem.growing 1))
-    ]
+    #[LayoutNode.leaf' 301 0 0 {} (.flexChild (FlexItem.growing 1))]
 
   let content := LayoutNode.row 400 #[
     sidebar,
     mainContent.withItem (.flexChild (FlexItem.growing 1))
-  ] (gap := 10)
+  ] (gap := gap)
 
-  -- Main layout
-  let tree := LayoutNode.column 0 #[
+  LayoutNode.column 0 #[
     header,
     content.withItem (.flexChild (FlexItem.growing 1))
-  ] (gap := 10)
+  ] (gap := gap)
 
-  let result := layout tree 350 250
-  drawLayoutResult result 50 500
+/-- Demo 9: Overview - header + 2x2 grid + footer -/
+private def overviewTree (w h : Float) : LayoutNode :=
+  let gap := min w h * 0.03
+  let headerH := h * 0.12
+  let footerH := h * 0.1
+  let cellW := (w - gap) / 2
+  let cellH := (h - headerH - footerH - gap * 4) / 2
 
-/-- Labels (text, x, y) in layout-canvas coordinates. -/
-def layoutLabels : Array (String × Float × Float) := #[
-  ("Row: 3 items left-aligned with 10px gap", 50, 38),
-  ("Expected: [80px][10][100px][10][70px] touching left edge", 50, 135),
-  ("Row + justify:center", 50, 148),
-  ("Expected: 3 equal boxes (60px) centered horizontally", 50, 225),
-  ("Row + justify:space-between", 50, 248),
-  ("Expected: 3 boxes (50px) - first at left, last at right, middle centered", 50, 325),
-  ("Row + flex-grow (1:2:1 ratio)", 50, 348),
-  ("Expected: 3 boxes filling width, middle is 2x wider than sides", 50, 425),
-  ("Column: 3 items", 450, 38),
-  ("stacked vertically", 450, 52),
-  ("with 10px gap", 450, 66),
-  ("Row + align:center (cross-axis)", 450, 268),
-  ("Expected: different heights, vertically centered", 450, 355),
-  ("Nested: row containing column", 450, 378),
-  ("Expected: [fixed][column expands][fixed]", 450, 495),
-  ("Complex: header + (sidebar | main)", 50, 488),
-  ("Expected: full-width header on top,", 50, 745),
-  ("sidebar (3 items) left, main expands right", 200, 745)
+  let header := LayoutNode.leaf' 100 0 headerH {} (.flexChild (FlexItem.growing 1))
+
+  let gridRow1 := LayoutNode.row 200 #[
+    LayoutNode.leaf 201 (ContentSize.mk' cellW cellH),
+    LayoutNode.leaf 202 (ContentSize.mk' cellW cellH)
+  ] (gap := gap)
+
+  let gridRow2 := LayoutNode.row 300 #[
+    LayoutNode.leaf 301 (ContentSize.mk' cellW cellH),
+    LayoutNode.leaf 302 (ContentSize.mk' cellW cellH)
+  ] (gap := gap)
+
+  let footer := LayoutNode.leaf' 400 0 footerH {} (.flexChild (FlexItem.growing 1))
+
+  LayoutNode.column 0 #[header, gridRow1, gridRow2, footer] (gap := gap)
+
+/-- All layout cards -/
+private def layoutCards : Array LayoutCardDef := #[
+  { label := "Row: justify-content: flex-start",     tree := flexRowTree },
+  { label := "Row: justify-content: center",         tree := flexRowCenterTree },
+  { label := "Row: justify-content: space-between",  tree := spaceBetweenTree },
+  { label := "Row: flex-grow ratio 1:2:1",           tree := flexGrowTree },
+  { label := "Column: flex-direction: column",       tree := flexColumnTree },
+  { label := "Row: align-items: center",             tree := alignCenterTree },
+  { label := "Nested: row containing column",        tree := nestedTree },
+  { label := "Complex: header + sidebar + main",     tree := complexTree },
+  { label := "Overview: header + grid + footer",     tree := overviewTree }
 ]
 
-/-- Draw the layout demo shapes (background, bars, and layout results). -/
-def renderLayoutShapesM : CanvasM Unit := do
-  -- Background
-  setFillColor (Color.rgba 0.1 0.1 0.15 1.0)
-  fillRectXYWH 0 0 1000 800
-
-  -- Draw section labels as colored bars
-  setFillColor ((Color.gray 0.5).withAlpha 0.3)
-  fillRectXYWH 40 40 370 100  -- Row 1
-  fillRectXYWH 40 150 370 90  -- Row 2 (center)
-  fillRectXYWH 40 250 370 90  -- Row 3 (space-between)
-  fillRectXYWH 40 350 370 90  -- Row 4 (grow)
-  fillRectXYWH 440 40 170 220 -- Column
-  fillRectXYWH 440 270 270 100 -- Align items
-  fillRectXYWH 440 380 320 120 -- Nested
-  fillRectXYWH 40 490 370 270  -- Complex
-
-  -- Run demos
-  demoFlexRow
-  demoFlexRowCenter
-  demoFlexRowSpaceBetween
-  demoFlexGrow
-  demoFlexColumn
-  demoAlignItems
-  demoNested
-  demoComplex
-
-/-- Draw layout demo labels in layout-canvas coordinates (affected by current transform). -/
-def renderLayoutLabelsM (font : Font) : CanvasM Unit := do
-  setFillColor Color.white
-  for (text, x, y) in layoutLabels do
-    fillTextXY text x y font
-
-/-- Draw layout demo labels in screen coordinates, mapping from layout-canvas space. -/
-def renderLayoutLabelsMappedM (font : Font) (offsetX offsetY scale : Float) : CanvasM Unit := do
-  setFillColor Color.white
-  for (text, x, y) in layoutLabels do
-    fillTextXY text (offsetX + x * scale) (offsetY + y * scale) font
-
-/-- Draw all layout demos (shapes + labels). -/
-def renderLayoutM (font : Font) : CanvasM Unit := do
-  renderLayoutShapesM
-  renderLayoutLabelsM font
-
-def layoutWidget (layoutFont fontMedium : Font)
-    (offsetX offsetY layoutScale screenScale : Float) : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun _ _ => do
-        resetTransform
-        saved do
-          translate offsetX offsetY
-          scale layoutScale layoutScale
-          renderLayoutShapesM
-        renderLayoutLabelsMappedM layoutFont offsetX offsetY layoutScale
-        setFillColor Color.white
-        fillTextXY "CSS Flexbox Layout Demo (Space to advance)" (20 * screenScale) (30 * screenScale) fontMedium
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+/-- Layout demo rendered as cards in a 3x3 grid. -/
+def layoutWidgetFlex (labelFont : FontId) : WidgetBuilder := do
+  let cards := layoutCards.map (fun card =>
+    demoCardFlex labelFont card.label (fun r =>
+      let tree := card.tree r.size.width r.size.height
+      let result := Trellis.layout tree r.size.width r.size.height
+      layoutResultToCommands result r.origin))
+  gridFlex 3 3 4 cards (EdgeInsets.uniform 6)
 
 end Demos

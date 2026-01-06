@@ -4,11 +4,11 @@
 import Demos.Demo
 import Demos.Overview.DemoGrid
 import Demos.Overview.Card
+import Demos.Layout
 import Demos.GridPerf
 import Demos.TrianglesPerf
 import Demos.CirclesPerf
 import Demos.SpritesPerf
-import Demos.Layout
 import Demos.Grid
 import Demos.Widgets
 import Demos.Overview.Counter
@@ -231,11 +231,11 @@ instance : Demo .spritesPerf where
   step := fun c _ s => pure (c, s)
 
 instance : Demo .layout where
-  name := "LAYOUT demo (full-size)"
+  name := "LAYOUT demo (Flexbox cards)"
   shortName := "Layout"
   init := fun _ => pure ()
   view := fun env _ =>
-    some (layoutWidget env.layoutFont env.fontMedium env.layoutOffsetX env.layoutOffsetY env.layoutScale env.screenScale)
+    some (layoutWidgetFlex env.fontSmallId)
   step := fun c _ s => pure (c, s)
 
 instance : Demo .cssGrid where
@@ -243,7 +243,7 @@ instance : Demo .cssGrid where
   shortName := "CSS Grid"
   init := fun _ => pure ()
   view := fun env _ =>
-    some (cssGridWidget env.layoutFont env.fontMedium env.layoutOffsetX env.layoutOffsetY env.layoutScale env.screenScale)
+    some (cssGridWidget env.fontMediumId env.fontSmallId env.screenScale)
   step := fun c _ s => pure (c, s)
 
 instance : Demo .widgets where
