@@ -93,85 +93,6 @@ def layoutSection (font : FontId) (title desc : String) (minHeight : Float)
       text' title font (Afferent.Color.gray 0.95) .left
       content
 
-/-- Standard gap between items -/
-private def gap : Float := 10
-
-/-- Demo 1: Basic flex row with items left-aligned (justify-content: flex-start) -/
-def demoFlexRow : WidgetBuilder :=
-  hbox (gap := gap) (style := layoutContentStyle) do
-    layoutCell 1 80 50
-    layoutCell 2 100 50
-    layoutCell 3 70 50
-
-/-- Demo 2: Flex row with justify-content: center -/
-def demoFlexRowCenter : WidgetBuilder :=
-  hcenter (gap := gap) (style := layoutContentStyle) do
-    layoutCell 1 60 50
-    layoutCell 2 60 50
-    layoutCell 3 60 50
-
-/-- Demo 3: Flex row with justify-content: space-between -/
-def demoFlexRowSpaceBetween : WidgetBuilder :=
-  hspaced (style := layoutContentStyle) do
-    layoutCell 4 50 50
-    layoutCell 5 50 50
-    layoutCell 6 50 50
-
-/-- Demo 4: Flex grow with 1:2:1 ratio -/
-def demoFlexGrow : WidgetBuilder :=
-  hbox (gap := gap) (style := layoutContentStyle) do
-    layoutCell 1 0 50 grow1
-    layoutCell 2 0 50 grow2
-    layoutCell 3 0 50 grow1
-
-/-- Demo 5: Flex column direction -/
-def demoFlexColumn : WidgetBuilder :=
-  vbox (gap := gap) (style := layoutContentStyle) do
-    layoutCell 1 100 40
-    layoutCell 2 120 48
-    layoutCell 3 80 40
-
-/-- Demo 6: Align items center (cross-axis alignment) -/
-def demoAlignCenter : WidgetBuilder :=
-  let props := { Trellis.FlexContainer.row gap with alignItems := .center }
-  hboxWith props layoutContentStyle do
-    layoutCell 1 60 30
-    layoutCell 2 60 60
-    layoutCell 3 60 45
-
-/-- Demo 7: Nested containers (row containing column) -/
-def demoNested : WidgetBuilder :=
-  hbox gap layoutContentStyle (do
-    layoutCell 1 60 0
-    center (style := BoxStyle.growFill) <|
-      vbox gap {} (do
-        layoutCell 4 0 35 grow1
-        layoutCell 5 0 35 grow1)
-    layoutCell 2 60 0)
-
-/-- Demo 8: Complex layout (header + sidebar + main) -/
-def demoComplex : WidgetBuilder :=
-  vbox gap layoutContentStyle (do
-    layoutCell 1 0 30 grow1
-    hbox gap BoxStyle.grow (do
-      vbox gap {} (do
-        layoutCell 2 80 40
-        layoutCell 3 80 40
-        layoutCell 4 80 40)
-      layoutCell 5 0 0 grow1))
-
-/-- Demo 9: Overview layout (header + grid + footer) -/
-def demoOverview : WidgetBuilder :=
-  vbox (gap := gap) (style := layoutContentStyle) do
-    layoutCell 1 0 25 grow1
-    hbox (gap := gap) (style := BoxStyle.grow) do
-      layoutCell 2 0 0 grow1
-      layoutCell 3 0 0 grow1
-    hbox (gap := gap) (style := BoxStyle.grow) do
-      layoutCell 4 0 0 grow1
-      layoutCell 5 0 0 grow1
-    layoutCell 6 0 20 grow1
-
 /-- Build all flexbox demos using Arbor widgets with monadic style. -/
 def layoutWidgetFlex (fontTitle fontSmall : FontId) (_screenScale : Float) : WidgetBuilder :=
   let rootStyle : BoxStyle := {
@@ -180,22 +101,50 @@ def layoutWidgetFlex (fontTitle fontSmall : FontId) (_screenScale : Float) : Wid
     padding := EdgeInsets.uniform 20
     flexItem := grow1
   }
-  let sec := layoutSection fontSmall
   vbox (gap := 16) (style := rootStyle) do
     text' "CSS Flexbox Layout Demo (Space to advance)" fontTitle Afferent.Color.white .left
     hbox (gap := 20) (style := BoxStyle.grow) do
       -- Left column
       vbox (gap := 12) (style := BoxStyle.growFill) do
-        sec "Row: justify-content: flex-start" "Items packed to start (default)" 90 demoFlexRow
-        sec "Row: justify-content: center" "Items centered horizontally" 90 demoFlexRowCenter
-        sec "Row: justify-content: space-between" "Items spread with space between" 90 demoFlexRowSpaceBetween
-        sec "Row: flex-grow 1:2:1" "Middle item grows twice as much" 90 demoFlexGrow
-        sec "Column: flex-direction: column" "Items stacked vertically" 180 demoFlexColumn
+        layoutSection fontSmall "Row: flex-start" "Items packed to start" 90 <|
+          hbox (gap := 10) (style := layoutContentStyle) do
+            layoutCell 1 80 50; layoutCell 2 100 50; layoutCell 3 70 50
+        layoutSection fontSmall "Row: center" "Items centered horizontally" 90 <|
+          hcenter (gap := 10) (style := layoutContentStyle) do
+            layoutCell 1 60 50; layoutCell 2 60 50; layoutCell 3 60 50
+        layoutSection fontSmall "Row: space-between" "Items spread with space between" 90 <|
+          hspaced (style := layoutContentStyle) do
+            layoutCell 4 50 50; layoutCell 5 50 50; layoutCell 6 50 50
+        layoutSection fontSmall "Row: flex-grow 1:2:1" "Middle item grows twice as much" 90 <|
+          hbox (gap := 10) (style := layoutContentStyle) do
+            layoutCell 1 0 50 grow1; layoutCell 2 0 50 grow2; layoutCell 3 0 50 grow1
+        layoutSection fontSmall "Column direction" "Items stacked vertically" 180 <|
+          vbox (gap := 10) (style := layoutContentStyle) do
+            layoutCell 1 100 40; layoutCell 2 120 48; layoutCell 3 80 40
       -- Right column
       vbox (gap := 12) (style := BoxStyle.growFill) do
-        sec "Row: align-items: center" "Items centered on cross-axis" 110 demoAlignCenter
-        sec "Nested: row containing column" "Outer row with inner column" 130 demoNested
-        sec "Complex: header + sidebar + main" "App-like layout structure" 220 demoComplex
-        sec "Overview: header + 2x2 grid + footer" "Dashboard-like layout" 200 demoOverview
+        layoutSection fontSmall "Row: align-items center" "Items centered on cross-axis" 110 <|
+          hboxWith { Trellis.FlexContainer.row 10 with alignItems := .center } layoutContentStyle do
+            layoutCell 1 60 30; layoutCell 2 60 60; layoutCell 3 60 45
+        layoutSection fontSmall "Nested containers" "Outer row with inner column" 130 <|
+          hbox 10 layoutContentStyle (do
+            layoutCell 1 60 0
+            center (style := BoxStyle.growFill) <| vbox 10 {} (do
+              layoutCell 4 0 35 grow1; layoutCell 5 0 35 grow1)
+            layoutCell 2 60 0)
+        layoutSection fontSmall "Complex layout" "Header + sidebar + main" 220 <|
+          vbox 10 layoutContentStyle (do
+            layoutCell 1 0 30 grow1
+            hbox 10 BoxStyle.grow (do
+              vbox 10 {} (do layoutCell 2 80 40; layoutCell 3 80 40; layoutCell 4 80 40)
+              layoutCell 5 0 0 grow1))
+        layoutSection fontSmall "Overview layout" "Header + 2x2 grid + footer" 200 <|
+          vbox (gap := 10) (style := layoutContentStyle) do
+            layoutCell 1 0 25 grow1
+            hbox (gap := 10) (style := BoxStyle.grow) do
+              layoutCell 2 0 0 grow1; layoutCell 3 0 0 grow1
+            hbox (gap := 10) (style := BoxStyle.grow) do
+              layoutCell 4 0 0 grow1; layoutCell 5 0 0 grow1
+            layoutCell 6 0 20 grow1
 
 end Demos
