@@ -8,6 +8,7 @@ import Demos.Overview.Text
 import Demos.Demo
 import Demos.DemoRegistry
 import Demos.TabBar
+import Std.Internal.Async.Process
 import Wisp
 import Init.Data.FloatArray
 
@@ -87,6 +88,9 @@ private structure RunningState where
   displayFps : Float
   renderCommandCount : Nat
   widgetCount : Nat
+  peakRssKb : UInt64
+  minorFaults : UInt64
+  majorFaults : UInt64
   framesLeft : Nat
   tabBar : TabBarResult
 
@@ -563,6 +567,9 @@ def unifiedDemo : IO Unit := do
                   displayFps := 0.0
                   renderCommandCount := 0
                   widgetCount := 0
+                  peakRssKb := 0
+                  minorFaults := 0
+                  majorFaults := 0
                   framesLeft := exitAfterFrames
                   tabBar := tabBar
                 }
@@ -592,8 +599,9 @@ def unifiedDemo : IO Unit := do
             let tabBarHeightPx := tabBarHeight * s
             let footerHeightPx := footerBarHeight * s
 
+            let memMb : UInt64 := rs.peakRssKb / 1024
             let footerText :=
-              s!"{rs.displayFps.toUInt32} FPS  |  cmds {rs.renderCommandCount}  |  widgets {rs.widgetCount}"
+              s!"{rs.displayFps.toUInt32} FPS  |  cmds {rs.renderCommandCount}  |  widgets {rs.widgetCount}  |  mem {memMb}MB  |  pf {rs.minorFaults}/{rs.majorFaults}"
 
             let buildDemoWidget := fun (tabBar : TabBarResult) (demo : AnyDemo)
                 (envForView : DemoEnv) =>
@@ -757,11 +765,15 @@ def unifiedDemo : IO Unit := do
               rs := { rs with fpsAccumulator := rs.fpsAccumulator + (1.0 / dt) }
             if rs.frameCount >= 10 then
               let displayFps := rs.fpsAccumulator / rs.frameCount.toFloat
+              let usage ← Std.Internal.IO.Process.getResourceUsage
               rs := {
                 rs with
                 displayFps := displayFps
                 fpsAccumulator := 0.0
                 frameCount := 0
+                peakRssKb := usage.peakResidentSetSizeKb
+                minorFaults := usage.minorPageFaults
+                majorFaults := usage.majorPageFaults
               }
 
             c ← c.endFrame
