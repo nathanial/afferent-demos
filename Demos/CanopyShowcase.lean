@@ -34,6 +34,14 @@ structure CanopyShowcaseState where
   buttonClickCount : Nat := 0
   /-- Selected radio button value. -/
   radioSelection : String := "option1"
+  /-- First switch state. -/
+  switch1 : Bool := false
+  /-- Second switch state. -/
+  switch2 : Bool := true
+  /-- First switch animation progress (0.0 = off, 1.0 = on). -/
+  switch1Anim : Float := 0.0
+  /-- Second switch animation progress (0.0 = off, 1.0 = on). -/
+  switch2Anim : Float := 1.0
 
 namespace CanopyShowcaseState
 
@@ -54,6 +62,8 @@ def textInput2Name := "canopy-input2"
 def radio1Name := "canopy-radio1"
 def radio2Name := "canopy-radio2"
 def radio3Name := "canopy-radio3"
+def switch1Name := "canopy-switch1"
+def switch2Name := "canopy-switch2"
 
 /-! ## Visual Widget Builders -/
 
@@ -132,6 +142,8 @@ def canopyShowcaseWidget (fontId : FontId) (smallFontId : FontId)
   let radio1State := state.widgetStates.get radio1Name
   let radio2State := state.widgetStates.get radio2Name
   let radio3State := state.widgetStates.get radio3Name
+  let switch1State := state.widgetStates.get switch1Name
+  let switch2State := state.widgetStates.get switch2Name
 
   column (gap := s 20) (style := {
     backgroundColor := some (Color.gray 0.1)
@@ -190,6 +202,16 @@ def canopyShowcaseWidget (fontId : FontId) (smallFontId : FontId)
           radioButtonVisual radio1Name "Option 1" theme (state.radioSelection == "option1") radio1State,
           radioButtonVisual radio2Name "Option 2" theme (state.radioSelection == "option2") radio2State,
           radioButtonVisual radio3Name "Option 3" theme (state.radioSelection == "option3") radio3State
+        ]
+      ],
+
+    -- Switches section (interactive, animated)
+    titledPanel "Switches" .outlined theme do
+      column (gap := s 8) (style := {}) #[
+        caption "Click to toggle:" theme,
+        row (gap := s 24) (style := {}) #[
+          animatedSwitchVisual switch1Name (some "Notifications") theme state.switch1Anim switch1State,
+          animatedSwitchVisual switch2Name (some "Dark Mode") theme state.switch2Anim switch2State
         ]
       ],
 

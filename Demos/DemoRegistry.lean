@@ -275,6 +275,23 @@ instance : Demo .canopyWidgets where
       cursorPixelX := cursorX
     }
     pure { CanopyShowcaseState.initial with textInput2State := textInput2 }
+  update := fun env state => do
+    -- Animate switches towards their target states
+    let animSpeed := 8.0  -- Animation speed (higher = faster)
+    let dt := env.dt
+    let rawFactor := animSpeed * dt
+    let lerpFactor := if rawFactor > 1.0 then 1.0 else rawFactor
+    -- Animate switch1: target is 1.0 if on, 0.0 if off
+    let target1 := if state.switch1 then 1.0 else 0.0
+    let diff1 := target1 - state.switch1Anim
+    let newAnim1 := if diff1.abs < 0.01 then target1
+                    else state.switch1Anim + diff1 * lerpFactor
+    -- Animate switch2: target is 1.0 if on, 0.0 if off
+    let target2 := if state.switch2 then 1.0 else 0.0
+    let diff2 := target2 - state.switch2Anim
+    let newAnim2 := if diff2.abs < 0.01 then target2
+                    else state.switch2Anim + diff2 * lerpFactor
+    pure { state with switch1Anim := newAnim1, switch2Anim := newAnim2 }
   view := fun env state =>
     some (canopyShowcaseWidget env.fontMediumId env.fontSmallId env.screenScale state)
   handleClick := fun env state contentId hitPath click => do
@@ -299,6 +316,9 @@ instance : Demo .canopyWidgets where
       let clickedRadio1 := hitPathHasNamedWidget widget hitPath radio1Name
       let clickedRadio2 := hitPathHasNamedWidget widget hitPath radio2Name
       let clickedRadio3 := hitPathHasNamedWidget widget hitPath radio3Name
+      -- Check switch clicks
+      let clickedSwitch1 := hitPathHasNamedWidget widget hitPath switch1Name
+      let clickedSwitch2 := hitPathHasNamedWidget widget hitPath switch2Name
       -- Update button click count
       let nextClickCount :=
         if clickedPrimary || clickedSecondary || clickedOutline || clickedGhost then
@@ -314,12 +334,16 @@ instance : Demo .canopyWidgets where
         else if clickedRadio2 then "option2"
         else if clickedRadio3 then "option3"
         else state.radioSelection
+      -- Update switch states
+      let nextSwitch1 := if clickedSwitch1 then !state.switch1 else state.switch1
+      let nextSwitch2 := if clickedSwitch2 then !state.switch2 else state.switch2
       -- Update focus
       let nextFocus :=
         if clickedInput1 then some textInput1Name
         else if clickedInput2 then some textInput2Name
         else if clickedPrimary || clickedSecondary || clickedOutline || clickedGhost ||
-                clickedCb1 || clickedCb2 || clickedRadio1 || clickedRadio2 || clickedRadio3 then
+                clickedCb1 || clickedCb2 || clickedRadio1 || clickedRadio2 || clickedRadio3 ||
+                clickedSwitch1 || clickedSwitch2 then
           none  -- Clicking elsewhere clears focus
         else
           state.focusedInput
@@ -328,6 +352,8 @@ instance : Demo .canopyWidgets where
         checkbox1 := nextCb1
         checkbox2 := nextCb2
         radioSelection := nextRadioSelection
+        switch1 := nextSwitch1
+        switch2 := nextSwitch2
         focusedInput := nextFocus
       }
   handleHover := fun env state contentId hitPath _mouseX _mouseY => do
@@ -344,6 +370,8 @@ instance : Demo .canopyWidgets where
     let hoveredRadio1 := hitPathHasNamedWidget widget hitPath radio1Name
     let hoveredRadio2 := hitPathHasNamedWidget widget hitPath radio2Name
     let hoveredRadio3 := hitPathHasNamedWidget widget hitPath radio3Name
+    let hoveredSwitch1 := hitPathHasNamedWidget widget hitPath switch1Name
+    let hoveredSwitch2 := hitPathHasNamedWidget widget hitPath switch2Name
     -- Update widget states
     let mut ws := state.widgetStates
     ws := ws.setHovered btnPrimaryName hoveredPrimary
@@ -355,6 +383,8 @@ instance : Demo .canopyWidgets where
     ws := ws.setHovered radio1Name hoveredRadio1
     ws := ws.setHovered radio2Name hoveredRadio2
     ws := ws.setHovered radio3Name hoveredRadio3
+    ws := ws.setHovered switch1Name hoveredSwitch1
+    ws := ws.setHovered switch2Name hoveredSwitch2
     pure { state with widgetStates := ws }
   handleKey := fun env state keyEvent => do
     -- Only process keyboard input if a text input is focused
