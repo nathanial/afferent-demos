@@ -186,119 +186,128 @@ def canopyShowcaseWidget (fontId : FontId) (smallFontId : FontId)
         spacer 0 0
     ],
 
-    -- Labels section (non-interactive)
-    titledPanel "Labels" .outlined theme do
-      column (gap := s 8) (style := {}) #[
-        heading1 "Heading 1" theme,
-        heading2 "Heading 2" theme,
-        heading3 "Heading 3" theme,
-        bodyText "Body text - normal paragraph content" theme,
-        caption "Caption - small muted text" theme
-      ],
-
-    -- Buttons section (interactive)
-    titledPanel "Buttons" .outlined theme do
-      column (gap := s 12) (style := {}) #[
-        caption "Click a button to increment the counter:" theme,
-        row (gap := s 8) (style := {}) #[
-          demoButton btnPrimaryName "Primary" theme .primary primaryState,
-          demoButton btnSecondaryName "Secondary" theme .secondary secondaryState,
-          demoButton btnOutlineName "Outline" theme .outline outlineState,
-          demoButton btnGhostName "Ghost" theme .ghost ghostState
-        ]
-      ],
-
-    -- Checkboxes section (interactive)
-    titledPanel "Checkboxes" .outlined theme do
-      column (gap := s 8) (style := {}) #[
-        caption "Click to toggle:" theme,
-        row (gap := s 24) (style := {}) #[
-          demoCheckbox checkbox1Name "Option 1" theme state.checkbox1 cb1State,
-          demoCheckbox checkbox2Name "Option 2" theme state.checkbox2 cb2State
-        ]
-      ],
-
-    -- Radio Buttons section (interactive)
-    titledPanel "Radio Buttons" .outlined theme do
-      column (gap := s 8) (style := {}) #[
-        caption "Click to select one option:" theme,
-        column (gap := s 8) (style := {}) #[
-          radioButtonVisual radio1Name "Option 1" theme (state.radioSelection == "option1") radio1State,
-          radioButtonVisual radio2Name "Option 2" theme (state.radioSelection == "option2") radio2State,
-          radioButtonVisual radio3Name "Option 3" theme (state.radioSelection == "option3") radio3State
-        ]
-      ],
-
-    -- Switches section (interactive, animated)
-    titledPanel "Switches" .outlined theme do
-      column (gap := s 8) (style := {}) #[
-        caption "Click to toggle:" theme,
-        row (gap := s 24) (style := {}) #[
-          animatedSwitchVisual switch1Name (some "Notifications") theme state.switch1Anim switch1State,
-          animatedSwitchVisual switch2Name (some "Dark Mode") theme state.switch2Anim switch2State
-        ]
-      ],
-
-    -- Sliders section (interactive)
-    titledPanel "Sliders" .outlined theme do
-      column (gap := s 8) (style := {}) #[
-        caption "Click to adjust value:" theme,
-        row (gap := s 24) (style := {}) #[
-          sliderVisual slider1Name (some "Volume") theme state.slider1 slider1State,
-          sliderVisual slider2Name (some "Brightness") theme state.slider2 slider2State
-        ]
-      ],
-
-    -- Dropdown section (interactive)
-    titledPanel "Dropdown" .outlined theme do
-      column (gap := s 8) (style := {}) #[
-        caption "Click to open, select an option:" theme,
-        dropdownVisual dropdown1Name dropdown1TriggerName dropdown1OptionName
-          dropdown1Options state.dropdown1Selection state.dropdown1Open
-          state.dropdown1HoveredOption theme dropdown1TriggerState
-      ],
-
-    -- Text Input section (interactive - click to focus, type to edit)
-    titledPanel "Text Inputs" .outlined theme do
-      column (gap := s 12) (style := {}) #[
-        caption "Click to focus, then type:" theme,
-        textInputVisual textInput1Name theme
-          { state.textInput1State with focused := state.focusedInput == some textInput1Name }
-          "Enter text here...",
-        textInputVisual textInput2Name theme
-          { state.textInput2State with focused := state.focusedInput == some textInput2Name }
-          "Type something..."
-      ],
-
-    -- Text Area section (interactive - multi-line text input)
-    titledPanel "Text Area" .outlined theme do
-      column (gap := s 8) (style := {}) #[
-        caption "Multi-line text with word wrapping:" theme,
-        textAreaVisual textAreaName theme
-          { state.textAreaState with focused := state.focusedInput == some textAreaName }
-          "Enter multi-line text..."
-          (width := s 280) (height := s 120)
-      ],
-
-    -- Panels section (non-interactive)
-    titledPanel "Panels" .outlined theme do
-      row (gap := s 12) (style := {}) #[
-        elevatedPanel theme (s 12) do
-          column (gap := s 4) (style := { minWidth := some (s 100) }) #[
-            heading3 "Elevated" theme,
-            caption "Card-like" theme
+    -- Two-column layout for widget panels
+    row (gap := s 20) (style := { flexItem := some (FlexItem.growing 1) }) #[
+      -- Left column
+      column (gap := s 16) (style := { flexItem := some (FlexItem.growing 1) }) #[
+        -- Labels section (non-interactive)
+        titledPanel "Labels" .outlined theme do
+          column (gap := s 8) (style := {}) #[
+            heading1 "Heading 1" theme,
+            heading2 "Heading 2" theme,
+            heading3 "Heading 3" theme,
+            bodyText "Body text - normal paragraph content" theme,
+            caption "Caption - small muted text" theme
           ],
-        outlinedPanel theme (s 12) do
-          column (gap := s 4) (style := { minWidth := some (s 100) }) #[
-            heading3 "Outlined" theme,
-            caption "Border only" theme
+
+        -- Buttons section (interactive)
+        titledPanel "Buttons" .outlined theme do
+          column (gap := s 12) (style := {}) #[
+            caption "Click a button to increment the counter:" theme,
+            row (gap := s 8) (style := {}) #[
+              demoButton btnPrimaryName "Primary" theme .primary primaryState,
+              demoButton btnSecondaryName "Secondary" theme .secondary secondaryState,
+              demoButton btnOutlineName "Outline" theme .outline outlineState,
+              demoButton btnGhostName "Ghost" theme .ghost ghostState
+            ]
           ],
-        filledPanel theme (s 12) do
-          column (gap := s 4) (style := { minWidth := some (s 100) }) #[
-            heading3 "Filled" theme,
-            caption "Solid bg" theme
+
+        -- Checkboxes section (interactive)
+        titledPanel "Checkboxes" .outlined theme do
+          column (gap := s 8) (style := {}) #[
+            caption "Click to toggle:" theme,
+            row (gap := s 24) (style := {}) #[
+              demoCheckbox checkbox1Name "Option 1" theme state.checkbox1 cb1State,
+              demoCheckbox checkbox2Name "Option 2" theme state.checkbox2 cb2State
+            ]
+          ],
+
+        -- Radio Buttons section (interactive)
+        titledPanel "Radio Buttons" .outlined theme do
+          column (gap := s 8) (style := {}) #[
+            caption "Click to select one option:" theme,
+            column (gap := s 8) (style := {}) #[
+              radioButtonVisual radio1Name "Option 1" theme (state.radioSelection == "option1") radio1State,
+              radioButtonVisual radio2Name "Option 2" theme (state.radioSelection == "option2") radio2State,
+              radioButtonVisual radio3Name "Option 3" theme (state.radioSelection == "option3") radio3State
+            ]
+          ],
+
+        -- Switches section (interactive, animated)
+        titledPanel "Switches" .outlined theme do
+          column (gap := s 8) (style := {}) #[
+            caption "Click to toggle:" theme,
+            row (gap := s 24) (style := {}) #[
+              animatedSwitchVisual switch1Name (some "Notifications") theme state.switch1Anim switch1State,
+              animatedSwitchVisual switch2Name (some "Dark Mode") theme state.switch2Anim switch2State
+            ]
+          ]
+      ],
+
+      -- Right column
+      column (gap := s 16) (style := { flexItem := some (FlexItem.growing 1) }) #[
+        -- Sliders section (interactive)
+        titledPanel "Sliders" .outlined theme do
+          column (gap := s 8) (style := {}) #[
+            caption "Click to adjust value:" theme,
+            row (gap := s 24) (style := {}) #[
+              sliderVisual slider1Name (some "Volume") theme state.slider1 slider1State,
+              sliderVisual slider2Name (some "Brightness") theme state.slider2 slider2State
+            ]
+          ],
+
+        -- Dropdown section (interactive)
+        titledPanel "Dropdown" .outlined theme do
+          column (gap := s 8) (style := {}) #[
+            caption "Click to open, select an option:" theme,
+            dropdownVisual dropdown1Name dropdown1TriggerName dropdown1OptionName
+              dropdown1Options state.dropdown1Selection state.dropdown1Open
+              state.dropdown1HoveredOption theme dropdown1TriggerState
+          ],
+
+        -- Text Input section (interactive - click to focus, type to edit)
+        titledPanel "Text Inputs" .outlined theme do
+          column (gap := s 12) (style := {}) #[
+            caption "Click to focus, then type:" theme,
+            textInputVisual textInput1Name theme
+              { state.textInput1State with focused := state.focusedInput == some textInput1Name }
+              "Enter text here...",
+            textInputVisual textInput2Name theme
+              { state.textInput2State with focused := state.focusedInput == some textInput2Name }
+              "Type something..."
+          ],
+
+        -- Text Area section (interactive - multi-line text input)
+        titledPanel "Text Area" .outlined theme do
+          column (gap := s 8) (style := {}) #[
+            caption "Multi-line text with word wrapping:" theme,
+            textAreaVisual textAreaName theme
+              { state.textAreaState with focused := state.focusedInput == some textAreaName }
+              "Enter multi-line text..."
+              (width := s 280) (height := s 120)
+          ],
+
+        -- Panels section (non-interactive)
+        titledPanel "Panels" .outlined theme do
+          row (gap := s 12) (style := {}) #[
+            elevatedPanel theme (s 12) do
+              column (gap := s 4) (style := { minWidth := some (s 100) }) #[
+                heading3 "Elevated" theme,
+                caption "Card-like" theme
+              ],
+            outlinedPanel theme (s 12) do
+              column (gap := s 4) (style := { minWidth := some (s 100) }) #[
+                heading3 "Outlined" theme,
+                caption "Border only" theme
+              ],
+            filledPanel theme (s 12) do
+              column (gap := s 4) (style := { minWidth := some (s 100) }) #[
+                heading3 "Filled" theme,
+                caption "Solid bg" theme
+              ]
           ]
       ]
+    ]
   ]
 
 end Demos
