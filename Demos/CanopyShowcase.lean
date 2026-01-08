@@ -104,10 +104,12 @@ def demoCheckbox (name : String) (labelText : String) (theme : Theme)
         backgroundColor := some boxBg
       }
 
-  namedRow name (gap := 8) (style := {}) #[
-    checkboxBox,
-    text' labelText theme.font theme.text .left
-  ]
+  -- Use custom flex container with alignItems := .center to prevent stretching
+  let wid ← freshId
+  let props : Trellis.FlexContainer := { Trellis.FlexContainer.row 8 with alignItems := .center }
+  let checkBox ← checkboxBox
+  let label ← text' labelText theme.font theme.text .left
+  pure (.flex wid (some name) props {} #[checkBox, label])
 
 
 /-! ## Main Widget -/
