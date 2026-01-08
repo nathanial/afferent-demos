@@ -28,6 +28,8 @@ structure CanopyShowcaseState where
   textInput1State : TextInputState := { value := "" }
   /-- Second text input state. -/
   textInput2State : TextInputState := { value := "Hello, World!", cursor := 13 }
+  /-- Text area state. -/
+  textAreaState : TextAreaState := { value := "Type here...\nThis is a multi-line text area with soft word wrapping." }
   /-- Currently focused input name. -/
   focusedInput : Option String := none
   /-- Button click counter (for demo). -/
@@ -71,6 +73,7 @@ def checkbox1Name := "canopy-cb1"
 def checkbox2Name := "canopy-cb2"
 def textInput1Name := "canopy-input1"
 def textInput2Name := "canopy-input2"
+def textAreaName := "canopy-textarea"
 def radio1Name := "canopy-radio1"
 def radio2Name := "canopy-radio2"
 def radio3Name := "canopy-radio3"
@@ -265,6 +268,16 @@ def canopyShowcaseWidget (fontId : FontId) (smallFontId : FontId)
         textInputVisual textInput2Name theme
           { state.textInput2State with focused := state.focusedInput == some textInput2Name }
           "Type something..."
+      ],
+
+    -- Text Area section (interactive - multi-line text input)
+    titledPanel "Text Area" .outlined theme do
+      column (gap := s 8) (style := {}) #[
+        caption "Multi-line text with word wrapping:" theme,
+        textAreaVisual textAreaName theme
+          { state.textAreaState with focused := state.focusedInput == some textAreaName }
+          "Enter multi-line text..."
+          (width := s 280) (height := s 120)
       ],
 
     -- Panels section (non-interactive)

@@ -336,6 +336,7 @@ instance : Demo .canopyWidgets where
       -- Check text input clicks
       let clickedInput1 := hitPathHasNamedWidget widget hitPath textInput1Name
       let clickedInput2 := hitPathHasNamedWidget widget hitPath textInput2Name
+      let clickedTextArea := hitPathHasNamedWidget widget hitPath textAreaName
       -- Check radio button clicks
       let clickedRadio1 := hitPathHasNamedWidget widget hitPath radio1Name
       let clickedRadio2 := hitPathHasNamedWidget widget hitPath radio2Name
@@ -405,6 +406,7 @@ instance : Demo .canopyWidgets where
       let nextFocus :=
         if clickedInput1 then some textInput1Name
         else if clickedInput2 then some textInput2Name
+        else if clickedTextArea then some textAreaName
         else if clickedPrimary || clickedSecondary || clickedOutline || clickedGhost ||
                 clickedCb1 || clickedCb2 || clickedRadio1 || clickedRadio2 || clickedRadio3 ||
                 clickedSwitch1 || clickedSwitch2 || clickedSlider1 || clickedSlider2 then
@@ -510,6 +512,16 @@ instance : Demo .canopyWidgets where
           let (cursorX, _) ← env.fontCanopy.measureText beforeCursor
           let finalState := { newInputState with cursorPixelX := cursorX }
           pure { state with textInput2State := finalState }
+        else if inputName == textAreaName then
+          -- Handle TextArea key events
+          let dims := Afferent.Canopy.TextArea.defaultDimensions
+          let contentWidth : Float := 280 - dims.padding * 2  -- Match the width from CanopyShowcase
+          let lines := Afferent.Canopy.TextArea.wrapText state.textAreaState.value contentWidth dims
+          let newState := Afferent.Canopy.TextArea.handleKeyPress keyEvent state.textAreaState lines none
+          -- Auto-scroll to keep cursor visible
+          let viewportHeight : Float := 120 - dims.padding * 2
+          let scrolledState := Afferent.Canopy.TextArea.scrollToCursor newState lines viewportHeight dims
+          pure { state with textAreaState := scrolledState }
         else
           pure state
     | none => pure state
