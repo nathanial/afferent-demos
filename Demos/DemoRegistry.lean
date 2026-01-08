@@ -268,7 +268,7 @@ instance : Demo .canopyWidgets where
   init := fun env => do
     -- Compute initial cursor position for pre-filled text input
     let initialText := "Hello, World!"
-    let (cursorX, _) ← env.fontMedium.measureText initialText
+    let (cursorX, _) ← env.fontCanopy.measureText initialText
     let textInput2 : Afferent.Canopy.TextInputState := {
       value := initialText
       cursor := initialText.length
@@ -293,14 +293,14 @@ instance : Demo .canopyWidgets where
                     else state.switch2Anim + diff2 * lerpFactor
     pure { state with switch1Anim := newAnim1, switch2Anim := newAnim2 }
   view := fun env state =>
-    some (canopyShowcaseWidget env.fontMediumId env.fontSmallId env.screenScale state)
+    some (canopyShowcaseWidget env.fontCanopyId env.fontCanopySmallId env.screenScale state)
   handleClick := fun env state contentId hitPath click => do
     if click.button != 0 then
       pure state
     else
       let widget :=
         Afferent.Arbor.buildFrom contentId
-          (canopyShowcaseWidget env.fontMediumId env.fontSmallId env.screenScale state)
+          (canopyShowcaseWidget env.fontCanopyId env.fontCanopySmallId env.screenScale state)
       -- Check button clicks
       let clickedPrimary := hitPathHasNamedWidget widget hitPath btnPrimaryName
       let clickedSecondary := hitPathHasNamedWidget widget hitPath btnSecondaryName
@@ -359,7 +359,7 @@ instance : Demo .canopyWidgets where
   handleHover := fun env state contentId hitPath _mouseX _mouseY => do
     let widget :=
       Afferent.Arbor.buildFrom contentId
-        (canopyShowcaseWidget env.fontMediumId env.fontSmallId env.screenScale state)
+        (canopyShowcaseWidget env.fontCanopyId env.fontCanopySmallId env.screenScale state)
     -- Check which widgets are hovered
     let hoveredPrimary := hitPathHasNamedWidget widget hitPath btnPrimaryName
     let hoveredSecondary := hitPathHasNamedWidget widget hitPath btnSecondaryName
@@ -394,14 +394,14 @@ instance : Demo .canopyWidgets where
           let newInputState := Afferent.Canopy.TextInput.handleKeyPress keyEvent state.textInput1State none
           -- Measure text before cursor for accurate cursor positioning
           let beforeCursor := newInputState.value.take newInputState.cursor
-          let (cursorX, _) ← env.fontMedium.measureText beforeCursor
+          let (cursorX, _) ← env.fontCanopy.measureText beforeCursor
           let finalState := { newInputState with cursorPixelX := cursorX }
           pure { state with textInput1State := finalState }
         else if inputName == textInput2Name then
           let newInputState := Afferent.Canopy.TextInput.handleKeyPress keyEvent state.textInput2State none
           -- Measure text before cursor for accurate cursor positioning
           let beforeCursor := newInputState.value.take newInputState.cursor
-          let (cursorX, _) ← env.fontMedium.measureText beforeCursor
+          let (cursorX, _) ← env.fontCanopy.measureText beforeCursor
           let finalState := { newInputState with cursorPixelX := cursorX }
           pure { state with textInput2State := finalState }
         else

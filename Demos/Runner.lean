@@ -24,12 +24,16 @@ private structure FontPack where
   mediumId : Afferent.Arbor.FontId
   largeId : Afferent.Arbor.FontId
   hugeId : Afferent.Arbor.FontId
+  canopyId : Afferent.Arbor.FontId
+  canopySmallId : Afferent.Arbor.FontId
 
 private structure LoadingState where
   fontSmall : Option Font := none
   fontMedium : Option Font := none
   fontLarge : Option Font := none
   fontHuge : Option Font := none
+  fontCanopy : Option Font := none
+  fontCanopySmall : Option Font := none
   layoutFont : Option Font := none
   fontPack : Option FontPack := none
   spriteTexture : Option FFI.Texture := none
@@ -45,6 +49,8 @@ private structure LoadedAssets where
   fontMedium : Font
   fontLarge : Font
   fontHuge : Font
+  fontCanopy : Font
+  fontCanopySmall : Font
   layoutFont : Font
   fontPack : FontPack
   spriteTexture : FFI.Texture
@@ -101,13 +107,15 @@ private inductive AppState where
   | loading (state : LoadingState)
   | running (state : RunningState)
 
-private def loadingStepsTotal : Nat := 12
+private def loadingStepsTotal : Nat := 14
 
 private def loadingStepsDone (s : LoadingState) : Nat :=
   (if s.fontSmall.isSome then 1 else 0) +
   (if s.fontMedium.isSome then 1 else 0) +
   (if s.fontLarge.isSome then 1 else 0) +
   (if s.fontHuge.isSome then 1 else 0) +
+  (if s.fontCanopy.isSome then 1 else 0) +
+  (if s.fontCanopySmall.isSome then 1 else 0) +
   (if s.layoutFont.isSome then 1 else 0) +
   (if s.fontPack.isSome then 1 else 0) +
   (if s.spriteTexture.isSome then 1 else 0) +
@@ -121,7 +129,8 @@ private def loadingProgress (s : LoadingState) : Float :=
   (loadingStepsDone s).toFloat / (loadingStepsTotal.toFloat)
 
 private def loadingStatus (s : LoadingState) : String :=
-  if s.fontSmall.isNone || s.fontMedium.isNone || s.fontLarge.isNone || s.fontHuge.isNone then
+  if s.fontSmall.isNone || s.fontMedium.isNone || s.fontLarge.isNone || s.fontHuge.isNone ||
+     s.fontCanopy.isNone || s.fontCanopySmall.isNone then
     "Loading fonts..."
   else if s.layoutFont.isNone then
     "Preparing layout font..."
@@ -229,27 +238,37 @@ private def advanceLoading (s0 : LoadingState) (screenScale : Float) (canvas : C
   if s.fontHuge.isNone then
     let fontHuge ← Font.load "/System/Library/Fonts/Monaco.ttf" (48 * screenScale).toUInt32
     return { s with fontHuge := some fontHuge }
+  if s.fontCanopy.isNone then
+    let fontCanopy ← Font.load "/System/Library/Fonts/Monaco.ttf" (14 * screenScale).toUInt32
+    return { s with fontCanopy := some fontCanopy }
+  if s.fontCanopySmall.isNone then
+    let fontCanopySmall ← Font.load "/System/Library/Fonts/Monaco.ttf" (10 * screenScale).toUInt32
+    return { s with fontCanopySmall := some fontCanopySmall }
   if s.layoutFont.isNone then
     let layoutLabelPt : Float := 12.0
     let layoutFontPx : UInt32 := (max 8.0 (layoutLabelPt * screenScale)).toUInt32
     let layoutFont ← Font.load "/System/Library/Fonts/Monaco.ttf" layoutFontPx
     return { s with layoutFont := some layoutFont }
   if s.fontPack.isNone then
-    match s.fontSmall, s.fontMedium, s.fontLarge, s.fontHuge with
-    | some fontSmall, some fontMedium, some fontLarge, some fontHuge =>
+    match s.fontSmall, s.fontMedium, s.fontLarge, s.fontHuge, s.fontCanopy, s.fontCanopySmall with
+    | some fontSmall, some fontMedium, some fontLarge, some fontHuge, some fontCanopy, some fontCanopySmall =>
         let (reg1, fontSmallId) := FontRegistry.empty.register fontSmall "small"
         let (reg2, fontMediumId) := reg1.register fontMedium "medium"
         let (reg3, fontLargeId) := reg2.register fontLarge "large"
         let (reg4, fontHugeId) := reg3.register fontHuge "huge"
-        let registry := reg4.setDefault fontMedium
+        let (reg5, fontCanopyId) := reg4.register fontCanopy "canopy"
+        let (reg6, fontCanopySmallId) := reg5.register fontCanopySmall "canopySmall"
+        let registry := reg6.setDefault fontMedium
         return { s with fontPack := some {
           registry := registry
           smallId := fontSmallId
           mediumId := fontMediumId
           largeId := fontLargeId
           hugeId := fontHugeId
+          canopyId := fontCanopyId
+          canopySmallId := fontCanopySmallId
         } }
-    | _, _, _, _ => return s
+    | _, _, _, _, _, _ => return s
   if s.spriteTexture.isNone then
     let spriteTexture ← FFI.Texture.load "nibble-32.png"
     return { s with spriteTexture := some spriteTexture }
@@ -275,11 +294,11 @@ private def toLoadedAssets (s : LoadingState)
     (physWidth physHeight : UInt32)
     (layoutOffsetX layoutOffsetY layoutScale : Float)
     : IO (Option LoadedAssets) := do
-  match s.fontSmall, s.fontMedium, s.fontLarge, s.fontHuge, s.layoutFont,
-        s.fontPack, s.spriteTexture, s.gridParticles, s.lineSegments,
+  match s.fontSmall, s.fontMedium, s.fontLarge, s.fontHuge, s.fontCanopy, s.fontCanopySmall,
+        s.layoutFont, s.fontPack, s.spriteTexture, s.gridParticles, s.lineSegments,
         s.lineBuffer, s.orbitalParams, s.orbitalBuffer with
-  | some fontSmall, some fontMedium, some fontLarge, some fontHuge, some layoutFont,
-    some fontPack, some spriteTexture, some gridParticles, some (_, lineCount),
+  | some fontSmall, some fontMedium, some fontLarge, some fontHuge, some fontCanopy, some fontCanopySmall,
+    some layoutFont, some fontPack, some spriteTexture, some gridParticles, some (_, lineCount),
     some lineBuffer, some orbitalParams, some orbitalBuffer =>
       let spriteHalfSize ← spriteHalfSizeFromTexture spriteTexture
       pure (some {
@@ -288,6 +307,8 @@ private def toLoadedAssets (s : LoadingState)
         fontMedium
         fontLarge
         fontHuge
+        fontCanopy
+        fontCanopySmall
         layoutFont
         fontPack
         spriteTexture
@@ -309,13 +330,15 @@ private def toLoadedAssets (s : LoadingState)
         layoutOffsetY
         layoutScale
       })
-  | _, _, _, _, _, _, _, _, _, _, _, _ => pure none
+  | _, _, _, _, _, _, _, _, _, _, _, _, _, _ => pure none
 
 private def cleanupLoading (s : LoadingState) : IO Unit := do
   if let some font := s.fontSmall then font.destroy
   if let some font := s.fontMedium then font.destroy
   if let some font := s.fontLarge then font.destroy
   if let some font := s.fontHuge then font.destroy
+  if let some font := s.fontCanopy then font.destroy
+  if let some font := s.fontCanopySmall then font.destroy
   if let some font := s.layoutFont then font.destroy
   if let some tex := s.spriteTexture then FFI.Texture.destroy tex
   if let some buf := s.lineBuffer then FFI.Buffer.destroy buf
@@ -326,6 +349,8 @@ private def cleanupAssets (a : LoadedAssets) : IO Unit := do
   a.fontMedium.destroy
   a.fontLarge.destroy
   a.fontHuge.destroy
+  a.fontCanopy.destroy
+  a.fontCanopySmall.destroy
   a.layoutFont.destroy
   FFI.Texture.destroy a.spriteTexture
   FFI.Buffer.destroy a.lineBuffer
@@ -343,12 +368,16 @@ private def mkEnvFromAssets (a : LoadedAssets) (t dt : Float)
   fontMedium := a.fontMedium
   fontLarge := a.fontLarge
   fontHuge := a.fontHuge
+  fontCanopy := a.fontCanopy
+  fontCanopySmall := a.fontCanopySmall
   layoutFont := a.layoutFont
   fontRegistry := a.fontPack.registry
   fontMediumId := a.fontPack.mediumId
   fontSmallId := a.fontPack.smallId
   fontLargeId := a.fontPack.largeId
   fontHugeId := a.fontPack.hugeId
+  fontCanopyId := a.fontPack.canopyId
+  fontCanopySmallId := a.fontPack.canopySmallId
   spriteTexture := a.spriteTexture
   halfSize := a.halfSize
   circleRadius := a.circleRadius
@@ -780,8 +809,9 @@ def unifiedDemo : IO Unit := do
               | none => pure ()
               rs := { rs with lastHoverPath := hoverPath, lastMouseX := mouseX, lastMouseY := mouseY }
 
-            -- Handle keyboard events
-            if keyCode != 0 then
+            -- Handle keyboard events (use hasKeyPressed to distinguish key code 0 from "no key")
+            let hasKey ← FFI.Window.hasKeyPressed c.ctx.window
+            if hasKey then
               let modifiers ← FFI.Window.getModifiers c.ctx.window
               let keyEvent : Afferent.Arbor.KeyEvent := {
                 key := Afferent.Arbor.Key.fromKeyCode keyCode

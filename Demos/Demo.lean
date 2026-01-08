@@ -21,12 +21,16 @@ structure DemoEnv where
   fontMedium : Afferent.Font
   fontLarge : Afferent.Font
   fontHuge : Afferent.Font
+  fontCanopy : Afferent.Font
+  fontCanopySmall : Afferent.Font
   layoutFont : Afferent.Font
   fontRegistry : Afferent.FontRegistry
   fontMediumId : Afferent.Arbor.FontId
   fontSmallId : Afferent.Arbor.FontId
   fontLargeId : Afferent.Arbor.FontId
   fontHugeId : Afferent.Arbor.FontId
+  fontCanopyId : Afferent.Arbor.FontId
+  fontCanopySmallId : Afferent.Arbor.FontId
   spriteTexture : Afferent.FFI.Texture
   halfSize : Float
   circleRadius : Float
