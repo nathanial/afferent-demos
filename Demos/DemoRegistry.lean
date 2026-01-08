@@ -21,6 +21,7 @@ import Demos.LinesPerf
 import Demos.TextureMatrix
 import Demos.OrbitalInstanced
 import Demos.WorldmapDemo
+import Demos.CanopyShowcase
 import Worldmap
 
 open Afferent
@@ -36,6 +37,7 @@ inductive DemoId where
   | layout
   | cssGrid
   | widgets
+  | canopyWidgets
   | seascape
   | shapeGallery
   | worldmap
@@ -72,6 +74,7 @@ def DemoState : DemoId → Type
   | .layout => Unit
   | .cssGrid => Unit
   | .widgets => Unit
+  | .canopyWidgets => CanopyShowcaseState
   | .seascape => SeascapeState
   | .shapeGallery => ShapeGalleryState
   | .worldmap => WorldmapState
@@ -90,6 +93,11 @@ class Demo (id : DemoId) where
   view : DemoEnv → DemoState id → Option Afferent.Arbor.WidgetBuilder := fun _ _ => none
   handleClick : DemoEnv → DemoState id → Afferent.Arbor.WidgetId → Array Afferent.Arbor.WidgetId →
       Afferent.FFI.ClickEvent → IO (DemoState id) := fun _ s _ _ _ => pure s
+  /-- Handle mouse hover (called when hovered widget changes). -/
+  handleHover : DemoEnv → DemoState id → Afferent.Arbor.WidgetId → Array Afferent.Arbor.WidgetId →
+      Float → Float → IO (DemoState id) := fun _ s _ _ _ _ => pure s
+  /-- Handle keyboard input (called when a key is pressed). -/
+  handleKey : DemoEnv → DemoState id → Afferent.Arbor.KeyEvent → IO (DemoState id) := fun _ s _ => pure s
   step : Canvas → DemoEnv → DemoState id → IO (Canvas × DemoState id)
   onExit : Canvas → DemoEnv → DemoState id → IO (DemoState id) := fun _ _ s => pure s
 
@@ -254,6 +262,89 @@ instance : Demo .widgets where
     some (widgetDemo env.fontMediumId env.fontSmallId env.screenScale)
   step := fun c _ s => pure (c, s)
 
+instance : Demo .canopyWidgets where
+  name := "CANOPY widget library showcase"
+  shortName := "Canopy"
+  init := fun _ => pure CanopyShowcaseState.initial
+  view := fun env state =>
+    some (canopyShowcaseWidget env.fontMediumId env.fontSmallId env.screenScale state)
+  handleClick := fun env state contentId hitPath click => do
+    if click.button != 0 then
+      pure state
+    else
+      let widget :=
+        Afferent.Arbor.buildFrom contentId
+          (canopyShowcaseWidget env.fontMediumId env.fontSmallId env.screenScale state)
+      -- Check button clicks
+      let clickedPrimary := hitPathHasNamedWidget widget hitPath btnPrimaryName
+      let clickedSecondary := hitPathHasNamedWidget widget hitPath btnSecondaryName
+      let clickedOutline := hitPathHasNamedWidget widget hitPath btnOutlineName
+      let clickedGhost := hitPathHasNamedWidget widget hitPath btnGhostName
+      -- Check checkbox clicks
+      let clickedCb1 := hitPathHasNamedWidget widget hitPath checkbox1Name
+      let clickedCb2 := hitPathHasNamedWidget widget hitPath checkbox2Name
+      -- Check text input clicks
+      let clickedInput1 := hitPathHasNamedWidget widget hitPath textInput1Name
+      let clickedInput2 := hitPathHasNamedWidget widget hitPath textInput2Name
+      -- Update button click count
+      let nextClickCount :=
+        if clickedPrimary || clickedSecondary || clickedOutline || clickedGhost then
+          state.buttonClickCount + 1
+        else
+          state.buttonClickCount
+      -- Update checkbox states
+      let nextCb1 := if clickedCb1 then !state.checkbox1 else state.checkbox1
+      let nextCb2 := if clickedCb2 then !state.checkbox2 else state.checkbox2
+      -- Update focus
+      let nextFocus :=
+        if clickedInput1 then some textInput1Name
+        else if clickedInput2 then some textInput2Name
+        else if clickedPrimary || clickedSecondary || clickedOutline || clickedGhost ||
+                clickedCb1 || clickedCb2 then
+          none  -- Clicking elsewhere clears focus
+        else
+          state.focusedInput
+      pure { state with
+        buttonClickCount := nextClickCount
+        checkbox1 := nextCb1
+        checkbox2 := nextCb2
+        focusedInput := nextFocus
+      }
+  handleHover := fun env state contentId hitPath _mouseX _mouseY => do
+    let widget :=
+      Afferent.Arbor.buildFrom contentId
+        (canopyShowcaseWidget env.fontMediumId env.fontSmallId env.screenScale state)
+    -- Check which widgets are hovered
+    let hoveredPrimary := hitPathHasNamedWidget widget hitPath btnPrimaryName
+    let hoveredSecondary := hitPathHasNamedWidget widget hitPath btnSecondaryName
+    let hoveredOutline := hitPathHasNamedWidget widget hitPath btnOutlineName
+    let hoveredGhost := hitPathHasNamedWidget widget hitPath btnGhostName
+    let hoveredCb1 := hitPathHasNamedWidget widget hitPath checkbox1Name
+    let hoveredCb2 := hitPathHasNamedWidget widget hitPath checkbox2Name
+    -- Update widget states
+    let mut ws := state.widgetStates
+    ws := ws.setHovered btnPrimaryName hoveredPrimary
+    ws := ws.setHovered btnSecondaryName hoveredSecondary
+    ws := ws.setHovered btnOutlineName hoveredOutline
+    ws := ws.setHovered btnGhostName hoveredGhost
+    ws := ws.setHovered checkbox1Name hoveredCb1
+    ws := ws.setHovered checkbox2Name hoveredCb2
+    pure { state with widgetStates := ws }
+  handleKey := fun _env state keyEvent => do
+    -- Only process keyboard input if a text input is focused
+    match state.focusedInput with
+    | some inputName =>
+        if inputName == textInput1Name then
+          let newInputState := Afferent.Canopy.TextInput.handleKeyPress keyEvent state.textInput1State none
+          pure { state with textInput1State := newInputState }
+        else if inputName == textInput2Name then
+          let newInputState := Afferent.Canopy.TextInput.handleKeyPress keyEvent state.textInput2State none
+          pure { state with textInput2State := newInputState }
+        else
+          pure state
+    | none => pure state
+  step := fun c _ s => pure (c, s)
+
 instance : Demo .seascape where
   name := "SEASCAPE demo (Gerstner waves)"
   shortName := "Seascape"
@@ -382,6 +473,17 @@ def handleClick (d : AnyDemo) (env : DemoEnv) (contentId : Afferent.Arbor.Widget
   let state' ← inst.handleClick env d.state contentId hitPath click
   pure { id := d.id, state := state' }
 
+def handleHover (d : AnyDemo) (env : DemoEnv) (contentId : Afferent.Arbor.WidgetId)
+    (hitPath : Array Afferent.Arbor.WidgetId) (mouseX mouseY : Float) : IO AnyDemo := do
+  let inst := demoInstance d.id
+  let state' ← inst.handleHover env d.state contentId hitPath mouseX mouseY
+  pure { id := d.id, state := state' }
+
+def handleKey (d : AnyDemo) (env : DemoEnv) (keyEvent : Afferent.Arbor.KeyEvent) : IO AnyDemo := do
+  let inst := demoInstance d.id
+  let state' ← inst.handleKey env d.state keyEvent
+  pure { id := d.id, state := state' }
+
 def step (d : AnyDemo) (c : Canvas) (env : DemoEnv) : IO (Canvas × AnyDemo) := do
   let inst := demoInstance d.id
   let (c', state') ← inst.step c env d.state
@@ -409,6 +511,7 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let layoutDemo ← mkAnyDemo .layout env
   let cssGridDemo ← mkAnyDemo .cssGrid env
   let widgetsDemo ← mkAnyDemo .widgets env
+  let canopyWidgetsDemo ← mkAnyDemo .canopyWidgets env
   let seascapeDemo ← mkAnyDemo .seascape env
   let shapeGalleryDemo ← mkAnyDemo .shapeGallery env
   let worldmapDemo ← mkAnyDemo .worldmap env
@@ -418,7 +521,7 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let textureMatrixDemo ← mkAnyDemo .textureMatrix env
   let orbitalInstancedDemo ← mkAnyDemo .orbitalInstanced env
   pure #[demoGrid, gridPerf, trianglesPerf, circlesPerf, spritesPerf, layoutDemo, cssGridDemo,
-    widgetsDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
+    widgetsDemo, canopyWidgetsDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
     lineCapsDemo, dashedLinesDemo, linesPerfDemo,
     textureMatrixDemo, orbitalInstancedDemo]
 

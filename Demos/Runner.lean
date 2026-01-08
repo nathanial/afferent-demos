@@ -93,6 +93,9 @@ private structure RunningState where
   majorFaults : UInt64
   framesLeft : Nat
   tabBar : TabBarResult
+  lastHoverPath : Array Afferent.Arbor.WidgetId := #[]
+  lastMouseX : Float := 0.0
+  lastMouseY : Float := 0.0
 
 private inductive AppState where
   | loading (state : LoadingState)
@@ -747,6 +750,63 @@ def unifiedDemo : IO Unit := do
                           rootBuild := rootBuild'
                       | none => pure ()
                   | none => pure ()
+              | none => pure ()
+
+            -- Handle hover events (mouse movement)
+            let (mouseX, mouseY) ← FFI.Window.getMousePos c.ctx.window
+            let hoverPath := Afferent.Arbor.hitTestPath measuredWidget layouts mouseX mouseY
+            let inTabBar := hoverPath.any (· == rootBuild.tabBar.rowId)
+            -- Only dispatch hover if not in tab bar and path changed
+            if !inTabBar && (hoverPath != rs.lastHoverPath || mouseX != rs.lastMouseX || mouseY != rs.lastMouseY) then
+              let contentLayout :=
+                (layouts.get rootBuild.contentId).getD (Trellis.ComputedLayout.simple rootBuild.contentId defaultContentRect)
+              let hoverEnv := envFromLayout contentLayout t dt keyCode c.clearKey
+              match rs.demoRefs[rs.displayMode]? with
+              | some demoRef =>
+                  let demo ← demoRef.get
+                  let demo' ← AnyDemo.handleHover demo hoverEnv rootBuild.contentId hoverPath mouseX mouseY
+                  demoRef.set demo'
+                  -- Rebuild widget to reflect hover state changes
+                  let ((measuredWidget', layouts'), rootBuild') ←
+                    (do
+                      let rootBuild : RootBuild ← StateT.lift buildRootBuild
+                      set rootBuild
+                      let (measuredWidget, layouts) ← StateT.lift (measureRoot rootBuild.widget)
+                      pure (measuredWidget, layouts)
+                    ) |>.run rootBuild
+                  measuredWidget := measuredWidget'
+                  layouts := layouts'
+                  rootBuild := rootBuild'
+              | none => pure ()
+              rs := { rs with lastHoverPath := hoverPath, lastMouseX := mouseX, lastMouseY := mouseY }
+
+            -- Handle keyboard events
+            if keyCode != 0 then
+              let modifiers ← FFI.Window.getModifiers c.ctx.window
+              let keyEvent : Afferent.Arbor.KeyEvent := {
+                key := Afferent.Arbor.Key.fromKeyCode keyCode
+                modifiers := Afferent.Arbor.Modifiers.fromBitmask modifiers
+              }
+              let contentLayout :=
+                (layouts.get rootBuild.contentId).getD (Trellis.ComputedLayout.simple rootBuild.contentId defaultContentRect)
+              let keyEnv := envFromLayout contentLayout t dt keyCode c.clearKey
+              match rs.demoRefs[rs.displayMode]? with
+              | some demoRef =>
+                  let demo ← demoRef.get
+                  let demo' ← AnyDemo.handleKey demo keyEnv keyEvent
+                  demoRef.set demo'
+                  c.clearKey
+                  -- Rebuild widget to reflect keyboard input changes
+                  let ((measuredWidget', layouts'), rootBuild') ←
+                    (do
+                      let rootBuild : RootBuild ← StateT.lift buildRootBuild
+                      set rootBuild
+                      let (measuredWidget, layouts) ← StateT.lift (measureRoot rootBuild.widget)
+                      pure (measuredWidget, layouts)
+                    ) |>.run rootBuild
+                  measuredWidget := measuredWidget'
+                  layouts := layouts'
+                  rootBuild := rootBuild'
               | none => pure ()
 
             let commands := Afferent.Arbor.collectCommands measuredWidget layouts
