@@ -104,30 +104,6 @@ def demoCheckbox (name : String) (labelText : String) (theme : Theme)
     text' labelText theme.font theme.text .left
   ]
 
-/-- Build a visual text input (renders state from CanopyShowcaseState). -/
-def demoTextInput (name : String) (placeholderText : String)
-    (inputState : TextInputState) (theme : Theme) : WidgetBuilder := do
-  let colors := theme.input
-  let bgColor := colors.background
-  let borderColor := if inputState.focused then colors.borderFocused else colors.border
-
-  let style : BoxStyle := {
-    backgroundColor := some bgColor
-    borderColor := some borderColor
-    borderWidth := if inputState.focused then 2 else 1
-    cornerRadius := theme.cornerRadius
-    padding := EdgeInsets.symmetric theme.padding (theme.padding * 0.5)
-    minWidth := some 200
-    minHeight := some 40
-  }
-
-  let value := inputState.value
-  let showPlaceholder := value.isEmpty && !inputState.focused
-  let displayText := if showPlaceholder then placeholderText else value
-
-  namedCenter name (style := style) do
-    custom (TextInput.inputSpec displayText placeholderText showPlaceholder
-            inputState.cursor inputState.focused theme) {}
 
 /-! ## Main Widget -/
 
@@ -200,10 +176,12 @@ def canopyShowcaseWidget (fontId : FontId) (smallFontId : FontId)
     titledPanel "Text Inputs" .outlined theme do
       column (gap := s 12) (style := {}) #[
         caption "Click to focus, then type:" theme,
-        demoTextInput textInput1Name "Enter text here..."
-          { state.textInput1State with focused := state.focusedInput == some textInput1Name } theme,
-        demoTextInput textInput2Name "Type something..."
-          { state.textInput2State with focused := state.focusedInput == some textInput2Name } theme
+        textInputVisual textInput1Name theme
+          { state.textInput1State with focused := state.focusedInput == some textInput1Name }
+          "Enter text here...",
+        textInputVisual textInput2Name theme
+          { state.textInput2State with focused := state.focusedInput == some textInput2Name }
+          "Type something..."
       ],
 
     -- Panels section (non-interactive)
