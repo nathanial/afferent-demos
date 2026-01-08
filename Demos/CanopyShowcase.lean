@@ -187,9 +187,10 @@ def canopyShowcaseWidget (fontId : FontId) (smallFontId : FontId)
     ],
 
     -- Two-column layout for widget panels
-    row (gap := s 20) (style := { flexItem := some (FlexItem.growing 1) }) #[
+    flexRow { Trellis.FlexContainer.row (s 20) with alignItems := .flexStart }
+        (style := { flexItem := some (FlexItem.growing 1) }) #[
       -- Left column
-      column (gap := s 16) (style := { flexItem := some (FlexItem.growing 1) }) #[
+      column (gap := s 16) (style := {}) #[
         -- Labels section (non-interactive)
         titledPanel "Labels" .outlined theme do
           column (gap := s 8) (style := {}) #[
@@ -245,7 +246,7 @@ def canopyShowcaseWidget (fontId : FontId) (smallFontId : FontId)
       ],
 
       -- Right column
-      column (gap := s 16) (style := { flexItem := some (FlexItem.growing 1) }) #[
+      column (gap := s 16) (style := {}) #[
         -- Sliders section (interactive)
         titledPanel "Sliders" .outlined theme do
           column (gap := s 8) (style := {}) #[
