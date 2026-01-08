@@ -48,6 +48,12 @@ structure CanopyShowcaseState where
   slider2 : Float := 0.7
   /-- Currently dragging slider (for drag-to-change). -/
   draggingSlider : Option String := none
+  /-- Dropdown selected index. -/
+  dropdown1Selection : Nat := 0
+  /-- Whether dropdown is open. -/
+  dropdown1Open : Bool := false
+  /-- Currently hovered dropdown option. -/
+  dropdown1HoveredOption : Option Nat := none
 
 namespace CanopyShowcaseState
 
@@ -72,6 +78,10 @@ def switch1Name := "canopy-switch1"
 def switch2Name := "canopy-switch2"
 def slider1Name := "canopy-slider1"
 def slider2Name := "canopy-slider2"
+def dropdown1Name := "canopy-dropdown1"
+def dropdown1TriggerName := "canopy-dropdown1-trigger"
+def dropdown1OptionName (i : Nat) : String := s!"canopy-dropdown1-option-{i}"
+def dropdown1Options : Array String := #["Apple", "Banana", "Cherry", "Date", "Elderberry"]
 
 /-! ## Visual Widget Builders -/
 
@@ -154,6 +164,7 @@ def canopyShowcaseWidget (fontId : FontId) (smallFontId : FontId)
   let switch2State := state.widgetStates.get switch2Name
   let slider1State := state.widgetStates.get slider1Name
   let slider2State := state.widgetStates.get slider2Name
+  let dropdown1TriggerState := state.widgetStates.get dropdown1TriggerName
 
   column (gap := s 20) (style := {
     backgroundColor := some (Color.gray 0.1)
@@ -233,6 +244,15 @@ def canopyShowcaseWidget (fontId : FontId) (smallFontId : FontId)
           sliderVisual slider1Name (some "Volume") theme state.slider1 slider1State,
           sliderVisual slider2Name (some "Brightness") theme state.slider2 slider2State
         ]
+      ],
+
+    -- Dropdown section (interactive)
+    titledPanel "Dropdown" .outlined theme do
+      column (gap := s 8) (style := {}) #[
+        caption "Click to open, select an option:" theme,
+        dropdownVisual dropdown1Name dropdown1TriggerName dropdown1OptionName
+          dropdown1Options state.dropdown1Selection state.dropdown1Open
+          state.dropdown1HoveredOption theme dropdown1TriggerState
       ],
 
     -- Text Input section (interactive - click to focus, type to edit)

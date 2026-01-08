@@ -346,6 +346,16 @@ instance : Demo .canopyWidgets where
       -- Check slider clicks
       let clickedSlider1 := hitPathHasNamedWidget widget hitPath slider1Name
       let clickedSlider2 := hitPathHasNamedWidget widget hitPath slider2Name
+      -- Check dropdown clicks
+      let clickedDropdownTrigger := hitPathHasNamedWidget widget hitPath dropdown1TriggerName
+      let clickedDropdown := hitPathHasNamedWidget widget hitPath dropdown1Name
+      -- Check which dropdown option was clicked (if any)
+      let mut clickedDropdownOption : Option Nat := none
+      if state.dropdown1Open then
+        for i in [:dropdown1Options.size] do
+          if hitPathHasNamedWidget widget hitPath (dropdown1OptionName i) then
+            clickedDropdownOption := some i
+            break
       -- Update button click count
       let nextClickCount :=
         if clickedPrimary || clickedSecondary || clickedOutline || clickedGhost then
@@ -376,6 +386,21 @@ instance : Demo .canopyWidgets where
         if clickedSlider1 then some slider1Name
         else if clickedSlider2 then some slider2Name
         else state.draggingSlider
+      -- Update dropdown state
+      let (nextDropdownOpen, nextDropdownSelection) :=
+        if clickedDropdownTrigger then
+          -- Toggle dropdown when clicking trigger
+          (!state.dropdown1Open, state.dropdown1Selection)
+        else match clickedDropdownOption with
+        | some optionIdx =>
+            -- Select option and close dropdown
+            (false, optionIdx)
+        | none =>
+            if state.dropdown1Open && !clickedDropdown then
+              -- Click outside dropdown - close it
+              (false, state.dropdown1Selection)
+            else
+              (state.dropdown1Open, state.dropdown1Selection)
       -- Update focus
       let nextFocus :=
         if clickedInput1 then some textInput1Name
@@ -396,6 +421,9 @@ instance : Demo .canopyWidgets where
         slider1 := nextSlider1
         slider2 := nextSlider2
         draggingSlider := nextDragging
+        dropdown1Open := nextDropdownOpen
+        dropdown1Selection := nextDropdownSelection
+        dropdown1HoveredOption := if nextDropdownOpen then state.dropdown1HoveredOption else none
         focusedInput := nextFocus
       }
   handleHoverWithLayouts := fun env state _contentId hitPath mouseX _mouseY layouts widget => do
@@ -413,6 +441,14 @@ instance : Demo .canopyWidgets where
     let hoveredSwitch2 := hitPathHasNamedWidget widget hitPath switch2Name
     let hoveredSlider1 := hitPathHasNamedWidget widget hitPath slider1Name
     let hoveredSlider2 := hitPathHasNamedWidget widget hitPath slider2Name
+    let hoveredDropdownTrigger := hitPathHasNamedWidget widget hitPath dropdown1TriggerName
+    -- Check which dropdown option is hovered (if dropdown is open)
+    let mut hoveredDropdownOption : Option Nat := none
+    if state.dropdown1Open then
+      for i in [:dropdown1Options.size] do
+        if hitPathHasNamedWidget widget hitPath (dropdown1OptionName i) then
+          hoveredDropdownOption := some i
+          break
     -- Update widget states
     let mut ws := state.widgetStates
     ws := ws.setHovered btnPrimaryName hoveredPrimary
@@ -428,6 +464,7 @@ instance : Demo .canopyWidgets where
     ws := ws.setHovered switch2Name hoveredSwitch2
     ws := ws.setHovered slider1Name hoveredSlider1
     ws := ws.setHovered slider2Name hoveredSlider2
+    ws := ws.setHovered dropdown1TriggerName hoveredDropdownTrigger
     -- Handle slider dragging
     let mouseButtons ← Afferent.FFI.Window.getMouseButtons env.window
     let leftButtonDown := mouseButtons &&& 1 != 0
@@ -453,6 +490,7 @@ instance : Demo .canopyWidgets where
       slider1 := nextSlider1
       slider2 := nextSlider2
       draggingSlider := nextDragging
+      dropdown1HoveredOption := hoveredDropdownOption
     }
   handleKey := fun env state keyEvent => do
     -- Only process keyboard input if a text input is focused
