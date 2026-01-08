@@ -295,6 +295,10 @@ instance : Demo .canopyWidgets where
       -- Check text input clicks
       let clickedInput1 := hitPathHasNamedWidget widget hitPath textInput1Name
       let clickedInput2 := hitPathHasNamedWidget widget hitPath textInput2Name
+      -- Check radio button clicks
+      let clickedRadio1 := hitPathHasNamedWidget widget hitPath radio1Name
+      let clickedRadio2 := hitPathHasNamedWidget widget hitPath radio2Name
+      let clickedRadio3 := hitPathHasNamedWidget widget hitPath radio3Name
       -- Update button click count
       let nextClickCount :=
         if clickedPrimary || clickedSecondary || clickedOutline || clickedGhost then
@@ -304,12 +308,18 @@ instance : Demo .canopyWidgets where
       -- Update checkbox states
       let nextCb1 := if clickedCb1 then !state.checkbox1 else state.checkbox1
       let nextCb2 := if clickedCb2 then !state.checkbox2 else state.checkbox2
+      -- Update radio selection
+      let nextRadioSelection :=
+        if clickedRadio1 then "option1"
+        else if clickedRadio2 then "option2"
+        else if clickedRadio3 then "option3"
+        else state.radioSelection
       -- Update focus
       let nextFocus :=
         if clickedInput1 then some textInput1Name
         else if clickedInput2 then some textInput2Name
         else if clickedPrimary || clickedSecondary || clickedOutline || clickedGhost ||
-                clickedCb1 || clickedCb2 then
+                clickedCb1 || clickedCb2 || clickedRadio1 || clickedRadio2 || clickedRadio3 then
           none  -- Clicking elsewhere clears focus
         else
           state.focusedInput
@@ -317,6 +327,7 @@ instance : Demo .canopyWidgets where
         buttonClickCount := nextClickCount
         checkbox1 := nextCb1
         checkbox2 := nextCb2
+        radioSelection := nextRadioSelection
         focusedInput := nextFocus
       }
   handleHover := fun env state contentId hitPath _mouseX _mouseY => do
@@ -330,6 +341,9 @@ instance : Demo .canopyWidgets where
     let hoveredGhost := hitPathHasNamedWidget widget hitPath btnGhostName
     let hoveredCb1 := hitPathHasNamedWidget widget hitPath checkbox1Name
     let hoveredCb2 := hitPathHasNamedWidget widget hitPath checkbox2Name
+    let hoveredRadio1 := hitPathHasNamedWidget widget hitPath radio1Name
+    let hoveredRadio2 := hitPathHasNamedWidget widget hitPath radio2Name
+    let hoveredRadio3 := hitPathHasNamedWidget widget hitPath radio3Name
     -- Update widget states
     let mut ws := state.widgetStates
     ws := ws.setHovered btnPrimaryName hoveredPrimary
@@ -338,6 +352,9 @@ instance : Demo .canopyWidgets where
     ws := ws.setHovered btnGhostName hoveredGhost
     ws := ws.setHovered checkbox1Name hoveredCb1
     ws := ws.setHovered checkbox2Name hoveredCb2
+    ws := ws.setHovered radio1Name hoveredRadio1
+    ws := ws.setHovered radio2Name hoveredRadio2
+    ws := ws.setHovered radio3Name hoveredRadio3
     pure { state with widgetStates := ws }
   handleKey := fun env state keyEvent => do
     -- Only process keyboard input if a text input is focused
