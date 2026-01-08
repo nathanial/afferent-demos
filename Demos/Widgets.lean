@@ -4,6 +4,7 @@
 import Afferent
 import Afferent.Widget
 import Afferent.Arbor
+import Afferent.Canopy
 import Trellis
 
 open Afferent CanvasM
@@ -15,6 +16,7 @@ namespace Demos
 /-- Build a demo widget showcasing text, boxes, and layout. -/
 def widgetDemo (fontId : FontId) (smallFontId : FontId) (screenScale : Float := 1.0) : WidgetBuilder := do
   let s := fun (v : Float) => v * screenScale
+  let canopyTheme := Afferent.Canopy.Theme.dark
   column (gap := s 20) (style := {
     backgroundColor := some (Color.gray 0.15)
     padding := EdgeInsets.uniform (s 30)
@@ -71,7 +73,20 @@ def widgetDemo (fontId : FontId) (smallFontId : FontId) (screenScale : Float := 
       center (style := { backgroundColor := some (Color.gray 0.3), minWidth := some (s 100), minHeight := some (s 60) }) do
         text' "Centered" smallFontId Color.white .center,
       box { backgroundColor := some (Color.gray 0.3), minWidth := some (s 100), minHeight := some (s 60) }
-    ]
+    ],
+
+    -- Dropdown demo (menu uses absolute positioning)
+    text' "Dropdown Demo" smallFontId Color.white .left,
+    Afferent.Canopy.dropdownVisual
+      "demo-dropdown"
+      "demo-dropdown-trigger"
+      (fun i => s!"demo-dropdown-option-{i}")
+      #["First", "Second", "Third", "Fourth"]
+      1
+      true
+      (some 2)
+      canopyTheme,
+    box { backgroundColor := some (Color.gray 0.25), minWidth := some (s 240), minHeight := some (s 60) }
   ]
 
 /-- Simple scroll demo widget. -/
