@@ -265,7 +265,16 @@ instance : Demo .widgets where
 instance : Demo .canopyWidgets where
   name := "CANOPY widget library showcase"
   shortName := "Canopy"
-  init := fun _ => pure CanopyShowcaseState.initial
+  init := fun env => do
+    -- Compute initial cursor position for pre-filled text input
+    let initialText := "Hello, World!"
+    let (cursorX, _) ← env.fontMedium.measureText initialText
+    let textInput2 : Afferent.Canopy.TextInputState := {
+      value := initialText
+      cursor := initialText.length
+      cursorPixelX := cursorX
+    }
+    pure { CanopyShowcaseState.initial with textInput2State := textInput2 }
   view := fun env state =>
     some (canopyShowcaseWidget env.fontMediumId env.fontSmallId env.screenScale state)
   handleClick := fun env state contentId hitPath click => do
@@ -330,16 +339,24 @@ instance : Demo .canopyWidgets where
     ws := ws.setHovered checkbox1Name hoveredCb1
     ws := ws.setHovered checkbox2Name hoveredCb2
     pure { state with widgetStates := ws }
-  handleKey := fun _env state keyEvent => do
+  handleKey := fun env state keyEvent => do
     -- Only process keyboard input if a text input is focused
     match state.focusedInput with
     | some inputName =>
         if inputName == textInput1Name then
           let newInputState := Afferent.Canopy.TextInput.handleKeyPress keyEvent state.textInput1State none
-          pure { state with textInput1State := newInputState }
+          -- Measure text before cursor for accurate cursor positioning
+          let beforeCursor := newInputState.value.take newInputState.cursor
+          let (cursorX, _) ← env.fontMedium.measureText beforeCursor
+          let finalState := { newInputState with cursorPixelX := cursorX }
+          pure { state with textInput1State := finalState }
         else if inputName == textInput2Name then
           let newInputState := Afferent.Canopy.TextInput.handleKeyPress keyEvent state.textInput2State none
-          pure { state with textInput2State := newInputState }
+          -- Measure text before cursor for accurate cursor positioning
+          let beforeCursor := newInputState.value.take newInputState.cursor
+          let (cursorX, _) ← env.fontMedium.measureText beforeCursor
+          let finalState := { newInputState with cursorPixelX := cursorX }
+          pure { state with textInput2State := finalState }
         else
           pure state
     | none => pure state
