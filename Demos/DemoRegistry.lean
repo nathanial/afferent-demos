@@ -93,9 +93,17 @@ class Demo (id : DemoId) where
   view : DemoEnv → DemoState id → Option Afferent.Arbor.WidgetBuilder := fun _ _ => none
   handleClick : DemoEnv → DemoState id → Afferent.Arbor.WidgetId → Array Afferent.Arbor.WidgetId →
       Afferent.FFI.ClickEvent → IO (DemoState id) := fun _ s _ _ _ => pure s
+  /-- Handle click with access to computed layouts (for position-based interactions). -/
+  handleClickWithLayouts : DemoEnv → DemoState id → Afferent.Arbor.WidgetId → Array Afferent.Arbor.WidgetId →
+      Afferent.FFI.ClickEvent → Trellis.LayoutResult → Afferent.Arbor.Widget → IO (DemoState id) :=
+      fun env s contentId hitPath click _layouts _widget => handleClick env s contentId hitPath click
   /-- Handle mouse hover (called when hovered widget changes). -/
   handleHover : DemoEnv → DemoState id → Afferent.Arbor.WidgetId → Array Afferent.Arbor.WidgetId →
       Float → Float → IO (DemoState id) := fun _ s _ _ _ _ => pure s
+  /-- Handle hover with access to computed layouts (for drag interactions). -/
+  handleHoverWithLayouts : DemoEnv → DemoState id → Afferent.Arbor.WidgetId → Array Afferent.Arbor.WidgetId →
+      Float → Float → Trellis.LayoutResult → Afferent.Arbor.Widget → IO (DemoState id) :=
+      fun env s contentId hitPath mouseX mouseY _layouts _widget => handleHover env s contentId hitPath mouseX mouseY
   /-- Handle keyboard input (called when a key is pressed). -/
   handleKey : DemoEnv → DemoState id → Afferent.Arbor.KeyEvent → IO (DemoState id) := fun _ s _ => pure s
   step : Canvas → DemoEnv → DemoState id → IO (Canvas × DemoState id)
@@ -151,6 +159,25 @@ private def hitPathHasNamedWidget (widget : Afferent.Arbor.Widget)
   match findWidgetIdByName widget name with
   | some wid => hitPath.any (· == wid)
   | none => false
+
+/-- Calculate slider value from click position given the slider's layout. -/
+private def calculateSliderValue (clickX : Float) (layouts : Trellis.LayoutResult)
+    (widget : Afferent.Arbor.Widget) (sliderName : String) : Option Float :=
+  match findWidgetIdByName widget sliderName with
+  | some wid =>
+      match layouts.get wid with
+      | some layout =>
+          let rect := layout.contentRect
+          let dims := Afferent.Canopy.Slider.defaultDimensions
+          -- Calculate value from click x relative to track position
+          let relativeX := clickX - rect.x
+          let trackWidth := dims.trackWidth
+          let value := relativeX / trackWidth
+          -- Clamp to 0.0-1.0
+          let clampedValue := if value < 0.0 then 0.0 else if value > 1.0 then 1.0 else value
+          some clampedValue
+      | none => none
+  | none => none
 
 instance : Demo .demoGrid where
   name := "DEMO mode"
@@ -294,13 +321,10 @@ instance : Demo .canopyWidgets where
     pure { state with switch1Anim := newAnim1, switch2Anim := newAnim2 }
   view := fun env state =>
     some (canopyShowcaseWidget env.fontCanopyId env.fontCanopySmallId env.screenScale state)
-  handleClick := fun env state contentId hitPath click => do
+  handleClickWithLayouts := fun _env state _contentId hitPath click layouts widget => do
     if click.button != 0 then
       pure state
     else
-      let widget :=
-        Afferent.Arbor.buildFrom contentId
-          (canopyShowcaseWidget env.fontCanopyId env.fontCanopySmallId env.screenScale state)
       -- Check button clicks
       let clickedPrimary := hitPathHasNamedWidget widget hitPath btnPrimaryName
       let clickedSecondary := hitPathHasNamedWidget widget hitPath btnSecondaryName
@@ -319,6 +343,9 @@ instance : Demo .canopyWidgets where
       -- Check switch clicks
       let clickedSwitch1 := hitPathHasNamedWidget widget hitPath switch1Name
       let clickedSwitch2 := hitPathHasNamedWidget widget hitPath switch2Name
+      -- Check slider clicks
+      let clickedSlider1 := hitPathHasNamedWidget widget hitPath slider1Name
+      let clickedSlider2 := hitPathHasNamedWidget widget hitPath slider2Name
       -- Update button click count
       let nextClickCount :=
         if clickedPrimary || clickedSecondary || clickedOutline || clickedGhost then
@@ -337,13 +364,25 @@ instance : Demo .canopyWidgets where
       -- Update switch states
       let nextSwitch1 := if clickedSwitch1 then !state.switch1 else state.switch1
       let nextSwitch2 := if clickedSwitch2 then !state.switch2 else state.switch2
+      -- Update slider values (calculate from click position) and start dragging
+      let nextSlider1 := if clickedSlider1 then
+        (calculateSliderValue click.x layouts widget slider1Name).getD state.slider1
+      else state.slider1
+      let nextSlider2 := if clickedSlider2 then
+        (calculateSliderValue click.x layouts widget slider2Name).getD state.slider2
+      else state.slider2
+      -- Set dragging state for sliders
+      let nextDragging :=
+        if clickedSlider1 then some slider1Name
+        else if clickedSlider2 then some slider2Name
+        else state.draggingSlider
       -- Update focus
       let nextFocus :=
         if clickedInput1 then some textInput1Name
         else if clickedInput2 then some textInput2Name
         else if clickedPrimary || clickedSecondary || clickedOutline || clickedGhost ||
                 clickedCb1 || clickedCb2 || clickedRadio1 || clickedRadio2 || clickedRadio3 ||
-                clickedSwitch1 || clickedSwitch2 then
+                clickedSwitch1 || clickedSwitch2 || clickedSlider1 || clickedSlider2 then
           none  -- Clicking elsewhere clears focus
         else
           state.focusedInput
@@ -354,12 +393,12 @@ instance : Demo .canopyWidgets where
         radioSelection := nextRadioSelection
         switch1 := nextSwitch1
         switch2 := nextSwitch2
+        slider1 := nextSlider1
+        slider2 := nextSlider2
+        draggingSlider := nextDragging
         focusedInput := nextFocus
       }
-  handleHover := fun env state contentId hitPath _mouseX _mouseY => do
-    let widget :=
-      Afferent.Arbor.buildFrom contentId
-        (canopyShowcaseWidget env.fontCanopyId env.fontCanopySmallId env.screenScale state)
+  handleHoverWithLayouts := fun env state _contentId hitPath mouseX _mouseY layouts widget => do
     -- Check which widgets are hovered
     let hoveredPrimary := hitPathHasNamedWidget widget hitPath btnPrimaryName
     let hoveredSecondary := hitPathHasNamedWidget widget hitPath btnSecondaryName
@@ -372,6 +411,8 @@ instance : Demo .canopyWidgets where
     let hoveredRadio3 := hitPathHasNamedWidget widget hitPath radio3Name
     let hoveredSwitch1 := hitPathHasNamedWidget widget hitPath switch1Name
     let hoveredSwitch2 := hitPathHasNamedWidget widget hitPath switch2Name
+    let hoveredSlider1 := hitPathHasNamedWidget widget hitPath slider1Name
+    let hoveredSlider2 := hitPathHasNamedWidget widget hitPath slider2Name
     -- Update widget states
     let mut ws := state.widgetStates
     ws := ws.setHovered btnPrimaryName hoveredPrimary
@@ -385,7 +426,34 @@ instance : Demo .canopyWidgets where
     ws := ws.setHovered radio3Name hoveredRadio3
     ws := ws.setHovered switch1Name hoveredSwitch1
     ws := ws.setHovered switch2Name hoveredSwitch2
-    pure { state with widgetStates := ws }
+    ws := ws.setHovered slider1Name hoveredSlider1
+    ws := ws.setHovered slider2Name hoveredSlider2
+    -- Handle slider dragging
+    let mouseButtons ← Afferent.FFI.Window.getMouseButtons env.window
+    let leftButtonDown := mouseButtons &&& 1 != 0
+    let (nextSlider1, nextSlider2, nextDragging) ←
+      if leftButtonDown then
+        -- Mouse button is held - continue dragging if we have a dragging slider
+        match state.draggingSlider with
+        | some sliderName =>
+            if sliderName == slider1Name then
+              let newValue := (calculateSliderValue mouseX layouts widget slider1Name).getD state.slider1
+              pure (newValue, state.slider2, state.draggingSlider)
+            else if sliderName == slider2Name then
+              let newValue := (calculateSliderValue mouseX layouts widget slider2Name).getD state.slider2
+              pure (state.slider1, newValue, state.draggingSlider)
+            else
+              pure (state.slider1, state.slider2, state.draggingSlider)
+        | none => pure (state.slider1, state.slider2, state.draggingSlider)
+      else
+        -- Mouse button released - stop dragging
+        pure (state.slider1, state.slider2, none)
+    pure { state with
+      widgetStates := ws
+      slider1 := nextSlider1
+      slider2 := nextSlider2
+      draggingSlider := nextDragging
+    }
   handleKey := fun env state keyEvent => do
     -- Only process keyboard input if a text input is focused
     match state.focusedInput with
@@ -537,10 +605,24 @@ def handleClick (d : AnyDemo) (env : DemoEnv) (contentId : Afferent.Arbor.Widget
   let state' ← inst.handleClick env d.state contentId hitPath click
   pure { id := d.id, state := state' }
 
+def handleClickWithLayouts (d : AnyDemo) (env : DemoEnv) (contentId : Afferent.Arbor.WidgetId)
+    (hitPath : Array Afferent.Arbor.WidgetId) (click : Afferent.FFI.ClickEvent)
+    (layouts : Trellis.LayoutResult) (widget : Afferent.Arbor.Widget) : IO AnyDemo := do
+  let inst := demoInstance d.id
+  let state' ← inst.handleClickWithLayouts env d.state contentId hitPath click layouts widget
+  pure { id := d.id, state := state' }
+
 def handleHover (d : AnyDemo) (env : DemoEnv) (contentId : Afferent.Arbor.WidgetId)
     (hitPath : Array Afferent.Arbor.WidgetId) (mouseX mouseY : Float) : IO AnyDemo := do
   let inst := demoInstance d.id
   let state' ← inst.handleHover env d.state contentId hitPath mouseX mouseY
+  pure { id := d.id, state := state' }
+
+def handleHoverWithLayouts (d : AnyDemo) (env : DemoEnv) (contentId : Afferent.Arbor.WidgetId)
+    (hitPath : Array Afferent.Arbor.WidgetId) (mouseX mouseY : Float)
+    (layouts : Trellis.LayoutResult) (widget : Afferent.Arbor.Widget) : IO AnyDemo := do
+  let inst := demoInstance d.id
+  let state' ← inst.handleHoverWithLayouts env d.state contentId hitPath mouseX mouseY layouts widget
   pure { id := d.id, state := state' }
 
 def handleKey (d : AnyDemo) (env : DemoEnv) (keyEvent : Afferent.Arbor.KeyEvent) : IO AnyDemo := do

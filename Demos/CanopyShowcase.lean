@@ -42,6 +42,12 @@ structure CanopyShowcaseState where
   switch1Anim : Float := 0.0
   /-- Second switch animation progress (0.0 = off, 1.0 = on). -/
   switch2Anim : Float := 1.0
+  /-- First slider value (0.0-1.0). -/
+  slider1 : Float := 0.3
+  /-- Second slider value (0.0-1.0). -/
+  slider2 : Float := 0.7
+  /-- Currently dragging slider (for drag-to-change). -/
+  draggingSlider : Option String := none
 
 namespace CanopyShowcaseState
 
@@ -64,6 +70,8 @@ def radio2Name := "canopy-radio2"
 def radio3Name := "canopy-radio3"
 def switch1Name := "canopy-switch1"
 def switch2Name := "canopy-switch2"
+def slider1Name := "canopy-slider1"
+def slider2Name := "canopy-slider2"
 
 /-! ## Visual Widget Builders -/
 
@@ -144,6 +152,8 @@ def canopyShowcaseWidget (fontId : FontId) (smallFontId : FontId)
   let radio3State := state.widgetStates.get radio3Name
   let switch1State := state.widgetStates.get switch1Name
   let switch2State := state.widgetStates.get switch2Name
+  let slider1State := state.widgetStates.get slider1Name
+  let slider2State := state.widgetStates.get slider2Name
 
   column (gap := s 20) (style := {
     backgroundColor := some (Color.gray 0.1)
@@ -212,6 +222,16 @@ def canopyShowcaseWidget (fontId : FontId) (smallFontId : FontId)
         row (gap := s 24) (style := {}) #[
           animatedSwitchVisual switch1Name (some "Notifications") theme state.switch1Anim switch1State,
           animatedSwitchVisual switch2Name (some "Dark Mode") theme state.switch2Anim switch2State
+        ]
+      ],
+
+    -- Sliders section (interactive)
+    titledPanel "Sliders" .outlined theme do
+      column (gap := s 8) (style := {}) #[
+        caption "Click to adjust value:" theme,
+        row (gap := s 24) (style := {}) #[
+          sliderVisual slider1Name (some "Volume") theme state.slider1 slider1State,
+          sliderVisual slider2Name (some "Brightness") theme state.slider2 slider2State
         ]
       ],
 

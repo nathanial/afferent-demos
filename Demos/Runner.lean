@@ -765,7 +765,7 @@ def unifiedDemo : IO Unit := do
                       match rs.demoRefs[rs.displayMode]? with
                       | some demoRef =>
                           let demo ← demoRef.get
-                          let demo' ← AnyDemo.handleClick demo clickEnv rootBuild.contentId hitPath ce
+                          let demo' ← AnyDemo.handleClickWithLayouts demo clickEnv rootBuild.contentId hitPath ce layouts measuredWidget
                           demoRef.set demo'
                           let ((measuredWidget', layouts'), rootBuild') ←
                             (do
@@ -793,7 +793,7 @@ def unifiedDemo : IO Unit := do
               match rs.demoRefs[rs.displayMode]? with
               | some demoRef =>
                   let demo ← demoRef.get
-                  let demo' ← AnyDemo.handleHover demo hoverEnv rootBuild.contentId hoverPath mouseX mouseY
+                  let demo' ← AnyDemo.handleHoverWithLayouts demo hoverEnv rootBuild.contentId hoverPath mouseX mouseY layouts measuredWidget
                   demoRef.set demo'
                   -- Rebuild widget to reflect hover state changes
                   let ((measuredWidget', layouts'), rootBuild') ←
