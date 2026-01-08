@@ -301,7 +301,16 @@ instance : Demo .canopyWidgets where
       cursor := initialText.length
       cursorPixelX := cursorX
     }
-    pure { CanopyShowcaseState.initial with textInput2State := textInput2 }
+    -- Compute initial render state for TextArea
+    let textAreaInitial := CanopyShowcaseState.initial.textAreaState
+    let textAreaWidth : Float := 280 * env.screenScale
+    let textAreaPadding : Float := 8.0
+    let textAreaContentWidth := textAreaWidth - textAreaPadding * 2
+    let textAreaState ← Afferent.Canopy.TextArea.computeRenderState
+        env.fontCanopy textAreaInitial textAreaContentWidth textAreaPadding
+    pure { CanopyShowcaseState.initial with
+            textInput2State := textInput2
+            textAreaState := textAreaState }
   update := fun env state => do
     -- Animate switches towards their target states
     let animSpeed := 8.0  -- Animation speed (higher = faster)
@@ -514,13 +523,16 @@ instance : Demo .canopyWidgets where
           pure { state with textInput2State := finalState }
         else if inputName == textAreaName then
           -- Handle TextArea key events
-          let dims := Afferent.Canopy.TextArea.defaultDimensions
-          let contentWidth : Float := 280 - dims.padding * 2  -- Match the width from CanopyShowcase
-          let lines := Afferent.Canopy.TextArea.wrapText state.textAreaState.value contentWidth dims
-          let newState := Afferent.Canopy.TextArea.handleKeyPress keyEvent state.textAreaState lines none
+          let newState := Afferent.Canopy.TextArea.handleKeyPress keyEvent state.textAreaState none
+          -- Compute render state with font measurements
+          let textAreaWidth : Float := 280 * env.screenScale
+          let textAreaPadding : Float := 8.0
+          let textAreaContentWidth := textAreaWidth - textAreaPadding * 2
+          let renderedState ← Afferent.Canopy.TextArea.computeRenderState
+              env.fontCanopy newState textAreaContentWidth textAreaPadding
           -- Auto-scroll to keep cursor visible
-          let viewportHeight : Float := 120 - dims.padding * 2
-          let scrolledState := Afferent.Canopy.TextArea.scrollToCursor newState lines viewportHeight dims
+          let viewportHeight : Float := 120 * env.screenScale - textAreaPadding * 2
+          let scrolledState := Afferent.Canopy.TextArea.scrollToCursor renderedState viewportHeight
           pure { state with textAreaState := scrolledState }
         else
           pure state
