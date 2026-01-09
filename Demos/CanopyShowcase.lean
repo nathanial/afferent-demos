@@ -60,6 +60,8 @@ structure CanopyShowcaseState where
   activeTab : Nat := 0
   /-- Currently hovered tab in TabView. -/
   hoveredTab : Option Nat := none
+  /-- Whether modal is open. -/
+  modalOpen : Bool := false
 
 namespace CanopyShowcaseState
 
@@ -93,6 +95,12 @@ def tabViewName := "canopy-tabview"
 def tabHeaderName (i : Nat) : String := s!"canopy-tab-{i}"
 def tabLabels : Array String := #["Overview", "Settings", "About"]
 def tabSettingsCheckboxName := "canopy-tab-settings-cb"
+def modalTriggerName := "canopy-modal-trigger"
+def modalName := "canopy-modal"
+def modalBackdropName := "canopy-modal-backdrop"
+def modalCloseName := "canopy-modal-close"
+def modalConfirmName := "canopy-modal-confirm"
+def modalCancelName := "canopy-modal-cancel"
 
 /-! ## Visual Widget Builders -/
 
@@ -250,6 +258,14 @@ def canopyShowcaseWidget (fontId : FontId) (smallFontId : FontId)
               animatedSwitchVisual switch1Name (some "Notifications") theme state.switch1Anim switch1State,
               animatedSwitchVisual switch2Name (some "Dark Mode") theme state.switch2Anim switch2State
             ]
+          ],
+
+        -- Modal section (interactive)
+        let modalTriggerState := state.widgetStates.get modalTriggerName
+        titledPanel "Modal" .outlined theme do
+          column (gap := s 8) (style := {}) #[
+            caption "Click button to open modal:" theme,
+            demoButton modalTriggerName "Open Modal" theme .primary modalTriggerState
           ]
       ],
 
@@ -342,7 +358,25 @@ def canopyShowcaseWidget (fontId : FontId) (smallFontId : FontId)
             ] state.activeTab state.hoveredTab theme
           ]
       ]
-    ]
+    ],
+
+    -- Modal overlay (renders on top when open)
+    let modalCloseState := state.widgetStates.get modalCloseName
+    let modalConfirmState := state.widgetStates.get modalConfirmName
+    let modalCancelState := state.widgetStates.get modalCancelName
+    if state.modalOpen then
+      modalVisual modalName modalBackdropName modalCloseName
+        "Sample Modal" true theme modalCloseState.hovered {}
+        (column (gap := s 16) (style := {}) #[
+          bodyText "This is a modal dialog." theme,
+          bodyText "Click outside, press Escape, or click a button to close." theme,
+          row (gap := s 12) (style := {}) #[
+            demoButton modalConfirmName "Confirm" theme .primary modalConfirmState,
+            demoButton modalCancelName "Cancel" theme .outline modalCancelState
+          ]
+        ])
+    else
+      spacer 0 0
   ]
 
 end Demos

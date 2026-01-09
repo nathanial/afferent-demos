@@ -373,6 +373,13 @@ instance : Demo .canopyWidgets where
         if hitPathHasNamedWidget widget hitPath (tabHeaderName i) then
           clickedTab := some i
           break
+      -- Check modal clicks
+      let clickedModalTrigger := hitPathHasNamedWidget widget hitPath modalTriggerName
+      let clickedModalClose := hitPathHasNamedWidget widget hitPath modalCloseName
+      let clickedModalConfirm := hitPathHasNamedWidget widget hitPath modalConfirmName
+      let clickedModalCancel := hitPathHasNamedWidget widget hitPath modalCancelName
+      let clickedModal := hitPathHasNamedWidget widget hitPath modalName
+      let clickedModalBackdrop := hitPathHasNamedWidget widget hitPath modalBackdropName
       -- Update button click count
       let nextClickCount :=
         if clickedPrimary || clickedSecondary || clickedOutline || clickedGhost then
@@ -422,6 +429,12 @@ instance : Demo .canopyWidgets where
       let nextActiveTab := match clickedTab with
         | some tabIdx => tabIdx
         | none => state.activeTab
+      -- Update modal state
+      let nextModalOpen :=
+        if clickedModalTrigger then !state.modalOpen
+        else if clickedModalClose || clickedModalConfirm || clickedModalCancel then false
+        else if state.modalOpen && clickedModalBackdrop && !clickedModal then false  -- Click on backdrop (outside dialog)
+        else state.modalOpen
       -- Update focus
       let nextFocus :=
         if clickedInput1 then some textInput1Name
@@ -447,6 +460,7 @@ instance : Demo .canopyWidgets where
         dropdown1Selection := nextDropdownSelection
         dropdown1HoveredOption := if nextDropdownOpen then state.dropdown1HoveredOption else none
         activeTab := nextActiveTab
+        modalOpen := nextModalOpen
         focusedInput := nextFocus
       }
   handleHoverWithLayouts := fun env state _contentId hitPath mouseX _mouseY layouts widget => do
@@ -479,6 +493,11 @@ instance : Demo .canopyWidgets where
       if hitPathHasNamedWidget widget hitPath (tabHeaderName i) then
         nextHoveredTab := some i
         break
+    -- Check modal widget hovers
+    let hoveredModalTrigger := hitPathHasNamedWidget widget hitPath modalTriggerName
+    let hoveredModalClose := hitPathHasNamedWidget widget hitPath modalCloseName
+    let hoveredModalConfirm := hitPathHasNamedWidget widget hitPath modalConfirmName
+    let hoveredModalCancel := hitPathHasNamedWidget widget hitPath modalCancelName
     -- Update widget states
     let mut ws := state.widgetStates
     ws := ws.setHovered btnPrimaryName hoveredPrimary
@@ -496,6 +515,10 @@ instance : Demo .canopyWidgets where
     ws := ws.setHovered slider1Name hoveredSlider1
     ws := ws.setHovered slider2Name hoveredSlider2
     ws := ws.setHovered dropdown1TriggerName hoveredDropdownTrigger
+    ws := ws.setHovered modalTriggerName hoveredModalTrigger
+    ws := ws.setHovered modalCloseName hoveredModalClose
+    ws := ws.setHovered modalConfirmName hoveredModalConfirm
+    ws := ws.setHovered modalCancelName hoveredModalCancel
     -- Handle slider dragging
     let mouseButtons ← Afferent.FFI.Window.getMouseButtons env.window
     let leftButtonDown := mouseButtons &&& 1 != 0
@@ -525,6 +548,10 @@ instance : Demo .canopyWidgets where
       hoveredTab := nextHoveredTab
     }
   handleKey := fun env state keyEvent => do
+    -- Close modal on Escape key
+    if state.modalOpen && keyEvent.key == .escape && keyEvent.isPress then
+      pure { state with modalOpen := false }
+    else
     -- Only process keyboard input if a text input is focused
     match state.focusedInput with
     | some inputName =>
