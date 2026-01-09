@@ -6,7 +6,7 @@ package afferentDemos where
 
 -- require afferent from git "https://github.com/nathanial/afferent" @ "v0.0.3"
 require afferent from "../afferent"
--- require crucible from git "https://github.com/nathanial/crucible" @ "v0.0.1"
+-- require crucible from git "https://github.com/nathanial/crucible" @ "v0.0.7"
 require crucible from "../../testing/crucible"
 -- require wisp from git "https://github.com/nathanial/wisp" @ "v0.0.1"
 require wisp from "../../network/wisp"
