@@ -56,6 +56,10 @@ structure CanopyShowcaseState where
   dropdown1Open : Bool := false
   /-- Currently hovered dropdown option. -/
   dropdown1HoveredOption : Option Nat := none
+  /-- Currently active tab in TabView. -/
+  activeTab : Nat := 0
+  /-- Currently hovered tab in TabView. -/
+  hoveredTab : Option Nat := none
 
 namespace CanopyShowcaseState
 
@@ -85,6 +89,10 @@ def dropdown1Name := "canopy-dropdown1"
 def dropdown1TriggerName := "canopy-dropdown1-trigger"
 def dropdown1OptionName (i : Nat) : String := s!"canopy-dropdown1-option-{i}"
 def dropdown1Options : Array String := #["Apple", "Banana", "Cherry", "Date", "Elderberry"]
+def tabViewName := "canopy-tabview"
+def tabHeaderName (i : Nat) : String := s!"canopy-tab-{i}"
+def tabLabels : Array String := #["Overview", "Settings", "About"]
+def tabSettingsCheckboxName := "canopy-tab-settings-cb"
 
 /-! ## Visual Widget Builders -/
 
@@ -306,6 +314,32 @@ def canopyShowcaseWidget (fontId : FontId) (smallFontId : FontId)
                 heading3 "Filled" theme,
                 caption "Solid bg" theme
               ]
+          ],
+
+        -- TabView section (interactive)
+        titledPanel "Tab View" .outlined theme do
+          column (gap := s 8) (style := {}) #[
+            caption "Click tabs to switch content:" theme,
+            tabViewVisual tabViewName tabHeaderName #[
+              ("Overview", do
+                column (gap := s 8) (style := {}) #[
+                  bodyText "TabView organizes content into separate panels." theme,
+                  bodyText "Click a tab to switch between panels." theme
+                ]),
+              ("Settings", do
+                let tabCbState := state.widgetStates.get tabSettingsCheckboxName
+                column (gap := s 8) (style := {}) #[
+                  caption "Sample settings panel:" theme,
+                  row (gap := s 16) (style := {}) #[
+                    demoCheckbox tabSettingsCheckboxName "Enable feature" theme state.checkbox1 tabCbState
+                  ]
+                ]),
+              ("About", do
+                column (gap := s 4) (style := {}) #[
+                  heading3 "Canopy Widgets" theme,
+                  caption "Version 1.0.0" theme
+                ])
+            ] state.activeTab state.hoveredTab theme
           ]
       ]
     ]

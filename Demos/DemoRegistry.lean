@@ -342,6 +342,7 @@ instance : Demo .canopyWidgets where
       -- Check checkbox clicks
       let clickedCb1 := hitPathHasNamedWidget widget hitPath checkbox1Name
       let clickedCb2 := hitPathHasNamedWidget widget hitPath checkbox2Name
+      let clickedTabSettingsCb := hitPathHasNamedWidget widget hitPath tabSettingsCheckboxName
       -- Check text input clicks
       let clickedInput1 := hitPathHasNamedWidget widget hitPath textInput1Name
       let clickedInput2 := hitPathHasNamedWidget widget hitPath textInput2Name
@@ -366,14 +367,20 @@ instance : Demo .canopyWidgets where
           if hitPathHasNamedWidget widget hitPath (dropdown1OptionName i) then
             clickedDropdownOption := some i
             break
+      -- Check which tab was clicked (if any)
+      let mut clickedTab : Option Nat := none
+      for i in [:tabLabels.size] do
+        if hitPathHasNamedWidget widget hitPath (tabHeaderName i) then
+          clickedTab := some i
+          break
       -- Update button click count
       let nextClickCount :=
         if clickedPrimary || clickedSecondary || clickedOutline || clickedGhost then
           state.buttonClickCount + 1
         else
           state.buttonClickCount
-      -- Update checkbox states
-      let nextCb1 := if clickedCb1 then !state.checkbox1 else state.checkbox1
+      -- Update checkbox states (including settings tab checkbox which controls checkbox1)
+      let nextCb1 := if clickedCb1 || clickedTabSettingsCb then !state.checkbox1 else state.checkbox1
       let nextCb2 := if clickedCb2 then !state.checkbox2 else state.checkbox2
       -- Update radio selection
       let nextRadioSelection :=
@@ -411,6 +418,10 @@ instance : Demo .canopyWidgets where
               (false, state.dropdown1Selection)
             else
               (state.dropdown1Open, state.dropdown1Selection)
+      -- Update active tab
+      let nextActiveTab := match clickedTab with
+        | some tabIdx => tabIdx
+        | none => state.activeTab
       -- Update focus
       let nextFocus :=
         if clickedInput1 then some textInput1Name
@@ -435,6 +446,7 @@ instance : Demo .canopyWidgets where
         dropdown1Open := nextDropdownOpen
         dropdown1Selection := nextDropdownSelection
         dropdown1HoveredOption := if nextDropdownOpen then state.dropdown1HoveredOption else none
+        activeTab := nextActiveTab
         focusedInput := nextFocus
       }
   handleHoverWithLayouts := fun env state _contentId hitPath mouseX _mouseY layouts widget => do
@@ -445,6 +457,7 @@ instance : Demo .canopyWidgets where
     let hoveredGhost := hitPathHasNamedWidget widget hitPath btnGhostName
     let hoveredCb1 := hitPathHasNamedWidget widget hitPath checkbox1Name
     let hoveredCb2 := hitPathHasNamedWidget widget hitPath checkbox2Name
+    let hoveredTabSettingsCb := hitPathHasNamedWidget widget hitPath tabSettingsCheckboxName
     let hoveredRadio1 := hitPathHasNamedWidget widget hitPath radio1Name
     let hoveredRadio2 := hitPathHasNamedWidget widget hitPath radio2Name
     let hoveredRadio3 := hitPathHasNamedWidget widget hitPath radio3Name
@@ -460,6 +473,12 @@ instance : Demo .canopyWidgets where
         if hitPathHasNamedWidget widget hitPath (dropdown1OptionName i) then
           hoveredDropdownOption := some i
           break
+    -- Check which tab is hovered
+    let mut nextHoveredTab : Option Nat := none
+    for i in [:tabLabels.size] do
+      if hitPathHasNamedWidget widget hitPath (tabHeaderName i) then
+        nextHoveredTab := some i
+        break
     -- Update widget states
     let mut ws := state.widgetStates
     ws := ws.setHovered btnPrimaryName hoveredPrimary
@@ -468,6 +487,7 @@ instance : Demo .canopyWidgets where
     ws := ws.setHovered btnGhostName hoveredGhost
     ws := ws.setHovered checkbox1Name hoveredCb1
     ws := ws.setHovered checkbox2Name hoveredCb2
+    ws := ws.setHovered tabSettingsCheckboxName hoveredTabSettingsCb
     ws := ws.setHovered radio1Name hoveredRadio1
     ws := ws.setHovered radio2Name hoveredRadio2
     ws := ws.setHovered radio3Name hoveredRadio3
@@ -502,6 +522,7 @@ instance : Demo .canopyWidgets where
       slider2 := nextSlider2
       draggingSlider := nextDragging
       dropdown1HoveredOption := hoveredDropdownOption
+      hoveredTab := nextHoveredTab
     }
   handleKey := fun env state keyEvent => do
     -- Only process keyboard input if a text input is focused
