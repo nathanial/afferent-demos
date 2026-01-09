@@ -29,24 +29,21 @@ structure SliderComponent where
 def slider (name : String) (label : Option String) (theme : Theme)
     (initialValue : Float)
     : ReactiveM SliderComponent := do
-  let ctx ← liftSpider SpiderM.getTimelineCtx
-
   -- Create internal hover state
   let isHovered ← useHover name
 
-  -- Create internal value state
-  let (value, setValue) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx initialValue
+  -- Create internal value state using proper FRP pattern
+  let (valueEvent, fireValue) ← liftSpider <| newTriggerEvent (t := Spider) (a := Float)
+  let value ← liftSpider <| holdDyn initialValue valueEvent
 
-  -- Create onChange event
-  let (onChange, fireChange) ← liftSpider <| newTriggerEvent (t := Spider) (a := Float)
+  -- onChange is the same as valueEvent for external consumers
+  let onChange := valueEvent
 
   -- Wire clicks to update value based on click position
   let clicks ← useClickData name
   let _ ← liftSpider <| SpiderM.liftIO <| clicks.subscribe fun data => do
     match calculateSliderValue data.click.x data.layouts data.widget name with
-    | some v =>
-        setValue v
-        fireChange v
+    | some v => fireValue v
     | none => pure ()
 
   -- Render function samples state at render time

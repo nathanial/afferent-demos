@@ -35,24 +35,23 @@ structure RadioGroupComponent where
 def radioGroup (options : Array RadioOption) (theme : Theme)
     (initialSelection : String)
     : ReactiveM RadioGroupComponent := do
-  let ctx ← liftSpider SpiderM.getTimelineCtx
-
-  -- Create selection state
-  let (selected, setSelected) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx initialSelection
+  -- Create selection state using proper FRP pattern
+  let (selectedEvent, fireSelected) ← liftSpider <| newTriggerEvent (t := Spider) (a := String)
+  let selected ← liftSpider <| holdDyn initialSelection selectedEvent
 
   -- Create hovered option state
-  let (hoveredOption, setHoveredOption) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx (none : Option String)
+  let (hoveredEvent, fireHovered) ← liftSpider <| newTriggerEvent (t := Spider) (a := Option String)
+  let hoveredOption ← liftSpider <| holdDyn none hoveredEvent
 
-  -- Create onSelect event
-  let (onSelect, fireSelect) ← liftSpider <| newTriggerEvent (t := Spider) (a := String)
+  -- onSelect is the same as selectedEvent for external consumers
+  let onSelect := selectedEvent
 
   -- Wire all clicks (check which option was clicked)
   let allClicks ← useAllClicks
   let _ ← liftSpider <| SpiderM.liftIO <| allClicks.subscribe fun data => do
     for opt in options do
       if hitWidget data opt.name then
-        setSelected opt.value
-        fireSelect opt.value
+        fireSelected opt.value
         break
 
   -- Wire hover events for options
@@ -63,7 +62,7 @@ def radioGroup (options : Array RadioOption) (theme : Theme)
       if hitWidgetHover data opt.name then
         hovered := some opt.name
         break
-    setHoveredOption hovered
+    fireHovered hovered
 
   -- Capture options for render closure
   let optionsRef := options

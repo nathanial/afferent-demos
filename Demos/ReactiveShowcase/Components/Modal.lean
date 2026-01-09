@@ -34,13 +34,12 @@ def modal (containerName : String) (backdropName : String) (closeName : String)
     (title : String) (theme : Theme)
     (content : ComponentRender)
     : ReactiveM ModalComponent := do
-  let ctx ← liftSpider SpiderM.getTimelineCtx
-
   -- Create close button hover state
   let isCloseHovered ← useHover closeName
 
-  -- Create open state
-  let (isOpen, setOpen) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx false
+  -- Create open state using proper FRP pattern
+  let (isOpenEvent, fireIsOpen) ← liftSpider <| newTriggerEvent (t := Spider) (a := Bool)
+  let isOpen ← liftSpider <| holdDyn false isOpenEvent
 
   -- Create onClose event
   let (onClose, fireClose) ← liftSpider <| newTriggerEvent (t := Spider) (a := Unit)
@@ -49,7 +48,7 @@ def modal (containerName : String) (backdropName : String) (closeName : String)
   let closeModal : IO Unit := do
     let open_ ← isOpen.sample
     if open_ then
-      setOpen false
+      fireIsOpen false
       fireClose ()
 
   -- Wire close button click
@@ -86,7 +85,7 @@ def modal (containerName : String) (backdropName : String) (closeName : String)
   pure {
     onClose
     isOpen
-    openModal := setOpen true
+    openModal := fireIsOpen true
     closeModal
     render
   }

@@ -182,11 +182,12 @@ and set up subscriptions automatically.
 def useHover (name : String) : ReactiveM (Dynamic Spider Bool) := do
   let events ← getEvents
   liftSpider do
-    let ctx ← SpiderM.getTimelineCtx
-    let (isHovered, setHovered) ← SpiderM.liftIO <| Dynamic.new ctx false
+    -- Create hover state using proper FRP pattern
+    let (isHoveredEvent, fireIsHovered) ← newTriggerEvent (t := Spider) (a := Bool)
+    let isHovered ← holdDyn false isHoveredEvent
     -- Subscribe to ALL hover events and check if this widget is under cursor
     let _ ← SpiderM.liftIO <| events.hoverEvent.subscribe fun data =>
-      setHovered (hitWidgetHover data name)
+      fireIsHovered (hitWidgetHover data name)
     pure isHovered
 
 /-- Create a click event for a widget that fires Unit (like React's onClick handler).

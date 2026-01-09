@@ -35,24 +35,23 @@ def tabView (containerName : String) (headerNameFn : Nat → String)
     (tabs : Array TabDef) (theme : Theme)
     (initialTab : Nat)
     : ReactiveM TabViewComponent := do
-  let ctx ← liftSpider SpiderM.getTimelineCtx
-
-  -- Create active tab state
-  let (activeTab, setActiveTab) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx initialTab
+  -- Create active tab state using proper FRP pattern
+  let (activeTabEvent, fireActiveTab) ← liftSpider <| newTriggerEvent (t := Spider) (a := Nat)
+  let activeTab ← liftSpider <| holdDyn initialTab activeTabEvent
 
   -- Create hovered tab state (Option Nat)
-  let (hoveredTab, setHoveredTab) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx (none : Option Nat)
+  let (hoveredTabEvent, fireHoveredTab) ← liftSpider <| newTriggerEvent (t := Spider) (a := Option Nat)
+  let hoveredTab ← liftSpider <| holdDyn none hoveredTabEvent
 
-  -- Create onTabChange event
-  let (onTabChange, fireTabChange) ← liftSpider <| newTriggerEvent (t := Spider) (a := Nat)
+  -- onTabChange is the same as activeTabEvent for external consumers
+  let onTabChange := activeTabEvent
 
   -- Wire all clicks (check which tab header was clicked)
   let allClicks ← useAllClicks
   let _ ← liftSpider <| SpiderM.liftIO <| allClicks.subscribe fun data => do
     for i in [:tabs.size] do
       if hitWidget data (headerNameFn i) then
-        setActiveTab i
-        fireTabChange i
+        fireActiveTab i
         break
 
   -- Wire hover events for tab headers
@@ -63,7 +62,7 @@ def tabView (containerName : String) (headerNameFn : Nat → String)
       if hitWidgetHover data (headerNameFn i) then
         hovered := some i
         break
-    setHoveredTab hovered
+    fireHoveredTab hovered
 
   -- Capture tabs for render closure
   let tabsRef := tabs

@@ -32,28 +32,29 @@ def dropdown (containerName : String) (triggerName : String)
     (optionNameFn : Nat → String) (options : Array String) (theme : Theme)
     (initialSelection : Nat)
     : ReactiveM DropdownComponent := do
-  let ctx ← liftSpider SpiderM.getTimelineCtx
-
   -- Create trigger hover state
   let isTriggerHovered ← useHover triggerName
 
-  -- Create open/close state
-  let (isOpen, setOpen) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx false
+  -- Create open/close state using proper FRP pattern
+  let (isOpenEvent, fireIsOpen) ← liftSpider <| newTriggerEvent (t := Spider) (a := Bool)
+  let isOpen ← liftSpider <| holdDyn false isOpenEvent
 
   -- Create selection state
-  let (selection, setSelection) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx initialSelection
+  let (selectionEvent, fireSelection) ← liftSpider <| newTriggerEvent (t := Spider) (a := Nat)
+  let selection ← liftSpider <| holdDyn initialSelection selectionEvent
 
   -- Create hovered option state
-  let (hoveredOption, setHoveredOption) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx (none : Option Nat)
+  let (hoveredEvent, fireHovered) ← liftSpider <| newTriggerEvent (t := Spider) (a := Option Nat)
+  let hoveredOption ← liftSpider <| holdDyn none hoveredEvent
 
-  -- Create onSelect event
-  let (onSelect, fireSelect) ← liftSpider <| newTriggerEvent (t := Spider) (a := Nat)
+  -- onSelect is the same as selectionEvent for external consumers
+  let onSelect := selectionEvent
 
   -- Wire trigger clicks to toggle open
   let triggerClicks ← useClick triggerName
   let _ ← liftSpider <| SpiderM.liftIO <| triggerClicks.subscribe fun _ => do
     let current ← isOpen.sample
-    setOpen (!current)
+    fireIsOpen (!current)
 
   -- Wire all clicks (handles option clicks and click-outside)
   let allClicks ← useAllClicks
@@ -67,16 +68,15 @@ def dropdown (containerName : String) (triggerName : String)
         break
     match clickedOption with
     | some i =>
-        setSelection i
-        setOpen false
-        fireSelect i
+        fireSelection i
+        fireIsOpen false
     | none =>
         -- Check for click-outside to close
         if open_ then
           let clickedDropdown := hitWidget data containerName
           let clickedTrigger := hitWidget data triggerName
           if !clickedDropdown && !clickedTrigger then
-            setOpen false
+            fireIsOpen false
 
   -- Wire hover events for options
   let allHovers ← useAllHovers
@@ -88,9 +88,9 @@ def dropdown (containerName : String) (triggerName : String)
         if hitWidgetHover data (optionNameFn i) then
           hoveredOpt := some i
           break
-      setHoveredOption hoveredOpt
+      fireHovered hoveredOpt
     else
-      setHoveredOption none
+      fireHovered none
 
   -- Render function samples all state
   let render : ComponentRender := do

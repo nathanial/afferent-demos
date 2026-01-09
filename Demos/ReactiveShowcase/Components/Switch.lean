@@ -31,28 +31,27 @@ structure SwitchComponent where
 def switch (name : String) (label : Option String) (theme : Theme)
     (initialOn : Bool)
     : ReactiveM SwitchComponent := do
-  let ctx ← liftSpider SpiderM.getTimelineCtx
-
   -- Create internal hover state
   let isHovered ← useHover name
 
-  -- Create internal on/off state
-  let (isOn, setOn) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx initialOn
+  -- Create internal on/off state using proper FRP pattern
+  let (isOnEvent, fireIsOn) ← liftSpider <| newTriggerEvent (t := Spider) (a := Bool)
+  let isOn ← liftSpider <| holdDyn initialOn isOnEvent
 
   -- Create animation progress state (starts at target position)
   let initialAnim := if initialOn then 1.0 else 0.0
-  let (animProgress, setAnimProgress) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx initialAnim
+  let (animProgressEvent, fireAnimProgress) ← liftSpider <| newTriggerEvent (t := Spider) (a := Float)
+  let animProgress ← liftSpider <| holdDyn initialAnim animProgressEvent
 
-  -- Create onToggle event
-  let (onToggle, fireToggle) ← liftSpider <| newTriggerEvent (t := Spider) (a := Bool)
+  -- Create onToggle event (same as isOnEvent for external consumers)
+  let onToggle := isOnEvent
 
   -- Wire click to toggle state
   let clicks ← useClick name
   let _ ← liftSpider <| SpiderM.liftIO <| clicks.subscribe fun _ => do
     let current ← isOn.sample
     let newValue := !current
-    setOn newValue
-    fireToggle newValue
+    fireIsOn newValue
 
   -- Wire animation frame to update animation progress
   let animFrames ← useAnimationFrame
@@ -66,7 +65,7 @@ def switch (name : String) (label : Option String) (theme : Theme)
     let target := if on then 1.0 else 0.0
     let diff := target - anim
     let newAnim := if diff.abs < 0.01 then target else anim + diff * lerpFactor
-    setAnimProgress newAnim
+    fireAnimProgress newAnim
 
   -- Render function samples state at render time
   let render : ComponentRender := do

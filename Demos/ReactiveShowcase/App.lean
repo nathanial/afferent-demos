@@ -36,7 +36,6 @@ structure AppState where
     Sets up all components and their interactions.
     Uses ReactiveM - the events context is implicit, not passed explicitly. -/
 def createApp (env : DemoEnv) : ReactiveM AppState := do
-  let ctx ← liftSpider SpiderM.getTimelineCtx
   let theme : Theme := { Theme.dark with font := env.fontCanopyId, smallFont := env.fontCanopySmallId }
 
   -- All 4 button variants
@@ -81,11 +80,12 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
   let slider1 ← Components.slider slider1Name (some "Volume") theme 0.3
   let slider2 ← Components.slider slider2Name (some "Brightness") theme 0.7
 
-  -- Add text inputs (need shared focus state)
-  let (focusedInput, setFocusedInput) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx (none : Option String)
-  let textInput1 ← Components.textInput textInput1Name theme "Enter text..." "" focusedInput setFocusedInput
-  let textInput2 ← Components.textInput textInput2Name theme "Type something..." "Hello, World!" focusedInput setFocusedInput
-  let textArea ← Components.textArea textAreaName theme "Enter multi-line text..." {} focusedInput setFocusedInput env.fontCanopy
+  -- Add text inputs (need shared focus state) using proper FRP pattern
+  let (focusedInputEvent, fireFocusedInput) ← liftSpider <| newTriggerEvent (t := Spider) (a := Option String)
+  let focusedInput ← liftSpider <| holdDyn none focusedInputEvent
+  let textInput1 ← Components.textInput textInput1Name theme "Enter text..." "" focusedInput fireFocusedInput
+  let textInput2 ← Components.textInput textInput2Name theme "Type something..." "Hello, World!" focusedInput fireFocusedInput
+  let textArea ← Components.textArea textAreaName theme "Enter multi-line text..." {} focusedInput fireFocusedInput env.fontCanopy
 
   -- Clear focus when clicking non-input widgets (pragmatic subscribe - TODO: refactor to pure FRP)
   let allClicks ← useAllClicks
@@ -101,7 +101,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
       let clickedSwitch := hitWidget data switch1Name || hitWidget data switch2Name
       let clickedSlider := hitWidget data slider1Name || hitWidget data slider2Name
       if clickedButton || clickedCheckbox || clickedRadio || clickedSwitch || clickedSlider then
-        setFocusedInput none
+        fireFocusedInput none
 
   -- Add modal
   let modalContent : ComponentRender := pure (bodyText "Modal content here" theme)

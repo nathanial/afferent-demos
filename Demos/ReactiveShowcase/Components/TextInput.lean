@@ -32,20 +32,20 @@ structure TextInputComponent where
 
 /-- Create a self-contained text input component.
     The component manages its own hover, focus, and text state.
-    Pass a shared focusedInput Dynamic to coordinate focus across multiple inputs. -/
+    Pass a shared focusedInput Dynamic to coordinate focus across multiple inputs.
+    The fireFocusedInput function is the trigger for the shared focusedInput Dynamic. -/
 def textInput (name : String) (theme : Theme) (placeholder : String)
     (initialValue : String)
     (focusedInput : Dynamic Spider (Option String))
-    (setFocusedInput : Option String → IO Unit)
+    (fireFocusedInput : Option String → IO Unit)
     : ReactiveM TextInputComponent := do
-  let ctx ← liftSpider SpiderM.getTimelineCtx
-
-  -- Create internal text/cursor state
-  let (textState, setTextState) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx ({
+  -- Create internal text/cursor state using proper FRP pattern
+  let (textStateEvent, fireTextState) ← liftSpider <| newTriggerEvent (t := Spider) (a := TextInputState)
+  let textState ← liftSpider <| holdDyn ({
     value := initialValue
     cursor := initialValue.length
     cursorPixelX := 0.0  -- Will be updated on first render
-  } : TextInputState)
+  } : TextInputState) textStateEvent
 
   -- Create events
   let (onChange, fireChange) ← liftSpider <| newTriggerEvent (t := Spider) (a := String)
@@ -53,14 +53,15 @@ def textInput (name : String) (theme : Theme) (placeholder : String)
   let (onBlur, fireBlur) ← liftSpider <| newTriggerEvent (t := Spider) (a := Unit)
 
   -- Track previous focus state for blur detection
-  let (wasFocused, setWasFocused) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx false
+  let (wasFocusedEvent, fireWasFocused) ← liftSpider <| newTriggerEvent (t := Spider) (a := Bool)
+  let wasFocused ← liftSpider <| holdDyn false wasFocusedEvent
 
   -- Wire click to focus
   let clicks ← useClick name
   let _ ← liftSpider <| SpiderM.liftIO <| clicks.subscribe fun _ => do
     let prev ← focusedInput.sample
     if prev != some name then
-      setFocusedInput (some name)
+      fireFocusedInput (some name)
       fireFocus ()
 
   -- Wire keyboard events (when focused)
@@ -70,7 +71,7 @@ def textInput (name : String) (theme : Theme) (placeholder : String)
     if focused == some name then
       let current ← textState.sample
       let updated := TextInput.handleKeyPress keyData.event current none
-      setTextState updated
+      fireTextState updated
       if updated.value != current.value then
         fireChange updated.value
 
@@ -80,10 +81,10 @@ def textInput (name : String) (theme : Theme) (placeholder : String)
     let wasFoc ← wasFocused.sample
     let currentFoc ← focusedInput.sample
     if wasFoc && currentFoc != some name then
-      setWasFocused false
+      fireWasFocused false
       fireBlur ()
     else if currentFoc == some name then
-      setWasFocused true
+      fireWasFocused true
 
   -- Create derived isFocused Dynamic
   let isFocused ← liftSpider <| Dynamic.mapM (· == some name) focusedInput
@@ -117,18 +118,18 @@ structure TextAreaComponent where
 
 /-- Create a self-contained text area component.
     Similar to textInput but with multi-line support.
-    Requires a Font for text measurement during render state computation. -/
+    Requires a Font for text measurement during render state computation.
+    The fireFocusedInput function is the trigger for the shared focusedInput Dynamic. -/
 def textArea (name : String) (theme : Theme) (placeholder : String)
     (initialState : TextAreaState)
     (focusedInput : Dynamic Spider (Option String))
-    (setFocusedInput : Option String → IO Unit)
+    (fireFocusedInput : Option String → IO Unit)
     (font : Afferent.Font)
     (width : Float := 280) (height : Float := 120)
     : ReactiveM TextAreaComponent := do
-  let ctx ← liftSpider SpiderM.getTimelineCtx
-
-  -- Create internal text state
-  let (textState, setTextState) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx initialState
+  -- Create internal text state using proper FRP pattern
+  let (textStateEvent, fireTextState) ← liftSpider <| newTriggerEvent (t := Spider) (a := TextAreaState)
+  let textState ← liftSpider <| holdDyn initialState textStateEvent
 
   -- Create events
   let (onChange, fireChange) ← liftSpider <| newTriggerEvent (t := Spider) (a := String)
@@ -136,14 +137,15 @@ def textArea (name : String) (theme : Theme) (placeholder : String)
   let (onBlur, fireBlur) ← liftSpider <| newTriggerEvent (t := Spider) (a := Unit)
 
   -- Track previous focus state for blur detection
-  let (wasFocused, setWasFocused) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx false
+  let (wasFocusedEvent, fireWasFocused) ← liftSpider <| newTriggerEvent (t := Spider) (a := Bool)
+  let wasFocused ← liftSpider <| holdDyn false wasFocusedEvent
 
   -- Wire click to focus
   let clicks ← useClick name
   let _ ← liftSpider <| SpiderM.liftIO <| clicks.subscribe fun _ => do
     let prev ← focusedInput.sample
     if prev != some name then
-      setFocusedInput (some name)
+      fireFocusedInput (some name)
       fireFocus ()
 
   -- Wire keyboard events (when focused)
@@ -160,7 +162,7 @@ def textArea (name : String) (theme : Theme) (placeholder : String)
       let renderedState ← TextArea.computeRenderState font updated contentWidth padding
       -- Auto-scroll to keep cursor visible
       let scrolledState := TextArea.scrollToCursor renderedState viewportHeight
-      setTextState scrolledState
+      fireTextState scrolledState
       if scrolledState.value != current.value then
         fireChange scrolledState.value
 
@@ -170,10 +172,10 @@ def textArea (name : String) (theme : Theme) (placeholder : String)
     let wasFoc ← wasFocused.sample
     let currentFoc ← focusedInput.sample
     if wasFoc && currentFoc != some name then
-      setWasFocused false
+      fireWasFocused false
       fireBlur ()
     else if currentFoc == some name then
-      setWasFocused true
+      fireWasFocused true
 
   -- Create derived isFocused Dynamic
   let isFocused ← liftSpider <| Dynamic.mapM (· == some name) focusedInput
