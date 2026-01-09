@@ -22,6 +22,8 @@ import Demos.TextureMatrix
 import Demos.OrbitalInstanced
 import Demos.WorldmapDemo
 import Demos.CanopyShowcase
+import Demos.ReactiveShowcase
+import Reactive.Host.Spider
 import Worldmap
 
 open Afferent
@@ -38,6 +40,7 @@ inductive DemoId where
   | cssGrid
   | widgets
   | canopyWidgets
+  | reactiveShowcase
   | seascape
   | shapeGallery
   | worldmap
@@ -64,6 +67,17 @@ structure ShapeGalleryState where
 structure WorldmapState where
   mapState : Worldmap.MapState
 
+/-- State for the reactive showcase demo, keeping the SpiderEnv alive. -/
+structure ReactiveShowcaseDemoState where
+  /-- The reactive state with all dynamics. -/
+  state : ReactiveShowcase.ReactiveShowcaseState
+  /-- Trigger functions to fire events. -/
+  inputs : ReactiveShowcase.ReactiveInputs
+  /-- The Spider environment (keeps subscriptions alive). -/
+  spiderEnv : Reactive.Host.SpiderEnv
+  /-- Cached snapshot for rendering (sampled in update). -/
+  snapshot : ReactiveShowcase.ReactiveShowcaseSnapshot
+
 /-- Demo state mapping by id. -/
 def DemoState : DemoId → Type
   | .demoGrid => DemoGridState
@@ -75,6 +89,7 @@ def DemoState : DemoId → Type
   | .cssGrid => Unit
   | .widgets => Unit
   | .canopyWidgets => CanopyShowcaseState
+  | .reactiveShowcase => ReactiveShowcaseDemoState
   | .seascape => SeascapeState
   | .shapeGallery => ShapeGalleryState
   | .worldmap => WorldmapState
@@ -587,6 +602,69 @@ instance : Demo .canopyWidgets where
     | none => pure state
   step := fun c _ s => pure (c, s)
 
+instance : Demo .reactiveShowcase where
+  name := "REACTIVE widget showcase (FRP)"
+  shortName := "Reactive"
+  init := fun env => do
+    -- Create SpiderEnv manually (don't use runFresh which disposes scope)
+    let spiderEnv ← Reactive.Host.SpiderEnv.new Reactive.Host.defaultErrorHandler
+
+    -- Run the network setup within the env
+    let (state, inputs) ← (do
+      let (events, inputs) ← ReactiveShowcase.createInputs
+      let state ← ReactiveShowcase.setupNetwork events env
+      pure (state, inputs)
+    ).run spiderEnv
+
+    -- Fire post-build event (but don't dispose!)
+    spiderEnv.postBuildTrigger ()
+
+    -- Sample initial snapshot for rendering
+    let snapshot ← state.snapshot
+
+    pure { state, inputs, spiderEnv, snapshot }
+
+  update := fun env state => do
+    -- Fire animation frame event with delta time
+    state.inputs.fireAnimationFrame env.dt
+    -- Sample all dynamics to update the cached snapshot
+    let snapshot ← state.state.snapshot
+    pure { state with snapshot }
+
+  view := fun env state => some do
+    -- Use the cached snapshot (sampled in update)
+    ReactiveShowcase.reactiveShowcaseWidget env.fontCanopyId env.fontCanopySmallId env.screenScale state.snapshot
+
+  handleClickWithLayouts := fun _env state _contentId hitPath click layouts widget => do
+    -- Fire click event into reactive network (NO widget enumeration!)
+    let clickData : ReactiveShowcase.ClickData := { click, hitPath, widget, layouts }
+    state.inputs.fireClick clickData
+    -- Resample after event to update snapshot
+    let snapshot ← state.state.snapshot
+    pure { state with snapshot }
+
+  handleHoverWithLayouts := fun _env state _contentId hitPath mouseX mouseY layouts widget => do
+    let hoverData : ReactiveShowcase.HoverData := { x := mouseX, y := mouseY, hitPath, widget, layouts }
+    state.inputs.fireHover hoverData
+    -- Resample after event to update snapshot
+    let snapshot ← state.state.snapshot
+    pure { state with snapshot }
+
+  handleKey := fun _env state keyEvent => do
+    let focused ← state.state.focusedInput.sample
+    let keyData : ReactiveShowcase.KeyData := { event := keyEvent, focusedWidget := focused }
+    state.inputs.fireKey keyData
+    -- Resample after event to update snapshot
+    let snapshot ← state.state.snapshot
+    pure { state with snapshot }
+
+  step := fun c _ s => pure (c, s)
+
+  onExit := fun _c _env state => do
+    -- Clean up subscriptions when leaving demo
+    state.spiderEnv.currentScope.dispose
+    pure state
+
 instance : Demo .seascape where
   name := "SEASCAPE demo (Gerstner waves)"
   shortName := "Seascape"
@@ -768,6 +846,7 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let cssGridDemo ← mkAnyDemo .cssGrid env
   let widgetsDemo ← mkAnyDemo .widgets env
   let canopyWidgetsDemo ← mkAnyDemo .canopyWidgets env
+  let reactiveShowcaseDemo ← mkAnyDemo .reactiveShowcase env
   let seascapeDemo ← mkAnyDemo .seascape env
   let shapeGalleryDemo ← mkAnyDemo .shapeGallery env
   let worldmapDemo ← mkAnyDemo .worldmap env
@@ -777,7 +856,7 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let textureMatrixDemo ← mkAnyDemo .textureMatrix env
   let orbitalInstancedDemo ← mkAnyDemo .orbitalInstanced env
   pure #[demoGrid, gridPerf, trianglesPerf, circlesPerf, spritesPerf, layoutDemo, cssGridDemo,
-    widgetsDemo, canopyWidgetsDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
+    widgetsDemo, canopyWidgetsDemo, reactiveShowcaseDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
     lineCapsDemo, dashedLinesDemo, linesPerfDemo,
     textureMatrixDemo, orbitalInstancedDemo]
 
