@@ -55,6 +55,14 @@ def textInput (name : String) (theme : Theme) (placeholder : String)
   -- Track previous focus state for blur detection
   let (wasFocused, setWasFocused) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx false
 
+  -- Wire click to focus
+  let clicks ← useClick name
+  let _ ← liftSpider <| SpiderM.liftIO <| clicks.subscribe fun _ => do
+    let prev ← focusedInput.sample
+    if prev != some name then
+      setFocusedInput (some name)
+      fireFocus ()
+
   -- Wire keyboard events (when focused)
   let keyEvents ← useKeyboard
   let _ ← liftSpider <| SpiderM.liftIO <| keyEvents.subscribe fun keyData => do
@@ -66,25 +74,16 @@ def textInput (name : String) (theme : Theme) (placeholder : String)
       if updated.value != current.value then
         fireChange updated.value
 
-  -- Wire click handling (focus and blur detection)
+  -- Wire blur detection
   let allClicks ← useAllClicks
-  let _ ← liftSpider <| SpiderM.liftIO <| allClicks.subscribe fun data => do
-    let clickedMe := hitWidget data name
+  let _ ← liftSpider <| SpiderM.liftIO <| allClicks.subscribe fun _ => do
     let wasFoc ← wasFocused.sample
     let currentFoc ← focusedInput.sample
-    -- Handle click on this input -> gain focus
-    if clickedMe then
-      if currentFoc != some name then
-        setFocusedInput (some name)
-        setWasFocused true
-        fireFocus ()
-    else
-      -- Handle blur detection (clicked elsewhere while we were focused)
-      if wasFoc && currentFoc != some name then
-        setWasFocused false
-        fireBlur ()
-      else if currentFoc == some name then
-        setWasFocused true
+    if wasFoc && currentFoc != some name then
+      setWasFocused false
+      fireBlur ()
+    else if currentFoc == some name then
+      setWasFocused true
 
   -- Create derived isFocused Dynamic
   let isFocused ← liftSpider <| Dynamic.mapM (· == some name) focusedInput
@@ -137,6 +136,14 @@ def textArea (name : String) (theme : Theme) (placeholder : String)
   -- Track previous focus state for blur detection
   let (wasFocused, setWasFocused) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx false
 
+  -- Wire click to focus
+  let clicks ← useClick name
+  let _ ← liftSpider <| SpiderM.liftIO <| clicks.subscribe fun _ => do
+    let prev ← focusedInput.sample
+    if prev != some name then
+      setFocusedInput (some name)
+      fireFocus ()
+
   -- Wire keyboard events (when focused)
   let keyEvents ← useKeyboard
   let _ ← liftSpider <| SpiderM.liftIO <| keyEvents.subscribe fun keyData => do
@@ -148,25 +155,16 @@ def textArea (name : String) (theme : Theme) (placeholder : String)
       if updated.value != current.value then
         fireChange updated.value
 
-  -- Wire click handling (focus and blur detection)
+  -- Wire blur detection
   let allClicks ← useAllClicks
-  let _ ← liftSpider <| SpiderM.liftIO <| allClicks.subscribe fun data => do
-    let clickedMe := hitWidget data name
+  let _ ← liftSpider <| SpiderM.liftIO <| allClicks.subscribe fun _ => do
     let wasFoc ← wasFocused.sample
     let currentFoc ← focusedInput.sample
-    -- Handle click on this textarea -> gain focus
-    if clickedMe then
-      if currentFoc != some name then
-        setFocusedInput (some name)
-        setWasFocused true
-        fireFocus ()
-    else
-      -- Handle blur detection (clicked elsewhere while we were focused)
-      if wasFoc && currentFoc != some name then
-        setWasFocused false
-        fireBlur ()
-      else if currentFoc == some name then
-        setWasFocused true
+    if wasFoc && currentFoc != some name then
+      setWasFocused false
+      fireBlur ()
+    else if currentFoc == some name then
+      setWasFocused true
 
   -- Create derived isFocused Dynamic
   let isFocused ← liftSpider <| Dynamic.mapM (· == some name) focusedInput
