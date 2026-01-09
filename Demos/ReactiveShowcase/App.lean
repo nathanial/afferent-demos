@@ -73,6 +73,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
   let ctx ← liftSpider SpiderM.getTimelineCtx
   let (focusedInput, setFocusedInput) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx (none : Option String)
   let textInput1 ← Components.textInput textInput1Name theme "Enter text..." "" focusedInput setFocusedInput
+  let textInput2 ← Components.textInput textInput2Name theme "Type something..." "Hello, World!" focusedInput setFocusedInput
 
   -- Add modal
   let modalContent : ComponentRender := pure (bodyText "Modal content here" theme)
@@ -91,6 +92,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
     let sl1 ← slider1.render
     let sl2 ← slider2.render
     let ti1 ← textInput1.render
+    let ti2 ← textInput2.render
     let modalTrig ← modalTrigger.render
     let modalWidget ← modal.render
     pure (column (gap := 20) (style := {
@@ -99,7 +101,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
       width := .percent 1.0
       height := .percent 1.0
     }) #[
-      heading1 "Reactive Showcase - Modal Test" theme,
+      heading1 "Reactive Showcase - TextInput2 Test" theme,
       row (gap := 8) (style := {}) #[btn1, sw1],
       dd1,
       radios,
@@ -107,6 +109,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
       row (gap := 16) (style := {}) #[cb1, cb2],
       row (gap := 16) (style := {}) #[sl1, sl2],
       ti1,
+      ti2,
       modalTrig,
       modalWidget
     ])
