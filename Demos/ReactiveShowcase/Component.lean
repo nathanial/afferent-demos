@@ -30,6 +30,30 @@ abbrev ReactiveM := ReaderT ReactiveEvents SpiderM
 instance [ForIn SpiderM ρ α] : ForIn ReactiveM ρ α where
   forIn x init f := fun ctx => ForIn.forIn x init fun a b => f a b ctx
 
+/-- Explicit MonadLift instance to allow SpiderM operations in ReactiveM without liftSpider.
+    ReaderT should provide this automatically, but being explicit ensures it works. -/
+instance : MonadLift SpiderM ReactiveM where
+  monadLift m := fun _ => m
+
+/-- MonadSample instance for ReactiveM - delegates to SpiderM. -/
+instance : MonadSample Spider ReactiveM where
+  sample b := fun _ => b.sample
+
+/-- MonadHold instance for ReactiveM - delegates to SpiderM.
+    This allows holdDyn, foldDyn, etc. to work directly in ReactiveM. -/
+instance : MonadHold Spider ReactiveM where
+  hold initial event := fun _ => MonadHold.hold initial event
+  holdDyn initial event := fun _ => MonadHold.holdDyn initial event
+  foldDyn f init event := fun _ => MonadHold.foldDyn f init event
+  foldDynM f init event := fun ctx =>
+    MonadHold.foldDynM (m := SpiderM) (fun a b => f a b ctx) init event
+
+/-- TriggerEvent instance for ReactiveM - delegates to SpiderM.
+    This allows newTriggerEvent to work directly in ReactiveM. -/
+instance : TriggerEvent Spider ReactiveM where
+  newTriggerEvent := fun _ => TriggerEvent.newTriggerEvent
+  newEventWithTrigger callback := fun _ => TriggerEvent.newEventWithTrigger callback
+
 /-- Run a ReactiveM computation with the given events context. -/
 def ReactiveM.run (events : ReactiveEvents) (m : ReactiveM α) : SpiderM α :=
   ReaderT.run m events
@@ -37,7 +61,8 @@ def ReactiveM.run (events : ReactiveEvents) (m : ReactiveM α) : SpiderM α :=
 /-- Get the events from the implicit context. -/
 def getEvents : ReactiveM ReactiveEvents := read
 
-/-- Lift SpiderM into ReactiveM. -/
+/-- Lift SpiderM into ReactiveM. Prefer using automatic lifting instead. -/
+@[deprecated "Use automatic monad lifting instead of explicit liftSpider"]
 def liftSpider (m : SpiderM α) : ReactiveM α := fun _ => m
 
 /-! ## Type Aliases -/
@@ -124,18 +149,16 @@ and set up subscriptions automatically.
     Returns a Dynamic that is true when the mouse is over the widget. -/
 def useHover (name : String) : ReactiveM (Dynamic Spider Bool) := do
   let events ← getEvents
-  liftSpider do
-    -- Pure FRP: map hover events to bool, hold latest value
-    let hoverChanges ← Event.mapM (fun data => hitWidgetHover data name) events.hoverEvent
-    holdDyn false hoverChanges
+  -- Pure FRP: map hover events to bool, hold latest value
+  let hoverChanges ← Event.mapM (fun data => hitWidgetHover data name) events.hoverEvent
+  holdDyn false hoverChanges
 
 /-- Create a click event for a widget that fires Unit (like React's onClick handler).
     Returns an Event that fires when the widget is clicked. -/
 def useClick (name : String) : ReactiveM (Event Spider Unit) := do
   let events ← getEvents
-  liftSpider do
-    let clicks ← Event.filterM (fun data => hitWidget data name) events.clickEvent
-    Event.mapM (fun _ => ()) clicks
+  let clicks ← Event.filterM (fun data => hitWidget data name) events.clickEvent
+  Event.mapM (fun _ => ()) clicks
 
 /-- Subscribe to animation frames. Returns an Event that fires each frame with delta time. -/
 def useAnimationFrame : ReactiveM (Event Spider Float) := do
@@ -150,8 +173,7 @@ def useKeyboard : ReactiveM (Event Spider KeyData) := do
 /-- Create click event with full data (for sliders that need position). -/
 def useClickData (name : String) : ReactiveM (Event Spider ClickData) := do
   let events ← getEvents
-  liftSpider do
-    Event.filterM (fun data => hitWidget data name) events.clickEvent
+  Event.filterM (fun data => hitWidget data name) events.clickEvent
 
 /-- Subscribe to all click events (for focus management). -/
 def useAllClicks : ReactiveM (Event Spider ClickData) := do
@@ -166,8 +188,8 @@ def useAllHovers : ReactiveM (Event Spider HoverData) := do
 /-- Set up automatic focus clearing when clicking non-input interactive widgets.
     Call this after all components have been created. -/
 def ComponentRegistry.setupFocusClearing (reg : ComponentRegistry) : ReactiveM Unit := do
-  let inputs ← liftSpider <| SpiderM.liftIO reg.inputNames.get
-  let interactives ← liftSpider <| SpiderM.liftIO reg.interactiveNames.get
+  let inputs ← SpiderM.liftIO reg.inputNames.get
+  let interactives ← SpiderM.liftIO reg.interactiveNames.get
 
   let isInputClick (data : ClickData) : Bool :=
     inputs.any (fun name => hitWidget data name)
@@ -175,9 +197,9 @@ def ComponentRegistry.setupFocusClearing (reg : ComponentRegistry) : ReactiveM U
     interactives.any (fun name => hitWidget data name)
 
   let allClicks ← useAllClicks
-  let nonInputClicks ← liftSpider <| Event.filterM
+  let nonInputClicks ← Event.filterM
     (fun data => !isInputClick data && isNonInputInteractiveClick data) allClicks
-  let clearAction ← liftSpider <| Event.mapM (fun _ => reg.fireFocus none) nonInputClicks
-  liftSpider <| performEvent_ clearAction
+  let clearAction ← Event.mapM (fun _ => reg.fireFocus none) nonInputClicks
+  performEvent_ clearAction
 
 end Demos.ReactiveShowcase

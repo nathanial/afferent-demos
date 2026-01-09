@@ -35,12 +35,12 @@ def tabView (tabs : Array TabDef) (theme : Theme) (initialTab : Nat)
     : ReactiveM TabViewComponent := do
   -- Auto-generate names via registry
   let events ← getEvents
-  let containerName ← liftSpider <| SpiderM.liftIO <| events.registry.register "tabview" (isInteractive := false)
+  let containerName ← SpiderM.liftIO <| events.registry.register "tabview" (isInteractive := false)
 
   -- Generate names for each tab header
   let mut headerNames : Array String := #[]
   for _ in tabs do
-    let name ← liftSpider <| SpiderM.liftIO <| events.registry.register "tab-header"
+    let name ← SpiderM.liftIO <| events.registry.register "tab-header"
     headerNames := headerNames.push name
   let headerNameFn (i : Nat) : String := headerNames.getD i ""
 
@@ -59,13 +59,13 @@ def tabView (tabs : Array TabDef) (theme : Theme) (initialTab : Nat)
       if hitWidgetHover data (headerNameFn i) then some i else none
 
   -- Pure FRP: mapMaybeM + holdDyn for active tab
-  let tabChanges ← liftSpider <| Event.mapMaybeM findClickedTab allClicks
-  let activeTab ← liftSpider <| holdDyn initialTab tabChanges
+  let tabChanges ← Event.mapMaybeM findClickedTab allClicks
+  let activeTab ← holdDyn initialTab tabChanges
   let onTabChange := tabChanges
 
   -- Pure FRP: mapM + holdDyn for hovered tab
-  let hoverChanges ← liftSpider <| Event.mapM findHoveredTab allHovers
-  let hoveredTab ← liftSpider <| holdDyn none hoverChanges
+  let hoverChanges ← Event.mapM findHoveredTab allHovers
+  let hoveredTab ← holdDyn none hoverChanges
 
   -- Capture tabs for render closure
   let tabsRef := tabs

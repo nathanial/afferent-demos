@@ -64,7 +64,7 @@ def checkbox (label : String) (theme : Theme) (initialChecked : Bool)
     : ReactiveM CheckboxComponent := do
   -- Auto-generate name via registry
   let events ← getEvents
-  let name ← liftSpider <| SpiderM.liftIO <| events.registry.register "checkbox"
+  let name ← SpiderM.liftIO <| events.registry.register "checkbox"
 
   -- Create internal hover state
   let isHovered ← useHover name
@@ -73,7 +73,7 @@ def checkbox (label : String) (theme : Theme) (initialChecked : Bool)
   let clicks ← useClick name
 
   -- Pure FRP: foldDyn toggles state on each click
-  let isChecked ← liftSpider <| foldDyn (fun _ checked => !checked) initialChecked clicks
+  let isChecked ← foldDyn (fun _ checked => !checked) initialChecked clicks
 
   -- onToggle fires with the new value after each toggle
   let onToggle := isChecked.updated

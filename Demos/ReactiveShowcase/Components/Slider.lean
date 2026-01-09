@@ -30,7 +30,7 @@ def slider (label : Option String) (theme : Theme) (initialValue : Float)
     : ReactiveM SliderComponent := do
   -- Auto-generate name via registry
   let events ← getEvents
-  let name ← liftSpider <| SpiderM.liftIO <| events.registry.register "slider"
+  let name ← SpiderM.liftIO <| events.registry.register "slider"
 
   -- Create internal hover state
   let isHovered ← useHover name
@@ -39,9 +39,9 @@ def slider (label : Option String) (theme : Theme) (initialValue : Float)
   let clicks ← useClickData name
 
   -- Pure FRP: mapMaybeM extracts valid slider values, holdDyn holds latest
-  let valueChanges ← liftSpider <| Event.mapMaybeM
+  let valueChanges ← Event.mapMaybeM
     (fun data => calculateSliderValue data.click.x data.layouts data.widget name) clicks
-  let value ← liftSpider <| holdDyn initialValue valueChanges
+  let value ← holdDyn initialValue valueChanges
 
   -- onChange fires with valid value changes
   let onChange := valueChanges

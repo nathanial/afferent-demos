@@ -46,12 +46,12 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
   let ghostBtn ← Components.button "Ghost" theme .ghost
 
   -- Merge all button clicks using proper FRP combinators
-  let clicks12 ← liftSpider <| Event.mergeM primaryBtn.onClick secondaryBtn.onClick
-  let clicks123 ← liftSpider <| Event.mergeM clicks12 outlineBtn.onClick
-  let allButtonClicks ← liftSpider <| Event.mergeM clicks123 ghostBtn.onClick
+  let clicks12 ← Event.mergeM primaryBtn.onClick secondaryBtn.onClick
+  let clicks123 ← Event.mergeM clicks12 outlineBtn.onClick
+  let allButtonClicks ← Event.mergeM clicks123 ghostBtn.onClick
 
   -- Click counter using foldDyn (proper FRP - no manual subscriptions!)
-  let buttonClickCount ← liftSpider <| foldDyn (fun _ n => n + 1) 0 allButtonClicks
+  let buttonClickCount ← foldDyn (fun _ n => n + 1) 0 allButtonClicks
 
   -- Switches
   let switch1 ← Components.switch (some "Notifications") theme false
@@ -86,24 +86,20 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
   let slider2 ← Components.slider (some "Brightness") theme 0.7
 
   -- Text inputs (focus coordination is automatic via registry!)
-  -- TEMPORARILY DISABLED FOR DEBUGGING:
-  -- let textInput1 ← Components.textInput theme "Enter text..." ""
-  -- let textInput2 ← Components.textInput theme "Type something..." "Hello, World!"
-  -- let textArea ← Components.textArea theme "Enter multi-line text..." {} env.fontCanopy
-  pure ()
+  let textInput1 ← Components.textInput theme "Enter text..." ""
+  let textInput2 ← Components.textInput theme "Type something..." "Hello, World!"
+  let textArea ← Components.textArea theme "Enter multi-line text..." {} env.fontCanopy
 
   -- Modal
   let modalContent : ComponentRender := pure (bodyText "Modal content here" theme)
   let modal ← Components.modal "Test Modal" theme modalContent
   let modalTrigger ← Components.button "Open Modal" theme .primary
   -- Pure FRP: map to IO action and use performEvent_
-  let openModalAction ← liftSpider <| Event.mapM (fun _ => modal.openModal) modalTrigger.onClick
-  liftSpider <| performEvent_ openModalAction
+  let openModalAction ← Event.mapM (fun _ => modal.openModal) modalTrigger.onClick
+  performEvent_ openModalAction
 
   -- Automatic focus clearing based on registry (replaces all manual hit testing!)
-  -- TEMPORARILY DISABLED FOR DEBUGGING:
-  -- events.registry.setupFocusClearing
-  pure ()
+  events.registry.setupFocusClearing
 
   let render : ComponentRender := do
     let clickCount ← buttonClickCount.sample
@@ -120,13 +116,9 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
     let cb2 ← checkbox2.render
     let sl1 ← slider1.render
     let sl2 ← slider2.render
-    -- TEMPORARILY DISABLED FOR DEBUGGING:
-    -- let ti1 ← textInput1.render
-    -- let ti2 ← textInput2.render
-    -- let ta ← textArea.render
-    let ti1 := spacer 0 0
-    let ti2 := spacer 0 0
-    let ta := spacer 0 0
+    let ti1 ← textInput1.render
+    let ti2 ← textInput2.render
+    let ta ← textArea.render
     let modalTrig ← modalTrigger.render
     let modalWidget ← modal.render
     pure (column (gap := 20) (style := {

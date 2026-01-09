@@ -47,7 +47,7 @@ def button (label : String) (theme : Theme) (variant : ButtonVariant)
     : ReactiveM ButtonComponent := do
   -- Auto-generate name via registry
   let events ← getEvents
-  let name ← liftSpider <| SpiderM.liftIO <| events.registry.register "button"
+  let name ← SpiderM.liftIO <| events.registry.register "button"
 
   -- Internal hover state (via hook that accesses events implicitly)
   let isHovered ← useHover name

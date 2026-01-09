@@ -38,7 +38,7 @@ def radioGroup (options : Array RadioOption) (theme : Theme)
   let events ← getEvents
   let mut optionNames : Array String := #[]
   for _ in options do
-    let name ← liftSpider <| SpiderM.liftIO <| events.registry.register "radio"
+    let name ← SpiderM.liftIO <| events.registry.register "radio"
     optionNames := optionNames.push name
 
   -- Get event streams
@@ -56,13 +56,13 @@ def radioGroup (options : Array RadioOption) (theme : Theme)
       if hitWidgetHover data name then some name else none
 
   -- Pure FRP: mapMaybeM extracts clicked option, holdDyn holds selection
-  let selectionChanges ← liftSpider <| Event.mapMaybeM findClickedOption allClicks
-  let selected ← liftSpider <| holdDyn initialSelection selectionChanges
+  let selectionChanges ← Event.mapMaybeM findClickedOption allClicks
+  let selected ← holdDyn initialSelection selectionChanges
   let onSelect := selectionChanges
 
   -- Pure FRP: mapM extracts hovered option, holdDyn holds current
-  let hoverChanges ← liftSpider <| Event.mapM findHoveredOption allHovers
-  let hoveredOption ← liftSpider <| holdDyn none hoverChanges
+  let hoverChanges ← Event.mapM findHoveredOption allHovers
+  let hoveredOption ← holdDyn none hoverChanges
 
   -- Capture options and names for render closure
   let optionsWithNames := options.zip optionNames

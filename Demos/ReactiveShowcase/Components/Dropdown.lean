@@ -32,13 +32,13 @@ def dropdown (options : Array String) (theme : Theme) (initialSelection : Nat)
     : ReactiveM DropdownComponent := do
   -- Auto-generate names via registry
   let events ← getEvents
-  let containerName ← liftSpider <| SpiderM.liftIO <| events.registry.register "dropdown" (isInteractive := false)
-  let triggerName ← liftSpider <| SpiderM.liftIO <| events.registry.register "dropdown-trigger"
+  let containerName ← SpiderM.liftIO <| events.registry.register "dropdown" (isInteractive := false)
+  let triggerName ← SpiderM.liftIO <| events.registry.register "dropdown-trigger"
 
   -- Generate names for each option
   let mut optionNames : Array String := #[]
   for _ in options do
-    let name ← liftSpider <| SpiderM.liftIO <| events.registry.register "dropdown-option"
+    let name ← SpiderM.liftIO <| events.registry.register "dropdown-option"
     optionNames := optionNames.push name
   let optionNameFn (i : Nat) : String := optionNames.getD i ""
 
@@ -65,14 +65,14 @@ def dropdown (options : Array String) (theme : Theme) (initialSelection : Nat)
       if hitWidgetHover data (optionNameFn i) then some i else none
 
   -- Extract option clicks
-  let optionClicks ← liftSpider <| Event.mapMaybeM findClickedOption allClicks
+  let optionClicks ← Event.mapMaybeM findClickedOption allClicks
 
   -- Selection: updated on option clicks
-  let selection ← liftSpider <| holdDyn initialSelection optionClicks
+  let selection ← holdDyn initialSelection optionClicks
   let onSelect := optionClicks
 
   -- isOpen: use fixDynM because click-outside depends on current isOpen state
-  let isOpen ← liftSpider <| SpiderM.fixDynM fun isOpenBehavior => do
+  let isOpen ← SpiderM.fixDynM fun isOpenBehavior => do
     -- Toggle on trigger click
     let toggleEvents ← Event.mapM (fun _ => fun open_ => !open_) triggerClicks
 
@@ -91,13 +91,13 @@ def dropdown (options : Array String) (theme : Theme) (initialSelection : Nat)
     foldDyn (fun f s => f s) false allTransitions
 
   -- Hovered option: gated by isOpen
-  let hoverChanges ← liftSpider <| Event.mapM findHoveredOption allHovers
-  let gatedHover ← liftSpider <| Event.gateM isOpen.current hoverChanges
+  let hoverChanges ← Event.mapM findHoveredOption allHovers
+  let gatedHover ← Event.gateM isOpen.current hoverChanges
   -- When closed, reset hover to none
-  let closeEvents ← liftSpider <| Event.filterM (fun open_ => !open_) isOpen.updated
-  let resetHover ← liftSpider <| Event.mapM (fun _ => (none : Option Nat)) closeEvents
-  let mergedHover ← liftSpider <| Event.mergeM gatedHover resetHover
-  let hoveredOption ← liftSpider <| holdDyn none mergedHover
+  let closeEvents ← Event.filterM (fun open_ => !open_) isOpen.updated
+  let resetHover ← Event.mapM (fun _ => (none : Option Nat)) closeEvents
+  let mergedHover ← Event.mergeM gatedHover resetHover
+  let hoveredOption ← holdDyn none mergedHover
 
   -- Render function samples all state
   let render : ComponentRender := do

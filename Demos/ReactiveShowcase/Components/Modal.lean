@@ -34,9 +34,9 @@ def modal (title : String) (theme : Theme) (content : ComponentRender)
     : ReactiveM ModalComponent := do
   -- Auto-generate names via registry
   let events ← getEvents
-  let containerName ← liftSpider <| SpiderM.liftIO <| events.registry.register "modal" (isInteractive := false)
-  let backdropName ← liftSpider <| SpiderM.liftIO <| events.registry.register "modal-backdrop" (isInteractive := false)
-  let closeName ← liftSpider <| SpiderM.liftIO <| events.registry.register "modal-close"
+  let containerName ← SpiderM.liftIO <| events.registry.register "modal" (isInteractive := false)
+  let backdropName ← SpiderM.liftIO <| events.registry.register "modal-backdrop" (isInteractive := false)
+  let closeName ← SpiderM.liftIO <| events.registry.register "modal-close"
 
   -- Create close button hover state
   let isCloseHovered ← useHover closeName
@@ -47,7 +47,7 @@ def modal (title : String) (theme : Theme) (content : ComponentRender)
   let keyEvents ← useKeyboard
 
   -- Create open trigger for external callers (openModal/closeModal)
-  let (openTrigger, fireOpen) ← liftSpider <| newTriggerEvent (t := Spider) (a := Bool)
+  let (openTrigger, fireOpen) ← newTriggerEvent (t := Spider) (a := Bool)
 
   -- Helper: check if click is on backdrop but not modal
   let isBackdropClick (data : ClickData) : Bool :=
@@ -58,7 +58,7 @@ def modal (title : String) (theme : Theme) (content : ComponentRender)
     keyData.event.key == .escape && keyData.event.isPress
 
   -- isOpen: use fixDynM because backdrop/escape close depend on current isOpen state
-  let isOpen ← liftSpider <| SpiderM.fixDynM fun isOpenBehavior => do
+  let isOpen ← SpiderM.fixDynM fun isOpenBehavior => do
     -- Open/close from external trigger
     let triggerEvents ← Event.mapM (fun open_ => fun _ => open_) openTrigger
 
@@ -82,8 +82,8 @@ def modal (title : String) (theme : Theme) (content : ComponentRender)
     foldDyn (fun f s => f s) false allTransitions
 
   -- onClose: fires when isOpen transitions from true to false
-  let closeEvents ← liftSpider <| Event.filterM (fun open_ => !open_) isOpen.updated
-  let onClose ← liftSpider <| Event.mapM (fun _ => ()) closeEvents
+  let closeEvents ← Event.filterM (fun open_ => !open_) isOpen.updated
+  let onClose ← Event.mapM (fun _ => ()) closeEvents
 
   -- Render function
   let render : ComponentRender := do

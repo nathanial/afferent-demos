@@ -32,7 +32,7 @@ def switch (label : Option String) (theme : Theme) (initialOn : Bool)
     : ReactiveM SwitchComponent := do
   -- Auto-generate name via registry
   let events ← getEvents
-  let name ← liftSpider <| SpiderM.liftIO <| events.registry.register "switch"
+  let name ← SpiderM.liftIO <| events.registry.register "switch"
 
   -- Create internal hover state
   let isHovered ← useHover name
@@ -42,13 +42,13 @@ def switch (label : Option String) (theme : Theme) (initialOn : Bool)
   let animFrames ← useAnimationFrame
 
   -- Pure FRP: foldDyn toggles state on each click
-  let isOn ← liftSpider <| foldDyn (fun _ on => !on) initialOn clicks
+  let isOn ← foldDyn (fun _ on => !on) initialOn clicks
   let onToggle := isOn.updated
 
   -- Animation requires fixDynM for self-referential state:
   -- animProgress depends on animFrames AND its own current value
   let initialAnim := if initialOn then 1.0 else 0.0
-  let animProgress ← liftSpider <| SpiderM.fixDynM fun animBehavior => do
+  let animProgress ← SpiderM.fixDynM fun animBehavior => do
     -- Attach current animation value AND isOn state to each frame
     let updateEvent ← Event.attachWithM
       (fun (anim, on) dt =>
