@@ -43,9 +43,12 @@ private def buttonVisual (name : String) (labelText : String) (theme : Theme)
 
 /-- Create a self-contained button component.
     The component manages its own hover state and exposes an onClick event. -/
-def button (name : String) (label : String) (theme : Theme)
-    (variant : ButtonVariant)
+def button (label : String) (theme : Theme) (variant : ButtonVariant)
     : ReactiveM ButtonComponent := do
+  -- Auto-generate name via registry
+  let events ← getEvents
+  let name ← liftSpider <| SpiderM.liftIO <| events.registry.register "button"
+
   -- Internal hover state (via hook that accesses events implicitly)
   let isHovered ← useHover name
 

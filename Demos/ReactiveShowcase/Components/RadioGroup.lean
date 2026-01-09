@@ -17,7 +17,6 @@ namespace Demos.ReactiveShowcase.Components
 
 /-- A single radio button option. -/
 structure RadioOption where
-  name : String
   label : String
   value : String
 
@@ -35,17 +34,26 @@ structure RadioGroupComponent where
 def radioGroup (options : Array RadioOption) (theme : Theme)
     (initialSelection : String)
     : ReactiveM RadioGroupComponent := do
+  -- Auto-generate names for each option via registry
+  let events ← getEvents
+  let mut optionNames : Array String := #[]
+  for _ in options do
+    let name ← liftSpider <| SpiderM.liftIO <| events.registry.register "radio"
+    optionNames := optionNames.push name
+
   -- Get event streams
   let allClicks ← useAllClicks
   let allHovers ← useAllHovers
 
-  -- Helper: find which option was clicked
+  -- Helper: find which option was clicked (use generated names)
   let findClickedOption (data : ClickData) : Option String :=
-    options.findSome? fun opt => if hitWidget data opt.name then some opt.value else none
+    (options.zip optionNames).findSome? fun (opt, name) =>
+      if hitWidget data name then some opt.value else none
 
-  -- Helper: find which option is hovered
+  -- Helper: find which option is hovered (use generated names)
   let findHoveredOption (data : HoverData) : Option String :=
-    options.findSome? fun opt => if hitWidgetHover data opt.name then some opt.name else none
+    optionNames.findSome? fun name =>
+      if hitWidgetHover data name then some name else none
 
   -- Pure FRP: mapMaybeM extracts clicked option, holdDyn holds selection
   let selectionChanges ← liftSpider <| Event.mapMaybeM findClickedOption allClicks
@@ -56,19 +64,19 @@ def radioGroup (options : Array RadioOption) (theme : Theme)
   let hoverChanges ← liftSpider <| Event.mapM findHoveredOption allHovers
   let hoveredOption ← liftSpider <| holdDyn none hoverChanges
 
-  -- Capture options for render closure
-  let optionsRef := options
+  -- Capture options and names for render closure
+  let optionsWithNames := options.zip optionNames
 
   -- Render function samples all states and returns radio buttons in a column
   let render : ComponentRender := do
     let selectedValue ← selected.sample
     let hoveredName ← hoveredOption.sample
     let mut builders : Array WidgetBuilder := #[]
-    for opt in optionsRef do
-      let isHovered := hoveredName == some opt.name
+    for (opt, name) in optionsWithNames do
+      let isHovered := hoveredName == some name
       let isSelected := selectedValue == opt.value
       let state : WidgetState := { hovered := isHovered, pressed := false, focused := false }
-      builders := builders.push (radioButtonVisual opt.name opt.label theme isSelected state)
+      builders := builders.push (radioButtonVisual name opt.label theme isSelected state)
     pure (column (gap := 8) (style := {}) builders)
 
   pure { onSelect, selected, render }

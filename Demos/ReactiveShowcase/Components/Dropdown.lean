@@ -28,10 +28,20 @@ structure DropdownComponent where
 
 /-- Create a self-contained dropdown component.
     The component manages its own hover, open/close, and selection state. -/
-def dropdown (containerName : String) (triggerName : String)
-    (optionNameFn : Nat → String) (options : Array String) (theme : Theme)
-    (initialSelection : Nat)
+def dropdown (options : Array String) (theme : Theme) (initialSelection : Nat)
     : ReactiveM DropdownComponent := do
+  -- Auto-generate names via registry
+  let events ← getEvents
+  let containerName ← liftSpider <| SpiderM.liftIO <| events.registry.register "dropdown" (isInteractive := false)
+  let triggerName ← liftSpider <| SpiderM.liftIO <| events.registry.register "dropdown-trigger"
+
+  -- Generate names for each option
+  let mut optionNames : Array String := #[]
+  for _ in options do
+    let name ← liftSpider <| SpiderM.liftIO <| events.registry.register "dropdown-option"
+    optionNames := optionNames.push name
+  let optionNameFn (i : Nat) : String := optionNames.getD i ""
+
   -- Create trigger hover state
   let isTriggerHovered ← useHover triggerName
 

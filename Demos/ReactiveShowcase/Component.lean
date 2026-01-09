@@ -15,68 +15,6 @@ open Afferent.Canopy
 
 namespace Demos.ReactiveShowcase
 
--- Re-export widget names from CanopyShowcase
-open Demos in
-def btnPrimaryName := Demos.btnPrimaryName
-open Demos in
-def btnSecondaryName := Demos.btnSecondaryName
-open Demos in
-def btnOutlineName := Demos.btnOutlineName
-open Demos in
-def btnGhostName := Demos.btnGhostName
-open Demos in
-def checkbox1Name := Demos.checkbox1Name
-open Demos in
-def checkbox2Name := Demos.checkbox2Name
-open Demos in
-def textInput1Name := Demos.textInput1Name
-open Demos in
-def textInput2Name := Demos.textInput2Name
-open Demos in
-def textAreaName := Demos.textAreaName
-open Demos in
-def radio1Name := Demos.radio1Name
-open Demos in
-def radio2Name := Demos.radio2Name
-open Demos in
-def radio3Name := Demos.radio3Name
-open Demos in
-def switch1Name := Demos.switch1Name
-open Demos in
-def switch2Name := Demos.switch2Name
-open Demos in
-def slider1Name := Demos.slider1Name
-open Demos in
-def slider2Name := Demos.slider2Name
-open Demos in
-def dropdown1Name := Demos.dropdown1Name
-open Demos in
-def dropdown1TriggerName := Demos.dropdown1TriggerName
-open Demos in
-def dropdown1OptionName := Demos.dropdown1OptionName
-open Demos in
-def dropdown1Options := Demos.dropdown1Options
-open Demos in
-def tabHeaderName := Demos.tabHeaderName
-open Demos in
-def tabLabels := Demos.tabLabels
-open Demos in
-def tabSettingsCheckboxName := Demos.tabSettingsCheckboxName
-open Demos in
-def modalTriggerName := Demos.modalTriggerName
-open Demos in
-def modalName := Demos.modalName
-open Demos in
-def modalBackdropName := Demos.modalBackdropName
-open Demos in
-def modalCloseName := Demos.modalCloseName
-open Demos in
-def modalConfirmName := Demos.modalConfirmName
-open Demos in
-def modalCancelName := Demos.modalCancelName
-open Demos in
-def tabViewName := Demos.tabViewName
-
 /-! ## The ReactiveM Monad
 
 Like React's context, ReactiveM carries the event streams implicitly.
@@ -86,6 +24,11 @@ Components use hooks that access this context without explicit parameters.
 /-- ReactiveM is SpiderM with implicit access to ReactiveEvents.
     This is analogous to how React components access context through hooks. -/
 abbrev ReactiveM := ReaderT ReactiveEvents SpiderM
+
+/-- Explicit ForIn instance for ReactiveM to avoid issues with derived instances.
+    This properly threads through both the ReactiveEvents context and SpiderEnv. -/
+instance [ForIn SpiderM ρ α] : ForIn ReactiveM ρ α where
+  forIn x init f := fun ctx => ForIn.forIn x init fun a b => f a b ctx
 
 /-- Run a ReactiveM computation with the given events context. -/
 def ReactiveM.run (events : ReactiveEvents) (m : ReactiveM α) : SpiderM α :=
@@ -219,5 +162,22 @@ def useAllClicks : ReactiveM (Event Spider ClickData) := do
 def useAllHovers : ReactiveM (Event Spider HoverData) := do
   let events ← getEvents
   pure events.hoverEvent
+
+/-- Set up automatic focus clearing when clicking non-input interactive widgets.
+    Call this after all components have been created. -/
+def ComponentRegistry.setupFocusClearing (reg : ComponentRegistry) : ReactiveM Unit := do
+  let inputs ← liftSpider <| SpiderM.liftIO reg.inputNames.get
+  let interactives ← liftSpider <| SpiderM.liftIO reg.interactiveNames.get
+
+  let isInputClick (data : ClickData) : Bool :=
+    inputs.any (fun name => hitWidget data name)
+  let isNonInputInteractiveClick (data : ClickData) : Bool :=
+    interactives.any (fun name => hitWidget data name)
+
+  let allClicks ← useAllClicks
+  let nonInputClicks ← liftSpider <| Event.filterM
+    (fun data => !isInputClick data && isNonInputInteractiveClick data) allClicks
+  let clearAction ← liftSpider <| Event.mapM (fun _ => reg.fireFocus none) nonInputClicks
+  liftSpider <| performEvent_ clearAction
 
 end Demos.ReactiveShowcase

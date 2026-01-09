@@ -37,12 +37,13 @@ structure AppState where
     Uses ReactiveM - the events context is implicit, not passed explicitly. -/
 def createApp (env : DemoEnv) : ReactiveM AppState := do
   let theme : Theme := { Theme.dark with font := env.fontCanopyId, smallFont := env.fontCanopySmallId }
+  let events ← getEvents
 
-  -- All 4 button variants
-  let primaryBtn ← Components.button btnPrimaryName "Primary" theme .primary
-  let secondaryBtn ← Components.button btnSecondaryName "Secondary" theme .secondary
-  let outlineBtn ← Components.button btnOutlineName "Outline" theme .outline
-  let ghostBtn ← Components.button btnGhostName "Ghost" theme .ghost
+  -- All 4 button variants (no names needed!)
+  let primaryBtn ← Components.button "Primary" theme .primary
+  let secondaryBtn ← Components.button "Secondary" theme .secondary
+  let outlineBtn ← Components.button "Outline" theme .outline
+  let ghostBtn ← Components.button "Ghost" theme .ghost
 
   -- Merge all button clicks using proper FRP combinators
   let clicks12 ← liftSpider <| Event.mergeM primaryBtn.onClick secondaryBtn.onClick
@@ -51,71 +52,58 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
 
   -- Click counter using foldDyn (proper FRP - no manual subscriptions!)
   let buttonClickCount ← liftSpider <| foldDyn (fun _ n => n + 1) 0 allButtonClicks
-  let switch1 ← Components.switch switch1Name (some "Notifications") theme false
-  let switch2 ← Components.switch switch2Name (some "Dark Mode") theme true
-  let dropdown1 ← Components.dropdown dropdown1Name dropdown1TriggerName
-      dropdown1OptionName dropdown1Options theme 0
 
-  -- Add radioGroup to test
+  -- Switches
+  let switch1 ← Components.switch (some "Notifications") theme false
+  let switch2 ← Components.switch (some "Dark Mode") theme true
+
+  -- Dropdown
+  let dropdownOptions := #["Option 1", "Option 2", "Option 3"]
+  let dropdown1 ← Components.dropdown dropdownOptions theme 0
+
+  -- Radio group (no names needed in options!)
   let radioOptions : Array Components.RadioOption := #[
-    { name := radio1Name, label := "Option 1", value := "option1" },
-    { name := radio2Name, label := "Option 2", value := "option2" },
-    { name := radio3Name, label := "Option 3", value := "option3" }
+    { label := "Option 1", value := "option1" },
+    { label := "Option 2", value := "option2" },
+    { label := "Option 3", value := "option3" }
   ]
   let radioGroup ← Components.radioGroup radioOptions theme "option1"
 
-  -- Add TabView
+  -- TabView
   let tabs : Array Components.TabDef := #[
     { label := "Tab 1", content := pure (bodyText "Content 1" theme) },
     { label := "Tab 2", content := pure (bodyText "Content 2" theme) },
     { label := "Tab 3", content := pure (bodyText "Content 3" theme) }
   ]
-  let tabView ← Components.tabView tabViewName tabHeaderName tabs theme 0
+  let tabView ← Components.tabView tabs theme 0
 
-  -- Add checkboxes
-  let checkbox1 ← Components.checkbox checkbox1Name "Option 1" theme false
-  let checkbox2 ← Components.checkbox checkbox2Name "Option 2" theme true
+  -- Checkboxes
+  let checkbox1 ← Components.checkbox "Option 1" theme false
+  let checkbox2 ← Components.checkbox "Option 2" theme true
 
-  -- Add sliders
-  let slider1 ← Components.slider slider1Name (some "Volume") theme 0.3
-  let slider2 ← Components.slider slider2Name (some "Brightness") theme 0.7
+  -- Sliders
+  let slider1 ← Components.slider (some "Volume") theme 0.3
+  let slider2 ← Components.slider (some "Brightness") theme 0.7
 
-  -- Add text inputs (need shared focus state) using proper FRP pattern
-  let (focusedInputEvent, fireFocusedInput) ← liftSpider <| newTriggerEvent (t := Spider) (a := Option String)
-  let focusedInput ← liftSpider <| holdDyn none focusedInputEvent
-  let textInput1 ← Components.textInput textInput1Name theme "Enter text..." "" focusedInput fireFocusedInput
-  let textInput2 ← Components.textInput textInput2Name theme "Type something..." "Hello, World!" focusedInput fireFocusedInput
-  let textArea ← Components.textArea textAreaName theme "Enter multi-line text..." {} focusedInput fireFocusedInput env.fontCanopy
+  -- Text inputs (focus coordination is automatic via registry!)
+  -- TEMPORARILY DISABLED FOR DEBUGGING:
+  -- let textInput1 ← Components.textInput theme "Enter text..." ""
+  -- let textInput2 ← Components.textInput theme "Type something..." "Hello, World!"
+  -- let textArea ← Components.textArea theme "Enter multi-line text..." {} env.fontCanopy
+  pure ()
 
-  -- Clear focus when clicking non-input widgets
-  -- Helper: check if click is on a focusable input
-  let isInputClick (data : ClickData) : Bool :=
-    hitWidget data textInput1Name || hitWidget data textInput2Name || hitWidget data textAreaName
-
-  -- Helper: check if click is on an interactive non-input widget
-  let isNonInputInteractiveClick (data : ClickData) : Bool :=
-    let clickedButton := hitWidget data btnPrimaryName || hitWidget data btnSecondaryName ||
-                        hitWidget data btnOutlineName || hitWidget data btnGhostName
-    let clickedCheckbox := hitWidget data checkbox1Name || hitWidget data checkbox2Name
-    let clickedRadio := hitWidget data radio1Name || hitWidget data radio2Name || hitWidget data radio3Name
-    let clickedSwitch := hitWidget data switch1Name || hitWidget data switch2Name
-    let clickedSlider := hitWidget data slider1Name || hitWidget data slider2Name
-    clickedButton || clickedCheckbox || clickedRadio || clickedSwitch || clickedSlider
-
-  let allClicks ← useAllClicks
-  let nonInputClicks ← liftSpider <| Event.filterM
-    (fun data => !isInputClick data && isNonInputInteractiveClick data) allClicks
-  -- Pure FRP: map to IO action and use performEvent_
-  let clearFocusAction ← liftSpider <| Event.mapM (fun _ => fireFocusedInput none) nonInputClicks
-  liftSpider <| performEvent_ clearFocusAction
-
-  -- Add modal
+  -- Modal
   let modalContent : ComponentRender := pure (bodyText "Modal content here" theme)
-  let modal ← Components.modal modalName modalBackdropName modalCloseName "Test Modal" theme modalContent
-  let modalTrigger ← Components.button modalTriggerName "Open Modal" theme .primary
+  let modal ← Components.modal "Test Modal" theme modalContent
+  let modalTrigger ← Components.button "Open Modal" theme .primary
   -- Pure FRP: map to IO action and use performEvent_
   let openModalAction ← liftSpider <| Event.mapM (fun _ => modal.openModal) modalTrigger.onClick
   liftSpider <| performEvent_ openModalAction
+
+  -- Automatic focus clearing based on registry (replaces all manual hit testing!)
+  -- TEMPORARILY DISABLED FOR DEBUGGING:
+  -- events.registry.setupFocusClearing
+  pure ()
 
   let render : ComponentRender := do
     let clickCount ← buttonClickCount.sample
@@ -132,9 +120,13 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
     let cb2 ← checkbox2.render
     let sl1 ← slider1.render
     let sl2 ← slider2.render
-    let ti1 ← textInput1.render
-    let ti2 ← textInput2.render
-    let ta ← textArea.render
+    -- TEMPORARILY DISABLED FOR DEBUGGING:
+    -- let ti1 ← textInput1.render
+    -- let ti2 ← textInput2.render
+    -- let ta ← textArea.render
+    let ti1 := spacer 0 0
+    let ti2 := spacer 0 0
+    let ta := spacer 0 0
     let modalTrig ← modalTrigger.render
     let modalWidget ← modal.render
     pure (column (gap := 20) (style := {

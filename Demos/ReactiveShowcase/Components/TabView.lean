@@ -31,10 +31,19 @@ structure TabViewComponent where
 
 /-- Create a self-contained tab view component.
     The component manages its own hover and active tab state. -/
-def tabView (containerName : String) (headerNameFn : Nat → String)
-    (tabs : Array TabDef) (theme : Theme)
-    (initialTab : Nat)
+def tabView (tabs : Array TabDef) (theme : Theme) (initialTab : Nat)
     : ReactiveM TabViewComponent := do
+  -- Auto-generate names via registry
+  let events ← getEvents
+  let containerName ← liftSpider <| SpiderM.liftIO <| events.registry.register "tabview" (isInteractive := false)
+
+  -- Generate names for each tab header
+  let mut headerNames : Array String := #[]
+  for _ in tabs do
+    let name ← liftSpider <| SpiderM.liftIO <| events.registry.register "tab-header"
+    headerNames := headerNames.push name
+  let headerNameFn (i : Nat) : String := headerNames.getD i ""
+
   -- Get event streams
   let allClicks ← useAllClicks
   let allHovers ← useAllHovers

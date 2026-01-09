@@ -28,9 +28,12 @@ structure SwitchComponent where
 
 /-- Create a self-contained switch component with animation.
     The component manages its own hover, on/off state, and animation progress. -/
-def switch (name : String) (label : Option String) (theme : Theme)
-    (initialOn : Bool)
+def switch (label : Option String) (theme : Theme) (initialOn : Bool)
     : ReactiveM SwitchComponent := do
+  -- Auto-generate name via registry
+  let events ← getEvents
+  let name ← liftSpider <| SpiderM.liftIO <| events.registry.register "switch"
+
   -- Create internal hover state
   let isHovered ← useHover name
 

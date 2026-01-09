@@ -30,10 +30,14 @@ structure ModalComponent where
 
 /-- Create a self-contained modal component.
     The component manages its own open/close state and close-on-backdrop/escape behavior. -/
-def modal (containerName : String) (backdropName : String) (closeName : String)
-    (title : String) (theme : Theme)
-    (content : ComponentRender)
+def modal (title : String) (theme : Theme) (content : ComponentRender)
     : ReactiveM ModalComponent := do
+  -- Auto-generate names via registry
+  let events ← getEvents
+  let containerName ← liftSpider <| SpiderM.liftIO <| events.registry.register "modal" (isInteractive := false)
+  let backdropName ← liftSpider <| SpiderM.liftIO <| events.registry.register "modal-backdrop" (isInteractive := false)
+  let closeName ← liftSpider <| SpiderM.liftIO <| events.registry.register "modal-close"
+
   -- Create close button hover state
   let isCloseHovered ← useHover closeName
 

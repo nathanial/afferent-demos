@@ -32,13 +32,15 @@ structure TextInputComponent where
 
 /-- Create a self-contained text input component.
     The component manages its own hover, focus, and text state.
-    Pass a shared focusedInput Dynamic to coordinate focus across multiple inputs.
-    The fireFocusedInput function is the trigger for the shared focusedInput Dynamic. -/
-def textInput (name : String) (theme : Theme) (placeholder : String)
-    (initialValue : String)
-    (focusedInput : Dynamic Spider (Option String))
-    (fireFocusedInput : Option String → IO Unit)
+    Focus coordination is automatic via the registry. -/
+def textInput (theme : Theme) (placeholder : String) (initialValue : String)
     : ReactiveM TextInputComponent := do
+  -- Auto-generate name via registry (marked as input)
+  let events ← getEvents
+  let name ← liftSpider <| SpiderM.liftIO <| events.registry.register "text-input" (isInput := true)
+  let focusedInput := events.registry.focusedInput
+  let fireFocusedInput := events.registry.fireFocus
+
   -- Get event streams
   let clicks ← useClick name
   let keyEvents ← useKeyboard
@@ -55,7 +57,7 @@ def textInput (name : String) (theme : Theme) (placeholder : String)
     (fun (old, new) => old == some name && new != some name) focusChanges
   let onBlur ← liftSpider <| Event.mapM (fun _ => ()) blurEvents
 
-  -- Focus click: gate by not-already-focused, then call external fireFocusedInput
+  -- Focus click: gate by not-already-focused, then call fireFocusedInput
   -- Pure FRP: map to IO action and use performEvent_
   let notFocused ← liftSpider <| Dynamic.mapM (· != some name) focusedInput
   let focusClicks ← liftSpider <| Event.gateM notFocused.current clicks
@@ -110,14 +112,16 @@ structure TextAreaComponent where
 /-- Create a self-contained text area component.
     Similar to textInput but with multi-line support.
     Requires a Font for text measurement during render state computation.
-    The fireFocusedInput function is the trigger for the shared focusedInput Dynamic. -/
-def textArea (name : String) (theme : Theme) (placeholder : String)
-    (initialState : TextAreaState)
-    (focusedInput : Dynamic Spider (Option String))
-    (fireFocusedInput : Option String → IO Unit)
-    (font : Afferent.Font)
-    (width : Float := 280) (height : Float := 120)
+    Focus coordination is automatic via the registry. -/
+def textArea (theme : Theme) (placeholder : String) (initialState : TextAreaState)
+    (font : Afferent.Font) (width : Float := 280) (height : Float := 120)
     : ReactiveM TextAreaComponent := do
+  -- Auto-generate name via registry (marked as input)
+  let events ← getEvents
+  let name ← liftSpider <| SpiderM.liftIO <| events.registry.register "text-area" (isInput := true)
+  let focusedInput := events.registry.focusedInput
+  let fireFocusedInput := events.registry.fireFocus
+
   -- Get event streams
   let clicks ← useClick name
   let keyEvents ← useKeyboard
@@ -134,7 +138,7 @@ def textArea (name : String) (theme : Theme) (placeholder : String)
     (fun (old, new) => old == some name && new != some name) focusChanges
   let onBlur ← liftSpider <| Event.mapM (fun _ => ()) blurEvents
 
-  -- Focus click: gate by not-already-focused, then call external fireFocusedInput
+  -- Focus click: gate by not-already-focused, then call fireFocusedInput
   -- Pure FRP: map to IO action and use performEvent_
   let notFocused ← liftSpider <| Dynamic.mapM (· != some name) focusedInput
   let focusClicks ← liftSpider <| Event.gateM notFocused.current clicks

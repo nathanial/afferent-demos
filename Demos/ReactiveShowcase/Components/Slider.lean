@@ -26,9 +26,12 @@ structure SliderComponent where
 
 /-- Create a self-contained slider component.
     The component manages its own hover and value state. -/
-def slider (name : String) (label : Option String) (theme : Theme)
-    (initialValue : Float)
+def slider (label : Option String) (theme : Theme) (initialValue : Float)
     : ReactiveM SliderComponent := do
+  -- Auto-generate name via registry
+  let events ← getEvents
+  let name ← liftSpider <| SpiderM.liftIO <| events.registry.register "slider"
+
   -- Create internal hover state
   let isHovered ← useHover name
 

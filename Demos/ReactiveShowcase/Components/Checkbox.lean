@@ -60,9 +60,12 @@ private def checkboxVisual (name : String) (labelText : String) (theme : Theme)
 
 /-- Create a self-contained checkbox component.
     The component manages its own hover and checked state. -/
-def checkbox (name : String) (label : String) (theme : Theme)
-    (initialChecked : Bool)
+def checkbox (label : String) (theme : Theme) (initialChecked : Bool)
     : ReactiveM CheckboxComponent := do
+  -- Auto-generate name via registry
+  let events ← getEvents
+  let name ← liftSpider <| SpiderM.liftIO <| events.registry.register "checkbox"
+
   -- Create internal hover state
   let isHovered ← useHover name
 
