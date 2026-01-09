@@ -52,7 +52,8 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
 
   -- Click counter using foldDyn (proper FRP - no manual subscriptions!)
   let buttonClickCount ← liftSpider <| foldDyn (fun _ n => n + 1) 0 allButtonClicks
-  let switch1 ← Components.switch switch1Name (some "Test Switch") theme false
+  let switch1 ← Components.switch switch1Name (some "Notifications") theme false
+  let switch2 ← Components.switch switch2Name (some "Dark Mode") theme true
   let dropdown1 ← Components.dropdown dropdown1Name dropdown1TriggerName
       dropdown1OptionName dropdown1Options theme 0
 
@@ -84,6 +85,23 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
   let (focusedInput, setFocusedInput) ← liftSpider <| SpiderM.liftIO <| Dynamic.new ctx (none : Option String)
   let textInput1 ← Components.textInput textInput1Name theme "Enter text..." "" focusedInput setFocusedInput
   let textInput2 ← Components.textInput textInput2Name theme "Type something..." "Hello, World!" focusedInput setFocusedInput
+  let textArea ← Components.textArea textAreaName theme "Enter multi-line text..." {} focusedInput setFocusedInput env.fontCanopy
+
+  -- Clear focus when clicking non-input widgets (pragmatic subscribe - TODO: refactor to pure FRP)
+  let allClicks ← useAllClicks
+  let _ ← liftSpider <| SpiderM.liftIO <| allClicks.subscribe fun data => do
+    let clickedInput1 := hitWidget data textInput1Name
+    let clickedInput2 := hitWidget data textInput2Name
+    let clickedTextArea := hitWidget data textAreaName
+    if !clickedInput1 && !clickedInput2 && !clickedTextArea then
+      let clickedButton := hitWidget data btnPrimaryName || hitWidget data btnSecondaryName ||
+                          hitWidget data btnOutlineName || hitWidget data btnGhostName
+      let clickedCheckbox := hitWidget data checkbox1Name || hitWidget data checkbox2Name
+      let clickedRadio := hitWidget data radio1Name || hitWidget data radio2Name || hitWidget data radio3Name
+      let clickedSwitch := hitWidget data switch1Name || hitWidget data switch2Name
+      let clickedSlider := hitWidget data slider1Name || hitWidget data slider2Name
+      if clickedButton || clickedCheckbox || clickedRadio || clickedSwitch || clickedSlider then
+        setFocusedInput none
 
   -- Add modal
   let modalContent : ComponentRender := pure (bodyText "Modal content here" theme)
@@ -98,6 +116,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
     let btn3 ← outlineBtn.render
     let btn4 ← ghostBtn.render
     let sw1 ← switch1.render
+    let sw2 ← switch2.render
     let dd1 ← dropdown1.render
     let radios ← radioGroup.render
     let tvw ← tabView.render
@@ -107,6 +126,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
     let sl2 ← slider2.render
     let ti1 ← textInput1.render
     let ti2 ← textInput2.render
+    let ta ← textArea.render
     let modalTrig ← modalTrigger.render
     let modalWidget ← modal.render
     pure (column (gap := 20) (style := {
@@ -121,7 +141,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
         if clickCount > 0 then caption s!"(Clicks: {clickCount})" theme else spacer 0 0
       ],
       row (gap := 8) (style := {}) #[btn1, btn2, btn3, btn4],
-      sw1,
+      row (gap := 24) (style := {}) #[sw1, sw2],
       dd1,
       radios,
       tvw,
@@ -129,6 +149,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
       row (gap := 16) (style := {}) #[sl1, sl2],
       ti1,
       ti2,
+      ta,
       modalTrig,
       modalWidget
     ])

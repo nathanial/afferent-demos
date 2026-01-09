@@ -116,11 +116,13 @@ structure TextAreaComponent where
   render : ComponentRender
 
 /-- Create a self-contained text area component.
-    Similar to textInput but with multi-line support. -/
+    Similar to textInput but with multi-line support.
+    Requires a Font for text measurement during render state computation. -/
 def textArea (name : String) (theme : Theme) (placeholder : String)
     (initialState : TextAreaState)
     (focusedInput : Dynamic Spider (Option String))
     (setFocusedInput : Option String → IO Unit)
+    (font : Afferent.Font)
     (width : Float := 280) (height : Float := 120)
     : ReactiveM TextAreaComponent := do
   let ctx ← liftSpider SpiderM.getTimelineCtx
@@ -146,14 +148,21 @@ def textArea (name : String) (theme : Theme) (placeholder : String)
 
   -- Wire keyboard events (when focused)
   let keyEvents ← useKeyboard
+  let padding : Float := 8.0
+  let contentWidth := width - padding * 2
+  let viewportHeight := height - padding * 2
   let _ ← liftSpider <| SpiderM.liftIO <| keyEvents.subscribe fun keyData => do
     let focused ← focusedInput.sample
     if focused == some name then
       let current ← textState.sample
       let updated := TextArea.handleKeyPress keyData.event current none
-      setTextState updated
-      if updated.value != current.value then
-        fireChange updated.value
+      -- Compute render state with font measurements
+      let renderedState ← TextArea.computeRenderState font updated contentWidth padding
+      -- Auto-scroll to keep cursor visible
+      let scrolledState := TextArea.scrollToCursor renderedState viewportHeight
+      setTextState scrolledState
+      if scrolledState.value != current.value then
+        fireChange scrolledState.value
 
   -- Wire blur detection
   let allClicks ← useAllClicks
