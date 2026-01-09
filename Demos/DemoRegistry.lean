@@ -22,7 +22,10 @@ import Demos.TextureMatrix
 import Demos.OrbitalInstanced
 import Demos.WorldmapDemo
 import Demos.CanopyShowcase
-import Demos.ReactiveShowcase
+import Demos.ReactiveShowcase.App
+import Demos.ReactiveShowcase.Component
+import Demos.ReactiveShowcase.Inputs
+import Demos.ReactiveShowcase.Types
 import Reactive.Host.Spider
 import Worldmap
 
@@ -69,14 +72,14 @@ structure WorldmapState where
 
 /-- State for the reactive showcase demo, keeping the SpiderEnv alive. -/
 structure ReactiveShowcaseDemoState where
-  /-- The reactive state with all dynamics. -/
-  state : ReactiveShowcase.ReactiveShowcaseState
-  /-- Trigger functions to fire events. -/
+  /-- The app state with render function. -/
+  appState : ReactiveShowcase.AppState
+  /-- The reactive inputs for firing events. -/
   inputs : ReactiveShowcase.ReactiveInputs
   /-- The Spider environment (keeps subscriptions alive). -/
   spiderEnv : Reactive.Host.SpiderEnv
-  /-- Cached snapshot for rendering (sampled in update). -/
-  snapshot : ReactiveShowcase.ReactiveShowcaseSnapshot
+  /-- Cached widget from last render (updated each frame). -/
+  cachedWidget : Afferent.Arbor.WidgetBuilder
 
 /-- Demo state mapping by id. -/
 def DemoState : DemoId → Type
@@ -142,19 +145,25 @@ private def demoFontsFromEnv (env : DemoEnv) : DemoFonts := {
   huge := env.fontHugeId
 }
 
-private partial def findWidgetIdByName (widget : Afferent.Arbor.Widget)
-    (target : String) : Option Afferent.Arbor.WidgetId :=
-  let widgetName := Afferent.Arbor.Widget.name? widget
-  match widgetName with
-  | some name =>
-      if name == target then
-        some (Afferent.Arbor.Widget.id widget)
-      else
-        findInChildren widget target
-  | none =>
-      findInChildren widget target
+private def findWidgetIdByName (widget : Afferent.Arbor.Widget)
+    (target : String) (maxDepth : Nat := 100) : Option Afferent.Arbor.WidgetId :=
+  go widget target maxDepth
 where
-  findInChildren (widget : Afferent.Arbor.Widget) (target : String)
+  go (widget : Afferent.Arbor.Widget) (target : String) (fuel : Nat)
+      : Option Afferent.Arbor.WidgetId :=
+    match fuel with
+    | 0 => none  -- Depth limit reached
+    | fuel' + 1 =>
+      let widgetName := Afferent.Arbor.Widget.name? widget
+      match widgetName with
+      | some name =>
+          if name == target then
+            some (Afferent.Arbor.Widget.id widget)
+          else
+            findInChildren widget target fuel'
+      | none =>
+          findInChildren widget target fuel'
+  findInChildren (widget : Afferent.Arbor.Widget) (target : String) (fuel : Nat)
       : Option Afferent.Arbor.WidgetId :=
     let children := Afferent.Arbor.Widget.children widget
     let rec loop (idx : Nat) : Option Afferent.Arbor.WidgetId :=
@@ -163,7 +172,7 @@ where
       else
         match children[idx]? with
         | some child =>
-            match findWidgetIdByName child target with
+            match go child target fuel with
             | some result => some result
             | none => loop (idx + 1)
         | none => loop (idx + 1)
@@ -609,54 +618,45 @@ instance : Demo .reactiveShowcase where
     -- Create SpiderEnv manually (don't use runFresh which disposes scope)
     let spiderEnv ← Reactive.Host.SpiderEnv.new Reactive.Host.defaultErrorHandler
 
-    -- Run the network setup within the env
-    let (state, inputs) ← (do
+    -- Run the app setup within the env
+    let (appState, inputs) ← (do
       let (events, inputs) ← ReactiveShowcase.createInputs
-      let state ← ReactiveShowcase.setupNetwork events env
-      pure (state, inputs)
+      let appState ← ReactiveShowcase.ReactiveM.run events (ReactiveShowcase.createApp env)
+      pure (appState, inputs)
     ).run spiderEnv
 
     -- Fire post-build event (but don't dispose!)
     spiderEnv.postBuildTrigger ()
 
-    -- Sample initial snapshot for rendering
-    let snapshot ← state.snapshot
+    -- Initial render
+    let initialWidget ← appState.render
 
-    pure { state, inputs, spiderEnv, snapshot }
+    pure { appState, inputs, spiderEnv, cachedWidget := initialWidget }
 
   update := fun env state => do
     -- Fire animation frame event with delta time
     state.inputs.fireAnimationFrame env.dt
-    -- Sample all dynamics to update the cached snapshot
-    let snapshot ← state.state.snapshot
-    pure { state with snapshot }
+    -- Re-render (samples all dynamics)
+    let widget ← state.appState.render
+    pure { state with cachedWidget := widget }
 
-  view := fun env state => some do
-    -- Use the cached snapshot (sampled in update)
-    ReactiveShowcase.reactiveShowcaseWidget env.fontCanopyId env.fontCanopySmallId env.screenScale state.snapshot
+  view := fun _env state => some state.cachedWidget
 
   handleClickWithLayouts := fun _env state _contentId hitPath click layouts widget => do
-    -- Fire click event into reactive network (NO widget enumeration!)
+    -- Fire click event into reactive network
     let clickData : ReactiveShowcase.ClickData := { click, hitPath, widget, layouts }
     state.inputs.fireClick clickData
-    -- Resample after event to update snapshot
-    let snapshot ← state.state.snapshot
-    pure { state with snapshot }
+    pure state
 
   handleHoverWithLayouts := fun _env state _contentId hitPath mouseX mouseY layouts widget => do
     let hoverData : ReactiveShowcase.HoverData := { x := mouseX, y := mouseY, hitPath, widget, layouts }
     state.inputs.fireHover hoverData
-    -- Resample after event to update snapshot
-    let snapshot ← state.state.snapshot
-    pure { state with snapshot }
+    pure state
 
   handleKey := fun _env state keyEvent => do
-    let focused ← state.state.focusedInput.sample
-    let keyData : ReactiveShowcase.KeyData := { event := keyEvent, focusedWidget := focused }
+    let keyData : ReactiveShowcase.KeyData := { event := keyEvent, focusedWidget := none }
     state.inputs.fireKey keyData
-    -- Resample after event to update snapshot
-    let snapshot ← state.state.snapshot
-    pure { state with snapshot }
+    pure state
 
   step := fun c _ s => pure (c, s)
 
