@@ -39,55 +39,46 @@ def textInput (name : String) (theme : Theme) (placeholder : String)
     (focusedInput : Dynamic Spider (Option String))
     (fireFocusedInput : Option String → IO Unit)
     : ReactiveM TextInputComponent := do
-  -- Create internal text/cursor state using proper FRP pattern
-  let (textStateEvent, fireTextState) ← liftSpider <| newTriggerEvent (t := Spider) (a := TextInputState)
-  let textState ← liftSpider <| holdDyn ({
+  -- Get event streams
+  let clicks ← useClick name
+  let keyEvents ← useKeyboard
+
+  -- Derive isFocused from shared focusedInput
+  let isFocused ← liftSpider <| Dynamic.mapM (· == some name) focusedInput
+
+  -- Detect focus/blur from focusedInput changes
+  let focusChanges ← liftSpider <| Dynamic.changesM focusedInput
+  let focusEvents ← liftSpider <| Event.filterM
+    (fun (old, new) => old != some name && new == some name) focusChanges
+  let onFocus ← liftSpider <| Event.mapM (fun _ => ()) focusEvents
+  let blurEvents ← liftSpider <| Event.filterM
+    (fun (old, new) => old == some name && new != some name) focusChanges
+  let onBlur ← liftSpider <| Event.mapM (fun _ => ()) blurEvents
+
+  -- Focus click: gate by not-already-focused, then call external fireFocusedInput
+  -- Pure FRP: map to IO action and use performEvent_
+  let notFocused ← liftSpider <| Dynamic.mapM (· != some name) focusedInput
+  let focusClicks ← liftSpider <| Event.gateM notFocused.current clicks
+  let focusAction ← liftSpider <| Event.mapM (fun _ => fireFocusedInput (some name)) focusClicks
+  liftSpider <| performEvent_ focusAction
+
+  -- Text state: gate keyboard by focused, accumulate with foldDyn
+  let gatedKeys ← liftSpider <| Event.gateM isFocused.current keyEvents
+  let initialState : TextInputState := {
     value := initialValue
     cursor := initialValue.length
-    cursorPixelX := 0.0  -- Will be updated on first render
-  } : TextInputState) textStateEvent
+    cursorPixelX := 0.0
+  }
+  let textState ← liftSpider <| foldDyn
+    (fun keyData state => TextInput.handleKeyPress keyData.event state none)
+    initialState gatedKeys
 
-  -- Create events
-  let (onChange, fireChange) ← liftSpider <| newTriggerEvent (t := Spider) (a := String)
-  let (onFocus, fireFocus) ← liftSpider <| newTriggerEvent (t := Spider) (a := Unit)
-  let (onBlur, fireBlur) ← liftSpider <| newTriggerEvent (t := Spider) (a := Unit)
-
-  -- Track previous focus state for blur detection
-  let (wasFocusedEvent, fireWasFocused) ← liftSpider <| newTriggerEvent (t := Spider) (a := Bool)
-  let wasFocused ← liftSpider <| holdDyn false wasFocusedEvent
-
-  -- Wire click to focus
-  let clicks ← useClick name
-  let _ ← liftSpider <| SpiderM.liftIO <| clicks.subscribe fun _ => do
-    let prev ← focusedInput.sample
-    if prev != some name then
-      fireFocusedInput (some name)
-      fireFocus ()
-
-  -- Wire keyboard events (when focused)
-  let keyEvents ← useKeyboard
-  let _ ← liftSpider <| SpiderM.liftIO <| keyEvents.subscribe fun keyData => do
-    let focused ← focusedInput.sample
-    if focused == some name then
-      let current ← textState.sample
-      let updated := TextInput.handleKeyPress keyData.event current none
-      fireTextState updated
-      if updated.value != current.value then
-        fireChange updated.value
-
-  -- Wire blur detection
-  let allClicks ← useAllClicks
-  let _ ← liftSpider <| SpiderM.liftIO <| allClicks.subscribe fun _ => do
-    let wasFoc ← wasFocused.sample
-    let currentFoc ← focusedInput.sample
-    if wasFoc && currentFoc != some name then
-      fireWasFocused false
-      fireBlur ()
-    else if currentFoc == some name then
-      fireWasFocused true
-
-  -- Create derived isFocused Dynamic
-  let isFocused ← liftSpider <| Dynamic.mapM (· == some name) focusedInput
+  -- onChange: detect when text value changes
+  let textChanges ← liftSpider <| Dynamic.changesM textState
+  let valueChanges ← liftSpider <| Event.mapMaybeM
+    (fun (old, new) => if old.value != new.value then some new.value else none)
+    textChanges
+  let onChange := valueChanges
 
   -- Create text Dynamic (just the value string)
   let text ← liftSpider <| Dynamic.mapM (·.value) textState
@@ -127,58 +118,47 @@ def textArea (name : String) (theme : Theme) (placeholder : String)
     (font : Afferent.Font)
     (width : Float := 280) (height : Float := 120)
     : ReactiveM TextAreaComponent := do
-  -- Create internal text state using proper FRP pattern
-  let (textStateEvent, fireTextState) ← liftSpider <| newTriggerEvent (t := Spider) (a := TextAreaState)
-  let textState ← liftSpider <| holdDyn initialState textStateEvent
-
-  -- Create events
-  let (onChange, fireChange) ← liftSpider <| newTriggerEvent (t := Spider) (a := String)
-  let (onFocus, fireFocus) ← liftSpider <| newTriggerEvent (t := Spider) (a := Unit)
-  let (onBlur, fireBlur) ← liftSpider <| newTriggerEvent (t := Spider) (a := Unit)
-
-  -- Track previous focus state for blur detection
-  let (wasFocusedEvent, fireWasFocused) ← liftSpider <| newTriggerEvent (t := Spider) (a := Bool)
-  let wasFocused ← liftSpider <| holdDyn false wasFocusedEvent
-
-  -- Wire click to focus
+  -- Get event streams
   let clicks ← useClick name
-  let _ ← liftSpider <| SpiderM.liftIO <| clicks.subscribe fun _ => do
-    let prev ← focusedInput.sample
-    if prev != some name then
-      fireFocusedInput (some name)
-      fireFocus ()
-
-  -- Wire keyboard events (when focused)
   let keyEvents ← useKeyboard
+
+  -- Derive isFocused from shared focusedInput
+  let isFocused ← liftSpider <| Dynamic.mapM (· == some name) focusedInput
+
+  -- Detect focus/blur from focusedInput changes
+  let focusChanges ← liftSpider <| Dynamic.changesM focusedInput
+  let focusEvents ← liftSpider <| Event.filterM
+    (fun (old, new) => old != some name && new == some name) focusChanges
+  let onFocus ← liftSpider <| Event.mapM (fun _ => ()) focusEvents
+  let blurEvents ← liftSpider <| Event.filterM
+    (fun (old, new) => old == some name && new != some name) focusChanges
+  let onBlur ← liftSpider <| Event.mapM (fun _ => ()) blurEvents
+
+  -- Focus click: gate by not-already-focused, then call external fireFocusedInput
+  -- Pure FRP: map to IO action and use performEvent_
+  let notFocused ← liftSpider <| Dynamic.mapM (· != some name) focusedInput
+  let focusClicks ← liftSpider <| Event.gateM notFocused.current clicks
+  let focusAction ← liftSpider <| Event.mapM (fun _ => fireFocusedInput (some name)) focusClicks
+  liftSpider <| performEvent_ focusAction
+
+  -- Text state: gate keyboard by focused, use foldDynM for IO operations (font measurement)
+  let gatedKeys ← liftSpider <| Event.gateM isFocused.current keyEvents
   let padding : Float := 8.0
   let contentWidth := width - padding * 2
   let viewportHeight := height - padding * 2
-  let _ ← liftSpider <| SpiderM.liftIO <| keyEvents.subscribe fun keyData => do
-    let focused ← focusedInput.sample
-    if focused == some name then
-      let current ← textState.sample
-      let updated := TextArea.handleKeyPress keyData.event current none
-      -- Compute render state with font measurements
+  let textState ← liftSpider <| foldDynM
+    (fun keyData state => do
+      let updated := TextArea.handleKeyPress keyData.event state none
       let renderedState ← TextArea.computeRenderState font updated contentWidth padding
-      -- Auto-scroll to keep cursor visible
-      let scrolledState := TextArea.scrollToCursor renderedState viewportHeight
-      fireTextState scrolledState
-      if scrolledState.value != current.value then
-        fireChange scrolledState.value
+      pure (TextArea.scrollToCursor renderedState viewportHeight))
+    initialState gatedKeys
 
-  -- Wire blur detection
-  let allClicks ← useAllClicks
-  let _ ← liftSpider <| SpiderM.liftIO <| allClicks.subscribe fun _ => do
-    let wasFoc ← wasFocused.sample
-    let currentFoc ← focusedInput.sample
-    if wasFoc && currentFoc != some name then
-      fireWasFocused false
-      fireBlur ()
-    else if currentFoc == some name then
-      fireWasFocused true
-
-  -- Create derived isFocused Dynamic
-  let isFocused ← liftSpider <| Dynamic.mapM (· == some name) focusedInput
+  -- onChange: detect when text value changes
+  let textChanges ← liftSpider <| Dynamic.changesM textState
+  let valueChanges ← liftSpider <| Event.mapMaybeM
+    (fun (old, new) => if old.value != new.value then some new.value else none)
+    textChanges
+  let onChange := valueChanges
 
   -- Create text Dynamic (just the value string)
   let text ← liftSpider <| Dynamic.mapM (·.value) textState

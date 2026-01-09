@@ -35,34 +35,26 @@ structure RadioGroupComponent where
 def radioGroup (options : Array RadioOption) (theme : Theme)
     (initialSelection : String)
     : ReactiveM RadioGroupComponent := do
-  -- Create selection state using proper FRP pattern
-  let (selectedEvent, fireSelected) ← liftSpider <| newTriggerEvent (t := Spider) (a := String)
-  let selected ← liftSpider <| holdDyn initialSelection selectedEvent
-
-  -- Create hovered option state
-  let (hoveredEvent, fireHovered) ← liftSpider <| newTriggerEvent (t := Spider) (a := Option String)
-  let hoveredOption ← liftSpider <| holdDyn none hoveredEvent
-
-  -- onSelect is the same as selectedEvent for external consumers
-  let onSelect := selectedEvent
-
-  -- Wire all clicks (check which option was clicked)
+  -- Get event streams
   let allClicks ← useAllClicks
-  let _ ← liftSpider <| SpiderM.liftIO <| allClicks.subscribe fun data => do
-    for opt in options do
-      if hitWidget data opt.name then
-        fireSelected opt.value
-        break
-
-  -- Wire hover events for options
   let allHovers ← useAllHovers
-  let _ ← liftSpider <| SpiderM.liftIO <| allHovers.subscribe fun data => do
-    let mut hovered : Option String := none
-    for opt in options do
-      if hitWidgetHover data opt.name then
-        hovered := some opt.name
-        break
-    fireHovered hovered
+
+  -- Helper: find which option was clicked
+  let findClickedOption (data : ClickData) : Option String :=
+    options.findSome? fun opt => if hitWidget data opt.name then some opt.value else none
+
+  -- Helper: find which option is hovered
+  let findHoveredOption (data : HoverData) : Option String :=
+    options.findSome? fun opt => if hitWidgetHover data opt.name then some opt.name else none
+
+  -- Pure FRP: mapMaybeM extracts clicked option, holdDyn holds selection
+  let selectionChanges ← liftSpider <| Event.mapMaybeM findClickedOption allClicks
+  let selected ← liftSpider <| holdDyn initialSelection selectionChanges
+  let onSelect := selectionChanges
+
+  -- Pure FRP: mapM extracts hovered option, holdDyn holds current
+  let hoverChanges ← liftSpider <| Event.mapM findHoveredOption allHovers
+  let hoveredOption ← liftSpider <| holdDyn none hoverChanges
 
   -- Capture options for render closure
   let optionsRef := options

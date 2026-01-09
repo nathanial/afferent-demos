@@ -87,27 +87,35 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
   let textInput2 ← Components.textInput textInput2Name theme "Type something..." "Hello, World!" focusedInput fireFocusedInput
   let textArea ← Components.textArea textAreaName theme "Enter multi-line text..." {} focusedInput fireFocusedInput env.fontCanopy
 
-  -- Clear focus when clicking non-input widgets (pragmatic subscribe - TODO: refactor to pure FRP)
+  -- Clear focus when clicking non-input widgets
+  -- Helper: check if click is on a focusable input
+  let isInputClick (data : ClickData) : Bool :=
+    hitWidget data textInput1Name || hitWidget data textInput2Name || hitWidget data textAreaName
+
+  -- Helper: check if click is on an interactive non-input widget
+  let isNonInputInteractiveClick (data : ClickData) : Bool :=
+    let clickedButton := hitWidget data btnPrimaryName || hitWidget data btnSecondaryName ||
+                        hitWidget data btnOutlineName || hitWidget data btnGhostName
+    let clickedCheckbox := hitWidget data checkbox1Name || hitWidget data checkbox2Name
+    let clickedRadio := hitWidget data radio1Name || hitWidget data radio2Name || hitWidget data radio3Name
+    let clickedSwitch := hitWidget data switch1Name || hitWidget data switch2Name
+    let clickedSlider := hitWidget data slider1Name || hitWidget data slider2Name
+    clickedButton || clickedCheckbox || clickedRadio || clickedSwitch || clickedSlider
+
   let allClicks ← useAllClicks
-  let _ ← liftSpider <| SpiderM.liftIO <| allClicks.subscribe fun data => do
-    let clickedInput1 := hitWidget data textInput1Name
-    let clickedInput2 := hitWidget data textInput2Name
-    let clickedTextArea := hitWidget data textAreaName
-    if !clickedInput1 && !clickedInput2 && !clickedTextArea then
-      let clickedButton := hitWidget data btnPrimaryName || hitWidget data btnSecondaryName ||
-                          hitWidget data btnOutlineName || hitWidget data btnGhostName
-      let clickedCheckbox := hitWidget data checkbox1Name || hitWidget data checkbox2Name
-      let clickedRadio := hitWidget data radio1Name || hitWidget data radio2Name || hitWidget data radio3Name
-      let clickedSwitch := hitWidget data switch1Name || hitWidget data switch2Name
-      let clickedSlider := hitWidget data slider1Name || hitWidget data slider2Name
-      if clickedButton || clickedCheckbox || clickedRadio || clickedSwitch || clickedSlider then
-        fireFocusedInput none
+  let nonInputClicks ← liftSpider <| Event.filterM
+    (fun data => !isInputClick data && isNonInputInteractiveClick data) allClicks
+  -- Pure FRP: map to IO action and use performEvent_
+  let clearFocusAction ← liftSpider <| Event.mapM (fun _ => fireFocusedInput none) nonInputClicks
+  liftSpider <| performEvent_ clearFocusAction
 
   -- Add modal
   let modalContent : ComponentRender := pure (bodyText "Modal content here" theme)
   let modal ← Components.modal modalName modalBackdropName modalCloseName "Test Modal" theme modalContent
   let modalTrigger ← Components.button modalTriggerName "Open Modal" theme .primary
-  let _ ← liftSpider <| SpiderM.liftIO <| modalTrigger.onClick.subscribe fun _ => modal.openModal
+  -- Pure FRP: map to IO action and use performEvent_
+  let openModalAction ← liftSpider <| Event.mapM (fun _ => modal.openModal) modalTrigger.onClick
+  liftSpider <| performEvent_ openModalAction
 
   let render : ComponentRender := do
     let clickCount ← buttonClickCount.sample

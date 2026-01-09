@@ -34,38 +34,30 @@ def switch (name : String) (label : Option String) (theme : Theme)
   -- Create internal hover state
   let isHovered ← useHover name
 
-  -- Create internal on/off state using proper FRP pattern
-  let (isOnEvent, fireIsOn) ← liftSpider <| newTriggerEvent (t := Spider) (a := Bool)
-  let isOn ← liftSpider <| holdDyn initialOn isOnEvent
-
-  -- Create animation progress state (starts at target position)
-  let initialAnim := if initialOn then 1.0 else 0.0
-  let (animProgressEvent, fireAnimProgress) ← liftSpider <| newTriggerEvent (t := Spider) (a := Float)
-  let animProgress ← liftSpider <| holdDyn initialAnim animProgressEvent
-
-  -- Create onToggle event (same as isOnEvent for external consumers)
-  let onToggle := isOnEvent
-
-  -- Wire click to toggle state
+  -- Get event streams
   let clicks ← useClick name
-  let _ ← liftSpider <| SpiderM.liftIO <| clicks.subscribe fun _ => do
-    let current ← isOn.sample
-    let newValue := !current
-    fireIsOn newValue
-
-  -- Wire animation frame to update animation progress
   let animFrames ← useAnimationFrame
-  let _ ← liftSpider <| SpiderM.liftIO <| animFrames.subscribe fun dt => do
-    let animSpeed := 8.0
-    let rawFactor := animSpeed * dt
-    let lerpFactor := if rawFactor > 1.0 then 1.0 else rawFactor
 
-    let on ← isOn.sample
-    let anim ← animProgress.sample
-    let target := if on then 1.0 else 0.0
-    let diff := target - anim
-    let newAnim := if diff.abs < 0.01 then target else anim + diff * lerpFactor
-    fireAnimProgress newAnim
+  -- Pure FRP: foldDyn toggles state on each click
+  let isOn ← liftSpider <| foldDyn (fun _ on => !on) initialOn clicks
+  let onToggle := isOn.updated
+
+  -- Animation requires fixDynM for self-referential state:
+  -- animProgress depends on animFrames AND its own current value
+  let initialAnim := if initialOn then 1.0 else 0.0
+  let animProgress ← liftSpider <| SpiderM.fixDynM fun animBehavior => do
+    -- Attach current animation value AND isOn state to each frame
+    let updateEvent ← Event.attachWithM
+      (fun (anim, on) dt =>
+        let animSpeed := 8.0
+        let rawFactor := animSpeed * dt
+        let lerpFactor := if rawFactor > 1.0 then 1.0 else rawFactor
+        let target := if on then 1.0 else 0.0
+        let diff := target - anim
+        if diff.abs < 0.01 then target else anim + diff * lerpFactor)
+      (Behavior.zipWith Prod.mk animBehavior isOn.current)
+      animFrames
+    holdDyn initialAnim updateEvent
 
   -- Render function samples state at render time
   let render : ComponentRender := do

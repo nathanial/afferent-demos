@@ -32,19 +32,16 @@ def slider (name : String) (label : Option String) (theme : Theme)
   -- Create internal hover state
   let isHovered ← useHover name
 
-  -- Create internal value state using proper FRP pattern
-  let (valueEvent, fireValue) ← liftSpider <| newTriggerEvent (t := Spider) (a := Float)
-  let value ← liftSpider <| holdDyn initialValue valueEvent
-
-  -- onChange is the same as valueEvent for external consumers
-  let onChange := valueEvent
-
-  -- Wire clicks to update value based on click position
+  -- Get click events with position data
   let clicks ← useClickData name
-  let _ ← liftSpider <| SpiderM.liftIO <| clicks.subscribe fun data => do
-    match calculateSliderValue data.click.x data.layouts data.widget name with
-    | some v => fireValue v
-    | none => pure ()
+
+  -- Pure FRP: mapMaybeM extracts valid slider values, holdDyn holds latest
+  let valueChanges ← liftSpider <| Event.mapMaybeM
+    (fun data => calculateSliderValue data.click.x data.layouts data.widget name) clicks
+  let value ← liftSpider <| holdDyn initialValue valueChanges
+
+  -- onChange fires with valid value changes
+  let onChange := valueChanges
 
   -- Render function samples state at render time
   let render : ComponentRender := do

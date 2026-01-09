@@ -35,34 +35,28 @@ def tabView (containerName : String) (headerNameFn : Nat → String)
     (tabs : Array TabDef) (theme : Theme)
     (initialTab : Nat)
     : ReactiveM TabViewComponent := do
-  -- Create active tab state using proper FRP pattern
-  let (activeTabEvent, fireActiveTab) ← liftSpider <| newTriggerEvent (t := Spider) (a := Nat)
-  let activeTab ← liftSpider <| holdDyn initialTab activeTabEvent
-
-  -- Create hovered tab state (Option Nat)
-  let (hoveredTabEvent, fireHoveredTab) ← liftSpider <| newTriggerEvent (t := Spider) (a := Option Nat)
-  let hoveredTab ← liftSpider <| holdDyn none hoveredTabEvent
-
-  -- onTabChange is the same as activeTabEvent for external consumers
-  let onTabChange := activeTabEvent
-
-  -- Wire all clicks (check which tab header was clicked)
+  -- Get event streams
   let allClicks ← useAllClicks
-  let _ ← liftSpider <| SpiderM.liftIO <| allClicks.subscribe fun data => do
-    for i in [:tabs.size] do
-      if hitWidget data (headerNameFn i) then
-        fireActiveTab i
-        break
-
-  -- Wire hover events for tab headers
   let allHovers ← useAllHovers
-  let _ ← liftSpider <| SpiderM.liftIO <| allHovers.subscribe fun data => do
-    let mut hovered : Option Nat := none
-    for i in [:tabs.size] do
-      if hitWidgetHover data (headerNameFn i) then
-        hovered := some i
-        break
-    fireHoveredTab hovered
+
+  -- Helper: find clicked tab index
+  let findClickedTab (data : ClickData) : Option Nat :=
+    (List.range tabs.size).findSome? fun i =>
+      if hitWidget data (headerNameFn i) then some i else none
+
+  -- Helper: find hovered tab index
+  let findHoveredTab (data : HoverData) : Option Nat :=
+    (List.range tabs.size).findSome? fun i =>
+      if hitWidgetHover data (headerNameFn i) then some i else none
+
+  -- Pure FRP: mapMaybeM + holdDyn for active tab
+  let tabChanges ← liftSpider <| Event.mapMaybeM findClickedTab allClicks
+  let activeTab ← liftSpider <| holdDyn initialTab tabChanges
+  let onTabChange := tabChanges
+
+  -- Pure FRP: mapM + holdDyn for hovered tab
+  let hoverChanges ← liftSpider <| Event.mapM findHoveredTab allHovers
+  let hoveredTab ← liftSpider <| holdDyn none hoverChanges
 
   -- Capture tabs for render closure
   let tabsRef := tabs

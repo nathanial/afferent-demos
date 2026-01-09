@@ -35,62 +35,59 @@ def dropdown (containerName : String) (triggerName : String)
   -- Create trigger hover state
   let isTriggerHovered ← useHover triggerName
 
-  -- Create open/close state using proper FRP pattern
-  let (isOpenEvent, fireIsOpen) ← liftSpider <| newTriggerEvent (t := Spider) (a := Bool)
-  let isOpen ← liftSpider <| holdDyn false isOpenEvent
-
-  -- Create selection state
-  let (selectionEvent, fireSelection) ← liftSpider <| newTriggerEvent (t := Spider) (a := Nat)
-  let selection ← liftSpider <| holdDyn initialSelection selectionEvent
-
-  -- Create hovered option state
-  let (hoveredEvent, fireHovered) ← liftSpider <| newTriggerEvent (t := Spider) (a := Option Nat)
-  let hoveredOption ← liftSpider <| holdDyn none hoveredEvent
-
-  -- onSelect is the same as selectionEvent for external consumers
-  let onSelect := selectionEvent
-
-  -- Wire trigger clicks to toggle open
+  -- Get event streams
   let triggerClicks ← useClick triggerName
-  let _ ← liftSpider <| SpiderM.liftIO <| triggerClicks.subscribe fun _ => do
-    let current ← isOpen.sample
-    fireIsOpen (!current)
-
-  -- Wire all clicks (handles option clicks and click-outside)
   let allClicks ← useAllClicks
-  let _ ← liftSpider <| SpiderM.liftIO <| allClicks.subscribe fun data => do
-    let open_ ← isOpen.sample
-    -- Check if an option was clicked
-    let mut clickedOption : Option Nat := none
-    for i in [:options.size] do
-      if hitWidget data (optionNameFn i) then
-        clickedOption := some i
-        break
-    match clickedOption with
-    | some i =>
-        fireSelection i
-        fireIsOpen false
-    | none =>
-        -- Check for click-outside to close
-        if open_ then
-          let clickedDropdown := hitWidget data containerName
-          let clickedTrigger := hitWidget data triggerName
-          if !clickedDropdown && !clickedTrigger then
-            fireIsOpen false
-
-  -- Wire hover events for options
   let allHovers ← useAllHovers
-  let _ ← liftSpider <| SpiderM.liftIO <| allHovers.subscribe fun data => do
-    let open_ ← isOpen.sample
-    if open_ then
-      let mut hoveredOpt : Option Nat := none
-      for i in [:options.size] do
-        if hitWidgetHover data (optionNameFn i) then
-          hoveredOpt := some i
-          break
-      fireHovered hoveredOpt
-    else
-      fireHovered none
+
+  -- Helper: find clicked option index
+  let findClickedOption (data : ClickData) : Option Nat :=
+    (List.range options.size).findSome? fun i =>
+      if hitWidget data (optionNameFn i) then some i else none
+
+  -- Helper: check if click is outside dropdown
+  let isClickOutside (data : ClickData) : Bool :=
+    !hitWidget data containerName && !hitWidget data triggerName
+
+  -- Helper: find hovered option
+  let findHoveredOption (data : HoverData) : Option Nat :=
+    (List.range options.size).findSome? fun i =>
+      if hitWidgetHover data (optionNameFn i) then some i else none
+
+  -- Extract option clicks
+  let optionClicks ← liftSpider <| Event.mapMaybeM findClickedOption allClicks
+
+  -- Selection: updated on option clicks
+  let selection ← liftSpider <| holdDyn initialSelection optionClicks
+  let onSelect := optionClicks
+
+  -- isOpen: use fixDynM because click-outside depends on current isOpen state
+  let isOpen ← liftSpider <| SpiderM.fixDynM fun isOpenBehavior => do
+    -- Toggle on trigger click
+    let toggleEvents ← Event.mapM (fun _ => fun open_ => !open_) triggerClicks
+
+    -- Close on option click
+    let closeOnOption ← Event.mapM (fun _ => fun _ => false) optionClicks
+
+    -- Close on click-outside (gated by isOpen)
+    let outsideClicks ← Event.filterM isClickOutside allClicks
+    let gatedOutside ← Event.gateM isOpenBehavior outsideClicks
+    let closeOnOutside ← Event.mapM (fun _ => fun _ => false) gatedOutside
+
+    -- Merge all state transitions (leftmost wins on simultaneous)
+    let allTransitions ← Event.leftmostM [closeOnOption, closeOnOutside, toggleEvents]
+
+    -- Apply transitions to state
+    foldDyn (fun f s => f s) false allTransitions
+
+  -- Hovered option: gated by isOpen
+  let hoverChanges ← liftSpider <| Event.mapM findHoveredOption allHovers
+  let gatedHover ← liftSpider <| Event.gateM isOpen.current hoverChanges
+  -- When closed, reset hover to none
+  let closeEvents ← liftSpider <| Event.filterM (fun open_ => !open_) isOpen.updated
+  let resetHover ← liftSpider <| Event.mapM (fun _ => (none : Option Nat)) closeEvents
+  let mergedHover ← liftSpider <| Event.mergeM gatedHover resetHover
+  let hoveredOption ← liftSpider <| holdDyn none mergedHover
 
   -- Render function samples all state
   let render : ComponentRender := do

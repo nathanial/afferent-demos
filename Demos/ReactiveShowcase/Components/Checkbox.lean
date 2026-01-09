@@ -66,19 +66,14 @@ def checkbox (name : String) (label : String) (theme : Theme)
   -- Create internal hover state
   let isHovered ← useHover name
 
-  -- Create internal checked state using proper FRP pattern
-  let (isCheckedEvent, fireIsChecked) ← liftSpider <| newTriggerEvent (t := Spider) (a := Bool)
-  let isChecked ← liftSpider <| holdDyn initialChecked isCheckedEvent
-
-  -- onToggle is the same as isCheckedEvent for external consumers
-  let onToggle := isCheckedEvent
-
-  -- Wire click to toggle checked state
+  -- Get click events
   let clicks ← useClick name
-  let _ ← liftSpider <| SpiderM.liftIO <| clicks.subscribe fun _ => do
-    let current ← isChecked.sample
-    let newValue := !current
-    fireIsChecked newValue
+
+  -- Pure FRP: foldDyn toggles state on each click
+  let isChecked ← liftSpider <| foldDyn (fun _ checked => !checked) initialChecked clicks
+
+  -- onToggle fires with the new value after each toggle
+  let onToggle := isChecked.updated
 
   -- Render function samples state at render time
   let render : ComponentRender := do
