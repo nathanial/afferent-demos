@@ -152,6 +152,57 @@ def menuPanel (theme : Theme) : WidgetM Unit :=
       ) menuResult.onSelect)
       pure ()
 
+/-- MenuBar panel - demonstrates horizontal menu bar with multiple dropdown menus. -/
+def menuBarPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "MenuBar" .outlined theme do
+    caption' "Click menu triggers, hover to switch while open:" theme
+    let fileMenu : MenuBarMenu := {
+      label := "File"
+      items := #[
+        MenuItem.action "New",
+        MenuItem.action "Open",
+        MenuItem.action "Save",
+        MenuItem.separator,
+        MenuItem.action "Exit"
+      ]
+    }
+    let editMenu : MenuBarMenu := {
+      label := "Edit"
+      items := #[
+        MenuItem.action "Cut",
+        MenuItem.action "Copy",
+        MenuItem.action "Paste",
+        MenuItem.separator,
+        MenuItem.submenu "Format" #[
+          MenuItem.action "Bold",
+          MenuItem.action "Italic",
+          MenuItem.action "Underline"
+        ]
+      ]
+    }
+    let viewMenu : MenuBarMenu := {
+      label := "View"
+      items := #[
+        MenuItem.action "Zoom In",
+        MenuItem.action "Zoom Out",
+        MenuItem.separator,
+        MenuItem.action "Full Screen"
+      ]
+    }
+    let helpMenu : MenuBarMenu := {
+      label := "Help"
+      items := #[
+        MenuItem.action "Documentation",
+        MenuItem.action "About"
+      ]
+      enabled := true
+    }
+    let result ← menuBar #[fileMenu, editMenu, viewMenu, helpMenu] theme
+    let _ ← performEvent_ (← Event.mapM (fun path => do
+      IO.println s!"MenuBar selected: menu {path.menuIndex}, path {path.itemPath.toList}"
+    ) result.onSelect)
+    pure ()
+
 /-- Sliders panel - demonstrates slider input controls. -/
 def slidersPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "Sliders" .outlined theme do
@@ -372,6 +423,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           toastsPanel theme fireToastInfo fireToastSuccess fireToastWarning fireToastError
 
           menuPanel theme
+          menuBarPanel theme
 
         -- Middle column
         column' (gap := 16) (style := {}) do
