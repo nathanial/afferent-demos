@@ -102,6 +102,7 @@ private structure RunningState where
   lastHoverPath : Array Afferent.Arbor.WidgetId := #[]
   lastMouseX : Float := 0.0
   lastMouseY : Float := 0.0
+  prevLeftDown : Bool := false
 
 private inductive AppState where
   | loading (state : LoadingState)
@@ -873,6 +874,33 @@ def unifiedDemo : IO Unit := do
                   rootBuild := rootBuild'
               | none => pure ()
               FFI.Window.clearScroll c.ctx.window
+
+            -- Handle mouse button release (for ending drag interactions)
+            let buttons ← FFI.Window.getMouseButtons c.ctx.window
+            let leftDown := (buttons &&& (1 : UInt8)) != (0 : UInt8)
+            if !leftDown && rs.prevLeftDown then
+              let contentLayout :=
+                (layouts.get rootBuild.contentId).getD (Trellis.ComputedLayout.simple rootBuild.contentId defaultContentRect)
+              let mouseUpEnv := envFromLayout contentLayout t dt keyCode c.clearKey
+              match rs.demoRefs[rs.displayMode]? with
+              | some demoRef =>
+                  let demo ← demoRef.get
+                  let mouseUpPath := Afferent.Arbor.hitTestPath measuredWidget layouts mouseX mouseY
+                  let demo' ← AnyDemo.handleMouseUpWithLayouts demo mouseUpEnv mouseX mouseY mouseUpPath layouts measuredWidget
+                  demoRef.set demo'
+                  -- Rebuild widget to reflect state changes from mouse up
+                  let ((measuredWidget', layouts'), rootBuild') ←
+                    (do
+                      let rootBuild : RootBuild ← StateT.lift buildRootBuild
+                      set rootBuild
+                      let (measuredWidget, layouts) ← StateT.lift (measureRoot rootBuild.widget)
+                      pure (measuredWidget, layouts)
+                    ) |>.run rootBuild
+                  measuredWidget := measuredWidget'
+                  layouts := layouts'
+                  rootBuild := rootBuild'
+              | none => pure ()
+            rs := { rs with prevLeftDown := leftDown }
 
             let commands := Afferent.Arbor.collectCommands measuredWidget layouts
             let widgetCount := Afferent.Arbor.Widget.widgetCount measuredWidget

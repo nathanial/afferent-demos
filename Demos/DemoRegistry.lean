@@ -120,6 +120,10 @@ class Demo (id : DemoId) where
   handleScrollWithLayouts : DemoEnv → DemoState id → Array Afferent.Arbor.WidgetId →
       Afferent.Arbor.ScrollEvent → Trellis.LayoutResult → Afferent.Arbor.Widget →
       IO (DemoState id) := fun _ s _ _ _ _ => pure s
+  /-- Handle mouse button release (for ending drag interactions). -/
+  handleMouseUpWithLayouts : DemoEnv → DemoState id → Float → Float →
+      Array Afferent.Arbor.WidgetId → Trellis.LayoutResult → Afferent.Arbor.Widget →
+      IO (DemoState id) := fun _ s _ _ _ _ _ => pure s
   step : Canvas → DemoEnv → DemoState id → IO (Canvas × DemoState id)
   onExit : Canvas → DemoEnv → DemoState id → IO (DemoState id) := fun _ _ s => pure s
 
@@ -354,6 +358,18 @@ instance : Demo .reactiveShowcase where
     state.inputs.fireScroll scrollData
     pure state
 
+  handleMouseUpWithLayouts := fun _env state mouseX mouseY hitPath layouts widget => do
+    let mouseUpData : Afferent.Canopy.Reactive.MouseButtonData := {
+      x := mouseX
+      y := mouseY
+      button := 0  -- left button
+      hitPath
+      widget
+      layouts
+    }
+    state.inputs.fireMouseUp mouseUpData
+    pure state
+
   step := fun c _ s => pure (c, s)
 
   -- Note: We do NOT dispose the SpiderEnv on exit because the demo state
@@ -519,6 +535,13 @@ def handleScrollWithLayouts (d : AnyDemo) (env : DemoEnv)
     (layouts : Trellis.LayoutResult) (widget : Afferent.Arbor.Widget) : IO AnyDemo := do
   let inst := demoInstance d.id
   let state' ← inst.handleScrollWithLayouts env d.state hitPath scrollEvt layouts widget
+  pure { id := d.id, state := state' }
+
+def handleMouseUpWithLayouts (d : AnyDemo) (env : DemoEnv) (mouseX mouseY : Float)
+    (hitPath : Array Afferent.Arbor.WidgetId)
+    (layouts : Trellis.LayoutResult) (widget : Afferent.Arbor.Widget) : IO AnyDemo := do
+  let inst := demoInstance d.id
+  let state' ← inst.handleMouseUpWithLayouts env d.state mouseX mouseY hitPath layouts widget
   pure { id := d.id, state := state' }
 
 def step (d : AnyDemo) (c : Canvas) (env : DemoEnv) : IO (Canvas × AnyDemo) := do

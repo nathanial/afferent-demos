@@ -3,11 +3,11 @@
 -/
 import Crucible
 import Reactive
-import Demos.ReactiveShowcase.Inputs
+import Afferent.Canopy.Reactive.Inputs
 
 open Crucible
 open Reactive Reactive.Host
-open Demos.ReactiveShowcase
+open Afferent.Canopy.Reactive
 
 namespace AfferentDemosTests.Registry
 
