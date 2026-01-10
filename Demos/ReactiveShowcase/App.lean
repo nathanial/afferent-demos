@@ -42,6 +42,25 @@ def buttonsPanel (theme : Theme) : WidgetM (Reactive.Event Spider Unit) :=
       let c4 ← button "Ghost" theme .ghost
       Event.leftmostM [c1, c2, c3, c4]
 
+/-- Click counter panel - demonstrates a button that shows its own click count.
+    Uses lower-level hooks with emitDynamic for dynamic label updates. -/
+def clickCounterPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Click Counter" .outlined theme do
+    caption' "Button displays its own click count:" theme
+    -- Register the button for event handling
+    let name ← registerComponentW "counter-button"
+    let isHovered ← useHover name
+    let onClick ← useClick name
+    -- Count clicks using foldDyn
+    let clickCount ← Reactive.foldDyn (fun _ n => n + 1) 0 onClick
+    -- Emit button with dynamic label based on count
+    emitDynamic do
+      let count ← clickCount.sample
+      let hovered ← isHovered.sample
+      let state : WidgetState := { hovered, pressed := false, focused := false }
+      let label := if count == 0 then "Click me!" else s!"Clicked {count} times"
+      pure (buttonVisual name label theme .primary state)
+
 /-- Checkboxes panel - demonstrates checkbox toggle behavior. -/
 def checkboxesPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "Checkboxes" .outlined theme do
@@ -127,6 +146,28 @@ def dropdownPanel (theme : Theme) : WidgetM Unit :=
     let dropdownOptions := #["Apple", "Banana", "Cherry", "Date", "Elderberry"]
     let _ ← dropdown dropdownOptions theme 0
     pure ()
+
+/-- Dependent dropdowns panel - demonstrates dynWidget for dynamic widget rebuilding.
+    The second dropdown's options change based on the first dropdown's selection. -/
+def dependentDropdownsPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Dependent Dropdowns" .outlined theme do
+    caption' "Second dropdown options depend on first:" theme
+    let categories := #["Fruits", "Vegetables", "Dairy"]
+    let itemsForCategory (idx : Nat) : Array String :=
+      match idx with
+      | 0 => #["Apple", "Banana", "Cherry", "Orange"]
+      | 1 => #["Carrot", "Broccoli", "Spinach", "Tomato"]
+      | 2 => #["Milk", "Cheese", "Yogurt", "Butter"]
+      | _ => #[]
+    row' (gap := 16) (style := {}) do
+      column' (gap := 4) (style := {}) do
+        caption' "Category:" theme
+        let catResult ← dropdown categories theme 0
+        column' (gap := 4) (style := {}) do
+          caption' "Item:" theme
+          let _ ← dynWidget catResult.selection fun catIdx =>
+            dropdown (itemsForCategory catIdx) theme 0
+          pure ()
 
 /-- Text inputs panel - demonstrates single-line text input. -/
 def textInputsPanel (theme : Theme) : WidgetM Unit :=
@@ -241,6 +282,8 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           let fireAction ← Event.mapM (fun _ => fireButtonClick ()) buttonClicks
           performEvent_ fireAction
 
+          clickCounterPanel theme
+
           checkboxesPanel theme
           radioButtonsPanel theme
           switchesPanel theme
@@ -257,6 +300,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           slidersPanel theme
           progressBarsPanel theme
           dropdownPanel theme
+          dependentDropdownsPanel theme
           textInputsPanel theme
           textAreaPanel theme env.fontCanopy
           panelsPanel theme
