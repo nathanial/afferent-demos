@@ -15,6 +15,7 @@ import Demos.ReactiveShowcase.Components.Slider
 import Demos.ReactiveShowcase.Components.RadioGroup
 import Demos.ReactiveShowcase.Components.Dropdown
 import Demos.ReactiveShowcase.Components.TextInput
+import Demos.ReactiveShowcase.Components.TextArea
 import Demos.ReactiveShowcase.Components.TabView
 import Demos.ReactiveShowcase.Components.Modal
 
