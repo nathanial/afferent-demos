@@ -839,6 +839,41 @@ def unifiedDemo : IO Unit := do
                   rootBuild := rootBuild'
               | none => pure ()
 
+            -- Handle scroll events
+            let (scrollX, scrollY) ← FFI.Window.getScrollDelta c.ctx.window
+            if scrollX != 0.0 || scrollY != 0.0 then
+              let modifiers ← FFI.Window.getModifiers c.ctx.window
+              let scrollEvent : Afferent.Arbor.ScrollEvent := {
+                x := mouseX
+                y := mouseY
+                deltaX := scrollX
+                deltaY := scrollY
+                modifiers := Afferent.Arbor.Modifiers.fromBitmask modifiers
+              }
+              let contentLayout :=
+                (layouts.get rootBuild.contentId).getD (Trellis.ComputedLayout.simple rootBuild.contentId defaultContentRect)
+              let scrollEnv := envFromLayout contentLayout t dt keyCode c.clearKey
+              match rs.demoRefs[rs.displayMode]? with
+              | some demoRef =>
+                  let demo ← demoRef.get
+                  -- Calculate fresh hit path at scroll position (not stale hoverPath)
+                  let scrollPath := Afferent.Arbor.hitTestPath measuredWidget layouts mouseX mouseY
+                  let demo' ← AnyDemo.handleScrollWithLayouts demo scrollEnv scrollPath scrollEvent layouts measuredWidget
+                  demoRef.set demo'
+                  -- Rebuild widget to reflect scroll changes
+                  let ((measuredWidget', layouts'), rootBuild') ←
+                    (do
+                      let rootBuild : RootBuild ← StateT.lift buildRootBuild
+                      set rootBuild
+                      let (measuredWidget, layouts) ← StateT.lift (measureRoot rootBuild.widget)
+                      pure (measuredWidget, layouts)
+                    ) |>.run rootBuild
+                  measuredWidget := measuredWidget'
+                  layouts := layouts'
+                  rootBuild := rootBuild'
+              | none => pure ()
+              FFI.Window.clearScroll c.ctx.window
+
             let commands := Afferent.Arbor.collectCommands measuredWidget layouts
             let widgetCount := Afferent.Arbor.Widget.widgetCount measuredWidget
             rs := { rs with renderCommandCount := commands.size, widgetCount := widgetCount }

@@ -224,6 +224,26 @@ def tabViewPanel (theme : Theme) : WidgetM Unit :=
     let _ ← tabView tabs theme 0
     pure ()
 
+/-- Scroll container panel - demonstrates scrollable content viewport. -/
+def scrollContainerPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Scroll Container" .outlined theme do
+    caption' "Scroll with mouse wheel or trackpad:" theme
+    row' (gap := 16) (style := {}) do
+      -- Scrollable list of items
+      outlinedPanel' theme 0 do
+        let (_, scrollResult) ← vscrollContainer 150 theme do
+          column' (gap := 4) (style := { padding := EdgeInsets.uniform 8 }) do
+            for i in [1:21] do
+              bodyText' s!"Item {i} - Scroll to see more" theme
+            pure ()
+
+        -- Display current scroll position
+        column' (gap := 4) (style := { padding := EdgeInsets.uniform 8 }) do
+          caption' "Scroll position:" theme
+          emitDynamic do
+            let state ← scrollResult.scrollState.sample
+            pure (caption s!"Y: {state.offsetY.floor.toUInt32}px" theme)
+
 /-! ## Main Application -/
 
 /-- Application state returned from createApp. -/
@@ -270,7 +290,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           if count > 0 then pure (caption s!"(Clicks: {count})" theme)
           else pure (spacer 0 0)
 
-      -- Two-column layout
+      -- Three-column layout
       flexRow' { FlexContainer.row 20 with alignItems := .flexStart }
           (style := { flexItem := some (FlexItem.growing 1) }) do
         -- Left column
@@ -295,7 +315,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
 
           toastsPanel theme fireToastInfo fireToastSuccess fireToastWarning fireToastError
 
-        -- Right column
+        -- Middle column
         column' (gap := 16) (style := {}) do
           slidersPanel theme
           progressBarsPanel theme
@@ -305,6 +325,10 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           textAreaPanel theme env.fontCanopy
           panelsPanel theme
           tabViewPanel theme
+
+        -- Right column
+        column' (gap := 16) (style := {}) do
+          scrollContainerPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do

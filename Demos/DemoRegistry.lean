@@ -116,6 +116,10 @@ class Demo (id : DemoId) where
       fun env s contentId hitPath mouseX mouseY _layouts _widget => handleHover env s contentId hitPath mouseX mouseY
   /-- Handle keyboard input (called when a key is pressed). -/
   handleKey : DemoEnv → DemoState id → Afferent.Arbor.KeyEvent → IO (DemoState id) := fun _ s _ => pure s
+  /-- Handle scroll wheel input (called when scroll occurs over demo content). -/
+  handleScrollWithLayouts : DemoEnv → DemoState id → Array Afferent.Arbor.WidgetId →
+      Afferent.Arbor.ScrollEvent → Trellis.LayoutResult → Afferent.Arbor.Widget →
+      IO (DemoState id) := fun _ s _ _ _ _ => pure s
   step : Canvas → DemoEnv → DemoState id → IO (Canvas × DemoState id)
   onExit : Canvas → DemoEnv → DemoState id → IO (DemoState id) := fun _ _ s => pure s
 
@@ -344,6 +348,12 @@ instance : Demo .reactiveShowcase where
     state.inputs.fireKey keyData
     pure state
 
+  handleScrollWithLayouts := fun _env state hitPath scrollEvt layouts widget => do
+    dbg_trace s!"[ReactiveShowcase] scroll event: deltaY={scrollEvt.deltaY} hitPath.size={hitPath.size}"
+    let scrollData : Afferent.Canopy.Reactive.ScrollData := { scroll := scrollEvt, hitPath, widget, layouts }
+    state.inputs.fireScroll scrollData
+    pure state
+
   step := fun c _ s => pure (c, s)
 
   -- Note: We do NOT dispose the SpiderEnv on exit because the demo state
@@ -502,6 +512,13 @@ def handleHoverWithLayouts (d : AnyDemo) (env : DemoEnv) (contentId : Afferent.A
 def handleKey (d : AnyDemo) (env : DemoEnv) (keyEvent : Afferent.Arbor.KeyEvent) : IO AnyDemo := do
   let inst := demoInstance d.id
   let state' ← inst.handleKey env d.state keyEvent
+  pure { id := d.id, state := state' }
+
+def handleScrollWithLayouts (d : AnyDemo) (env : DemoEnv)
+    (hitPath : Array Afferent.Arbor.WidgetId) (scrollEvt : Afferent.Arbor.ScrollEvent)
+    (layouts : Trellis.LayoutResult) (widget : Afferent.Arbor.Widget) : IO AnyDemo := do
+  let inst := demoInstance d.id
+  let state' ← inst.handleScrollWithLayouts env d.state hitPath scrollEvt layouts widget
   pure { id := d.id, state := state' }
 
 def step (d : AnyDemo) (c : Canvas) (env : DemoEnv) : IO (Canvas × AnyDemo) := do
