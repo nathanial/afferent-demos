@@ -250,7 +250,7 @@ def useHover (name : String) : ReactiveM (Dynamic Spider Bool) := do
 def useClick (name : String) : ReactiveM (Event Spider Unit) := do
   let events ← getEvents
   let clicks ← Event.filterM (fun data => hitWidget data name) events.clickEvent
-  Event.mapM (fun _ => ()) clicks
+  Event.voidM clicks
 
 /-- Subscribe to animation frames. Returns an Event that fires each frame with delta time. -/
 def useAnimationFrame : ReactiveM (Event Spider Float) := do

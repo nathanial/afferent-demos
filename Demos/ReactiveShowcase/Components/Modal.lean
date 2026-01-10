@@ -59,7 +59,7 @@ def modal (title : String) (theme : Theme) (content : WidgetM Unit)
     foldDyn (fun f s => f s) false allTransitions
 
   let closeEvents ← Event.filterM (fun open_ => !open_) isOpen.updated
-  let onClose ← Event.mapM (fun _ => ()) closeEvents
+  let onClose ← Event.voidM closeEvents
 
   emit do
     let open_ ← isOpen.sample

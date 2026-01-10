@@ -40,10 +40,10 @@ def textInput (theme : Theme) (placeholder : String) (initialValue : String := "
   let focusChanges ← Dynamic.changesM focusedInput
   let focusEvents ← Event.filterM
     (fun (old, new) => old != some name && new == some name) focusChanges
-  let onFocus ← Event.mapM (fun _ => ()) focusEvents
+  let onFocus ← Event.voidM focusEvents
   let blurEvents ← Event.filterM
     (fun (old, new) => old == some name && new != some name) focusChanges
-  let onBlur ← Event.mapM (fun _ => ()) blurEvents
+  let onBlur ← Event.voidM blurEvents
 
   let notFocused ← Dynamic.mapM (· != some name) focusedInput
   let focusClicks ← Event.gateM notFocused.current clicks
@@ -102,10 +102,10 @@ def textArea (theme : Theme) (placeholder : String) (initialState : TextAreaStat
   let focusChanges ← Dynamic.changesM focusedInput
   let focusEvents ← Event.filterM
     (fun (old, new) => old != some name && new == some name) focusChanges
-  let onFocus ← Event.mapM (fun _ => ()) focusEvents
+  let onFocus ← Event.voidM focusEvents
   let blurEvents ← Event.filterM
     (fun (old, new) => old == some name && new != some name) focusChanges
-  let onBlur ← Event.mapM (fun _ => ()) blurEvents
+  let onBlur ← Event.voidM blurEvents
 
   let notFocused ← Dynamic.mapM (· != some name) focusedInput
   let focusClicks ← Event.gateM notFocused.current clicks

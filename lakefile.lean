@@ -12,7 +12,7 @@ require crucible from "../../testing/crucible"
 require wisp from "../../network/wisp"
 -- require cellar from git "https://github.com/nathanial/cellar" @ "v0.0.1"
 require cellar from "../../data/cellar"
--- require reactive from git "https://github.com/nathanial/reactive" @ "v0.0.3"
+-- require reactive from git "https://github.com/nathanial/reactive" @ "v0.0.4"
 require reactive from "../../data/reactive"
 
 -- Link arguments for Metal/macOS (inherited from Afferent)
