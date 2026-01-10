@@ -103,24 +103,6 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
 
   let render : ComponentRender := do
     let clickCount ← buttonClickCount.sample
-    let btn1 ← primaryBtn.render
-    let btn2 ← secondaryBtn.render
-    let btn3 ← outlineBtn.render
-    let btn4 ← ghostBtn.render
-    let sw1 ← switch1.render
-    let sw2 ← switch2.render
-    let dd1 ← dropdown1.render
-    let radios ← radioGroup.render
-    let tvw ← tabView.render
-    let cb1 ← checkbox1.render
-    let cb2 ← checkbox2.render
-    let sl1 ← slider1.render
-    let sl2 ← slider2.render
-    let ti1 ← textInput1.render
-    let ti2 ← textInput2.render
-    let ta ← textArea.render
-    let modalTrig ← modalTrigger.render
-    let modalWidget ← modal.render
     pure (column (gap := 20) (style := {
       backgroundColor := some (Color.gray 0.1)
       padding := EdgeInsets.uniform 24
@@ -132,18 +114,18 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
         caption "FRP-powered widget demo" theme,
         if clickCount > 0 then caption s!"(Clicks: {clickCount})" theme else spacer 0 0
       ],
-      row (gap := 8) (style := {}) #[btn1, btn2, btn3, btn4],
-      row (gap := 24) (style := {}) #[sw1, sw2],
-      dd1,
-      radios,
-      tvw,
-      row (gap := 16) (style := {}) #[cb1, cb2],
-      row (gap := 16) (style := {}) #[sl1, sl2],
-      ti1,
-      ti2,
-      ta,
-      modalTrig,
-      modalWidget
+      row (gap := 8) (style := {}) #[← primaryBtn.render, ← secondaryBtn.render, ← outlineBtn.render, ← ghostBtn.render],
+      row (gap := 24) (style := {}) #[← switch1.render, ← switch2.render],
+      ← dropdown1.render,
+      ← radioGroup.render,
+      ← tabView.render,
+      row (gap := 16) (style := {}) #[← checkbox1.render, ← checkbox2.render],
+      row (gap := 16) (style := {}) #[← slider1.render, ← slider2.render],
+      ← textInput1.render,
+      ← textInput2.render,
+      ← textArea.render,
+      ← modalTrigger.render,
+      ← modal.render
     ])
 
   pure { render }
