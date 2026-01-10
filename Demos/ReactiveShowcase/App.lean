@@ -119,6 +119,29 @@ def toastsPanel (theme : Theme)
       performEvent_ warnAction
       performEvent_ errorAction
 
+/-- Menu panel - demonstrates trigger-based menu with actions and separators. -/
+def menuPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Menu" .outlined theme do
+    caption' "Click button to open menu:" theme
+    row' (gap := 16) (style := {}) do
+      let items := #[
+        MenuItem.action "Cut",
+        MenuItem.action "Copy",
+        MenuItem.action "Paste",
+        MenuItem.separator,
+        MenuItem.action "Select All",
+        MenuItem.separator,
+        MenuItem.action "Delete" (enabled := false)
+      ]
+      let (_, menuResult) ← menu items theme (trigger := do
+        let _ ← button "Actions" theme .primary
+        pure ())
+      -- Show when selection happens
+      let _ ← performEvent_ (← Event.mapM (fun idx => do
+        IO.println s!"Menu item selected: {idx}"
+      ) menuResult.onSelect)
+      pure ()
+
 /-- Sliders panel - demonstrates slider input controls. -/
 def slidersPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "Sliders" .outlined theme do
@@ -337,6 +360,8 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           performEvent_ fireAction
 
           toastsPanel theme fireToastInfo fireToastSuccess fireToastWarning fireToastError
+
+          menuPanel theme
 
         -- Middle column
         column' (gap := 16) (style := {}) do
