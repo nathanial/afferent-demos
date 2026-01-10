@@ -244,6 +244,29 @@ def scrollContainerPanel (theme : Theme) : WidgetM Unit :=
             let state ← scrollResult.scrollState.sample
             pure (caption s!"Y: {state.offsetY.floor.toUInt32}px" theme)
 
+/-- Tooltips panel - demonstrates hover tooltips with different positions. -/
+def tooltipsPanel (theme : Theme) (font : Afferent.Font) : WidgetM Unit :=
+  titledPanel' "Tooltips" .outlined theme do
+    caption' "Hover over buttons to see tooltips:" theme
+    row' (gap := 12) (style := {}) do
+      -- Tooltip above
+      let (_, _) ← tooltipTop "Appears above" theme font (delay := 0.3) do
+        let _ ← button "Top" theme .outline
+        pure ()
+      -- Tooltip below
+      let (_, _) ← tooltipBottom "Appears below" theme font (delay := 0.3) do
+        let _ ← button "Bottom" theme .outline
+        pure ()
+      -- Tooltip left
+      let (_, _) ← tooltipLeft "Appears left" theme font (delay := 0.3) do
+        let _ ← button "Left" theme .outline
+        pure ()
+      -- Tooltip right
+      let (_, _) ← tooltipRight "Appears right" theme font (delay := 0.3) do
+        let _ ← button "Right" theme .outline
+        pure ()
+      pure ()
+
 /-! ## Main Application -/
 
 /-- Application state returned from createApp. -/
@@ -329,6 +352,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
         -- Right column
         column' (gap := 16) (style := {}) do
           scrollContainerPanel theme
+          tooltipsPanel theme env.fontCanopySmall
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
