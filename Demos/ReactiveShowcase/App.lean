@@ -170,11 +170,11 @@ def dependentDropdownsPanel (theme : Theme) : WidgetM Unit :=
           pure ()
 
 /-- Text inputs panel - demonstrates single-line text input. -/
-def textInputsPanel (theme : Theme) : WidgetM Unit :=
+def textInputsPanel (theme : Theme) (font : Afferent.Font) : WidgetM Unit :=
   titledPanel' "Text Inputs" .outlined theme do
     caption' "Click to focus, then type:" theme
-    let _ ← textInput theme "Enter text here..." ""
-    let _ ← textInput theme "Type something..." "Hello, World!"
+    let _ ← textInput theme font "Enter text here..." ""
+    let _ ← textInput theme font "Type something..." "Hello, World!"
     pure ()
 
 /-- Text area panel - demonstrates multi-line text input. -/
@@ -301,7 +301,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           progressBarsPanel theme
           dropdownPanel theme
           dependentDropdownsPanel theme
-          textInputsPanel theme
+          textInputsPanel theme env.fontCanopy
           textAreaPanel theme env.fontCanopy
           panelsPanel theme
           tabViewPanel theme
