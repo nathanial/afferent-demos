@@ -77,10 +77,10 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           titledPanel' "Buttons" .outlined theme do
             caption' "Click a button to increment the counter:" theme
             row' (gap := 8) (style := {}) do
-              let c1 ← Button.reactive "Primary" theme .primary
-              let c2 ← Button.reactive "Secondary" theme .secondary
-              let c3 ← Button.reactive "Outline" theme .outline
-              let c4 ← Button.reactive "Ghost" theme .ghost
+              let c1 ← button "Primary" theme .primary
+              let c2 ← button "Secondary" theme .secondary
+              let c3 ← button "Outline" theme .outline
+              let c4 ← button "Ghost" theme .ghost
               -- Wire all clicks to the pre-created trigger
               let merged ← Event.leftmostM [c1, c2, c3, c4]
               let fireAction ← Event.mapM (fun _ => fireButtonClick ()) merged
@@ -90,8 +90,8 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           titledPanel' "Checkboxes" .outlined theme do
             caption' "Click to toggle:" theme
             row' (gap := 24) (style := {}) do
-              let _ ← Checkbox.reactive "Option 1" theme false
-              let _ ← Checkbox.reactive "Option 2" theme true
+              let _ ← checkbox "Option 1" theme false
+              let _ ← checkbox "Option 2" theme true
               pure ()
 
           -- Radio Buttons section
@@ -102,21 +102,21 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
               { label := "Option 2", value := "option2" },
               { label := "Option 3", value := "option3" }
             ]
-            let _ ← RadioGroup.reactive radioOptions theme "option1"
+            let _ ← radioGroup radioOptions theme "option1"
             pure ()
 
           -- Switches section
           titledPanel' "Switches" .outlined theme do
             caption' "Click to toggle:" theme
             row' (gap := 24) (style := {}) do
-              let _ ← Switch.reactive (some "Notifications") theme false
-              let _ ← Switch.reactive (some "Dark Mode") theme true
+              let _ ← switch (some "Notifications") theme false
+              let _ ← switch (some "Dark Mode") theme true
               pure ()
 
           -- Modal section
           titledPanel' "Modal" .outlined theme do
             caption' "Click button to open modal:" theme
-            let triggerClick ← Button.reactive "Open Modal" theme .primary
+            let triggerClick ← button "Open Modal" theme .primary
             let fireAction ← Event.mapM (fun _ => fireModalOpen ()) triggerClick
             performEvent_ fireAction
 
@@ -124,10 +124,10 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           titledPanel' "Toasts" .outlined theme do
             caption' "Click to show notifications:" theme
             row' (gap := 8) (style := {}) do
-              let infoClick ← Button.reactive "Info" theme .primary
-              let successClick ← Button.reactive "Success" theme .primary
-              let warnClick ← Button.reactive "Warning" theme .secondary
-              let errorClick ← Button.reactive "Error" theme .secondary
+              let infoClick ← button "Info" theme .primary
+              let successClick ← button "Success" theme .primary
+              let warnClick ← button "Warning" theme .secondary
+              let errorClick ← button "Error" theme .secondary
               -- Wire clicks to toast triggers
               let infoAction ← Event.mapM (fun _ => fireToastInfo ()) infoClick
               let successAction ← Event.mapM (fun _ => fireToastSuccess ()) successClick
@@ -144,38 +144,38 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           titledPanel' "Sliders" .outlined theme do
             caption' "Click to adjust value:" theme
             row' (gap := 24) (style := {}) do
-              let _ ← Slider.reactive (some "Volume") theme 0.3
-              let _ ← Slider.reactive (some "Brightness") theme 0.7
+              let _ ← slider (some "Volume") theme 0.3
+              let _ ← slider (some "Brightness") theme 0.7
               pure ()
 
           -- Progress Bars section
           titledPanel' "Progress Bars" .outlined theme do
             caption' "Determinate and indeterminate progress:" theme
             column' (gap := 12) (style := {}) do
-              let _ ← ProgressBar.reactive theme 0.65 .primary (some "Download") true
-              let _ ← ProgressBar.reactive theme 0.3 .success (some "Upload") true
-              let _ ← ProgressBar.reactive theme 0.85 .warning none true
-              let _ ← ProgressBar.indeterminate theme .primary (some "Loading...")
+              let _ ← progressBar theme 0.65 .primary (some "Download") true
+              let _ ← progressBar theme 0.3 .success (some "Upload") true
+              let _ ← progressBar theme 0.85 .warning none true
+              let _ ← progressBarIndeterminate theme .primary (some "Loading...")
               pure ()
 
           -- Dropdown section
           titledPanel' "Dropdown" .outlined theme do
             caption' "Click to open, select an option:" theme
             let dropdownOptions := #["Apple", "Banana", "Cherry", "Date", "Elderberry"]
-            let _ ← Dropdown.reactive dropdownOptions theme 0
+            let _ ← dropdown dropdownOptions theme 0
             pure ()
 
           -- Text Input section
           titledPanel' "Text Inputs" .outlined theme do
             caption' "Click to focus, then type:" theme
-            let _ ← TextInput.reactive theme "Enter text here..." ""
-            let _ ← TextInput.reactive theme "Type something..." "Hello, World!"
+            let _ ← textInput theme "Enter text here..." ""
+            let _ ← textInput theme "Type something..." "Hello, World!"
             pure ()
 
           -- Text Area section
           titledPanel' "Text Area" .outlined theme do
             caption' "Multi-line text with word wrapping:" theme
-            let _ ← TextArea.reactive theme "Enter multi-line text..." {} env.fontCanopy
+            let _ ← textArea theme "Enter multi-line text..." {} env.fontCanopy
             pure ()
 
           -- Panels section
@@ -205,7 +205,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
               { label := "Settings", content := do
                   caption' "Sample settings panel:" theme
                   row' (gap := 16) (style := {}) do
-                    let _ ← Checkbox.reactive "Enable feature" theme false
+                    let _ ← checkbox "Enable feature" theme false
                     pure ()
               },
               { label := "About", content := do
@@ -213,11 +213,11 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
                   caption' "Version 1.0.0" theme
               }
             ]
-            let _ ← TabView.reactive tabs theme 0
+            let _ ← tabView tabs theme 0
             pure ()
 
       -- Modal overlay (renders on top when open)
-      let modalResult ← Modal.reactive "Sample Modal" theme do
+      let modalResult ← modal "Sample Modal" theme do
         bodyText' "This is a modal dialog." theme
         bodyText' "Click outside, press Escape, or click a button to close." theme
 
@@ -226,7 +226,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
       performEvent_ openAction
 
       -- Toast manager (renders toast notifications)
-      let toastMgr ← Toast.manager theme
+      let toastMgr ← toastManager theme
 
       -- Wire toast triggers to toast manager
       let infoAction ← Event.mapM (fun _ => toastMgr.showInfo "This is an info message") toastInfoTrigger
