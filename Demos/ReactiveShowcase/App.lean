@@ -203,6 +203,29 @@ def menuBarPanel (theme : Theme) : WidgetM Unit :=
     ) result.onSelect)
     pure ()
 
+/-- Table panel - demonstrates tabular data display with row selection. -/
+def tablePanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Table" .outlined theme do
+    caption' "Click rows to select:" theme
+    let columns : Array TableColumn := #[
+      { header := "Name" },
+      { header := "Email", width := some 160 },
+      { header := "Role" },
+      { header := "Status" }
+    ]
+    let rows : Array (Array String) := #[
+      #["Alice", "alice@ex.com", "Admin", "Active"],
+      #["Bob", "bob@ex.com", "User", "Active"],
+      #["Carol", "carol@ex.com", "User", "Inactive"],
+      #["David", "david@ex.com", "User", "Active"],
+      #["Eve", "eve@ex.com", "Moderator", "Active"]
+    ]
+    let result ← table columns rows theme
+    let _ ← performEvent_ (← Event.mapM (fun rowIdx => do
+      IO.println s!"Table row selected: {rowIdx}"
+    ) result.onRowSelect)
+    pure ()
+
 /-- Sliders panel - demonstrates slider input controls. -/
 def slidersPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "Sliders" .outlined theme do
@@ -440,6 +463,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
         column' (gap := 16) (style := {}) do
           scrollContainerPanel theme
           tooltipsPanel theme env.fontCanopySmall
+          tablePanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
