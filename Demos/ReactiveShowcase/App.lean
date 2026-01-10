@@ -226,6 +226,19 @@ def tablePanel (theme : Theme) : WidgetM Unit :=
     ) result.onRowSelect)
     pure ()
 
+/-- ListBox panel - demonstrates scrollable list with selection. -/
+def listBoxPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "ListBox" .outlined theme do
+    caption' "Click items to select:" theme
+    let fruits := #["Apple", "Banana", "Cherry", "Date",
+                    "Elderberry", "Fig", "Grape", "Honeydew",
+                    "Kiwi", "Lemon", "Mango", "Nectarine"]
+    let result ← listBox fruits theme
+    let _ ← performEvent_ (← Event.mapM (fun itemIdx => do
+      IO.println s!"ListBox item selected: {itemIdx}"
+    ) result.onSelect)
+    pure ()
+
 /-- Sliders panel - demonstrates slider input controls. -/
 def slidersPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "Sliders" .outlined theme do
@@ -464,6 +477,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           scrollContainerPanel theme
           tooltipsPanel theme env.fontCanopySmall
           tablePanel theme
+          listBoxPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
