@@ -122,23 +122,33 @@ def toastsPanel (theme : Theme)
 /-- Menu panel - demonstrates trigger-based menu with actions and separators. -/
 def menuPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "Menu" .outlined theme do
-    caption' "Click button to open menu:" theme
+    caption' "Click button to open menu (hover submenus):" theme
     row' (gap := 16) (style := {}) do
       let items := #[
         MenuItem.action "Cut",
         MenuItem.action "Copy",
         MenuItem.action "Paste",
         MenuItem.separator,
-        MenuItem.action "Select All",
+        MenuItem.submenu "Format" #[
+          MenuItem.action "Bold",
+          MenuItem.action "Italic",
+          MenuItem.action "Underline",
+          MenuItem.separator,
+          MenuItem.submenu "Text Color" #[
+            MenuItem.action "Red",
+            MenuItem.action "Green",
+            MenuItem.action "Blue"
+          ]
+        ],
         MenuItem.separator,
         MenuItem.action "Delete" (enabled := false)
       ]
       let (_, menuResult) ← menu items theme (trigger := do
         let _ ← button "Actions" theme .primary
         pure ())
-      -- Show when selection happens
-      let _ ← performEvent_ (← Event.mapM (fun idx => do
-        IO.println s!"Menu item selected: {idx}"
+      -- Show when selection happens (path is now an array)
+      let _ ← performEvent_ (← Event.mapM (fun path => do
+        IO.println s!"Menu item selected at path: {path.toList}"
       ) menuResult.onSelect)
       pure ()
 
