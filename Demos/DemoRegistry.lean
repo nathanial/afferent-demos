@@ -22,9 +22,7 @@ import Demos.TextureMatrix
 import Demos.OrbitalInstanced
 import Demos.WorldmapDemo
 import Demos.ReactiveShowcase.App
-import Demos.ReactiveShowcase.Component
-import Demos.ReactiveShowcase.Inputs
-import Demos.ReactiveShowcase.Types
+import Afferent.Canopy.Reactive
 import Reactive.Host.Spider
 import Worldmap
 
@@ -73,7 +71,7 @@ structure ReactiveShowcaseDemoState where
   /-- The app state with render function. -/
   appState : ReactiveShowcase.AppState
   /-- The reactive inputs for firing events. -/
-  inputs : ReactiveShowcase.ReactiveInputs
+  inputs : Afferent.Canopy.Reactive.ReactiveInputs
   /-- The Spider environment (keeps subscriptions alive). -/
   spiderEnv : Reactive.Host.SpiderEnv
   /-- Cached widget from last render (updated each frame). -/
@@ -319,8 +317,8 @@ instance : Demo .reactiveShowcase where
 
     -- Run the app setup within the env
     let (appState, inputs) ← (do
-      let (events, inputs) ← ReactiveShowcase.createInputs
-      let appState ← ReactiveShowcase.ReactiveM.run events (ReactiveShowcase.createApp env)
+      let (events, inputs) ← Afferent.Canopy.Reactive.createInputs
+      let appState ← Afferent.Canopy.Reactive.ReactiveM.run events (ReactiveShowcase.createApp env)
       pure (appState, inputs)
     ).run spiderEnv
 
@@ -343,17 +341,17 @@ instance : Demo .reactiveShowcase where
 
   handleClickWithLayouts := fun _env state _contentId hitPath click layouts widget => do
     -- Fire click event into reactive network
-    let clickData : ReactiveShowcase.ClickData := { click, hitPath, widget, layouts }
+    let clickData : Afferent.Canopy.Reactive.ClickData := { click, hitPath, widget, layouts }
     state.inputs.fireClick clickData
     pure state
 
   handleHoverWithLayouts := fun _env state _contentId hitPath mouseX mouseY layouts widget => do
-    let hoverData : ReactiveShowcase.HoverData := { x := mouseX, y := mouseY, hitPath, widget, layouts }
+    let hoverData : Afferent.Canopy.Reactive.HoverData := { x := mouseX, y := mouseY, hitPath, widget, layouts }
     state.inputs.fireHover hoverData
     pure state
 
   handleKey := fun _env state keyEvent => do
-    let keyData : ReactiveShowcase.KeyData := { event := keyEvent, focusedWidget := none }
+    let keyData : Afferent.Canopy.Reactive.KeyData := { event := keyEvent, focusedWidget := none }
     state.inputs.fireKey keyData
     pure state
 
