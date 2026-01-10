@@ -10,7 +10,6 @@ import Demos.TrianglesPerf
 import Demos.CirclesPerf
 import Demos.SpritesPerf
 import Demos.Grid
-import Demos.Widgets
 import Demos.Overview.Counter
 import Demos.Overview.SpinningCubes
 import Demos.Seascape
@@ -38,7 +37,6 @@ inductive DemoId where
   | spritesPerf
   | layout
   | cssGrid
-  | widgets
   | reactiveShowcase
   | seascape
   | shapeGallery
@@ -86,7 +84,6 @@ def DemoState : DemoId → Type
   | .spritesPerf => SpritesState
   | .layout => Unit
   | .cssGrid => Unit
-  | .widgets => Unit
   | .reactiveShowcase => ReactiveShowcaseDemoState
   | .seascape => SeascapeState
   | .shapeGallery => ShapeGalleryState
@@ -298,14 +295,6 @@ instance : Demo .cssGrid where
   init := fun _ => pure ()
   view := fun env _ =>
     some (cssGridWidget env.fontMediumId env.fontSmallId env.screenScale)
-  step := fun c _ s => pure (c, s)
-
-instance : Demo .widgets where
-  name := "WIDGET demo (full-size)"
-  shortName := "Widgets"
-  init := fun _ => pure ()
-  view := fun env _ =>
-    some (widgetDemo env.fontMediumId env.fontSmallId env.screenScale)
   step := fun c _ s => pure (c, s)
 
 instance : Demo .reactiveShowcase where
@@ -541,7 +530,6 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let spritesPerf ← mkAnyDemo .spritesPerf env
   let layoutDemo ← mkAnyDemo .layout env
   let cssGridDemo ← mkAnyDemo .cssGrid env
-  let widgetsDemo ← mkAnyDemo .widgets env
   let reactiveShowcaseDemo ← mkAnyDemo .reactiveShowcase env
   let seascapeDemo ← mkAnyDemo .seascape env
   let shapeGalleryDemo ← mkAnyDemo .shapeGallery env
@@ -552,8 +540,7 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let textureMatrixDemo ← mkAnyDemo .textureMatrix env
   let orbitalInstancedDemo ← mkAnyDemo .orbitalInstanced env
   pure #[demoGrid, gridPerf, trianglesPerf, circlesPerf, spritesPerf, layoutDemo, cssGridDemo,
-    widgetsDemo, reactiveShowcaseDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
-    lineCapsDemo, dashedLinesDemo, linesPerfDemo,
-    textureMatrixDemo, orbitalInstancedDemo]
+    reactiveShowcaseDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
+    lineCapsDemo, dashedLinesDemo, linesPerfDemo, textureMatrixDemo, orbitalInstancedDemo]
 
 end Demos
