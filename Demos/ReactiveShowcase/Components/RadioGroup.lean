@@ -20,54 +20,41 @@ structure RadioOption where
   label : String
   value : String
 
-/-- RadioGroup component output - exposes selection and render function. -/
-structure RadioGroupComponent where
-  /-- Event that fires with the newly selected value. -/
+/-- RadioGroup result - events and dynamics. -/
+structure RadioGroupResult where
   onSelect : Event Spider String
-  /-- Currently selected value as a Dynamic. -/
   selected : Dynamic Spider String
-  /-- Render function that samples state and returns all radio buttons. -/
-  render : ComponentRender
 
-/-- Create a self-contained radio group component.
-    The component manages its own hover states and selection. -/
-def radioGroup (options : Array RadioOption) (theme : Theme)
-    (initialSelection : String)
-    : ReactiveM RadioGroupComponent := do
-  -- Auto-generate names for each option via registry
+/-- Create a radio group component using WidgetM.
+    Emits the radio group widget and returns selection state. -/
+def radioGroup (options : Array RadioOption) (theme : Theme) (initialSelection : String)
+    : WidgetM RadioGroupResult := do
   let mut optionNames : Array String := #[]
   for _ in options do
-    let name ← registerComponent "radio"
+    let name ← registerComponentW "radio"
     optionNames := optionNames.push name
 
-  -- Get event streams
   let allClicks ← useAllClicks
   let allHovers ← useAllHovers
 
-  -- Helper: find which option was clicked (use generated names)
   let findClickedOption (data : ClickData) : Option String :=
     (options.zip optionNames).findSome? fun (opt, name) =>
       if hitWidget data name then some opt.value else none
 
-  -- Helper: find which option is hovered (use generated names)
   let findHoveredOption (data : HoverData) : Option String :=
     optionNames.findSome? fun name =>
       if hitWidgetHover data name then some name else none
 
-  -- Pure FRP: mapMaybeM extracts clicked option, holdDyn holds selection
   let selectionChanges ← Event.mapMaybeM findClickedOption allClicks
   let selected ← holdDyn initialSelection selectionChanges
   let onSelect := selectionChanges
 
-  -- Pure FRP: mapM extracts hovered option, holdDyn holds current
   let hoverChanges ← Event.mapM findHoveredOption allHovers
   let hoveredOption ← holdDyn none hoverChanges
 
-  -- Capture options and names for render closure
   let optionsWithNames := options.zip optionNames
 
-  -- Render function samples all states and returns radio buttons in a column
-  let render : ComponentRender := do
+  emit do
     let selectedValue ← selected.sample
     let hoveredName ← hoveredOption.sample
     let mut builders : Array WidgetBuilder := #[]
@@ -78,6 +65,6 @@ def radioGroup (options : Array RadioOption) (theme : Theme)
       builders := builders.push (radioButtonVisual name opt.label theme isSelected state)
     pure (column (gap := 8) (style := {}) builders)
 
-  pure { onSelect, selected, render }
+  pure { onSelect, selected }
 
 end Demos.ReactiveShowcase.Components

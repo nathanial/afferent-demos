@@ -15,40 +15,26 @@ open Trellis
 
 namespace Demos.ReactiveShowcase.Components
 
-/-- Switch component output - exposes state and render function. -/
-structure SwitchComponent where
-  /-- Event that fires with the new on/off state when toggled. -/
+/-- Switch result - events and dynamics. -/
+structure SwitchResult where
   onToggle : Event Spider Bool
-  /-- Current on/off state as a Dynamic. -/
   isOn : Dynamic Spider Bool
-  /-- Animation progress (0.0 = off, 1.0 = on) as a Dynamic. -/
   animProgress : Dynamic Spider Float
-  /-- Render function that samples state and returns the switch widget. -/
-  render : ComponentRender
 
-/-- Create a self-contained switch component with animation.
-    The component manages its own hover, on/off state, and animation progress. -/
-def switch (label : Option String) (theme : Theme) (initialOn : Bool)
-    : ReactiveM SwitchComponent := do
-  -- Auto-generate name via registry
-  let name ← registerComponent "switch"
-
-  -- Create internal hover state
+/-- Create a switch component using WidgetM with animation.
+    Emits the switch widget and returns toggle state. -/
+def switch (label : Option String) (theme : Theme) (initialOn : Bool := false)
+    : WidgetM SwitchResult := do
+  let name ← registerComponentW "switch"
   let isHovered ← useHover name
-
-  -- Get event streams
   let clicks ← useClick name
   let animFrames ← useAnimationFrame
 
-  -- Pure FRP: foldDyn toggles state on each click
   let isOn ← foldDyn (fun _ on => !on) initialOn clicks
   let onToggle := isOn.updated
 
-  -- Animation requires fixDynM for self-referential state:
-  -- animProgress depends on animFrames AND its own current value
   let initialAnim := if initialOn then 1.0 else 0.0
   let animProgress ← SpiderM.fixDynM fun animBehavior => do
-    -- Attach current animation value AND isOn state to each frame
     let updateEvent ← Event.attachWithM
       (fun (anim, on) dt =>
         let animSpeed := 8.0
@@ -61,13 +47,12 @@ def switch (label : Option String) (theme : Theme) (initialOn : Bool)
       animFrames
     holdDyn initialAnim updateEvent
 
-  -- Render function samples state at render time
-  let render : ComponentRender := do
+  emit do
     let hovered ← isHovered.sample
     let anim ← animProgress.sample
     let state : WidgetState := { hovered, pressed := false, focused := false }
     pure (animatedSwitchVisual name label theme anim state)
 
-  pure { onToggle, isOn, animProgress, render }
+  pure { onToggle, isOn, animProgress }
 
 end Demos.ReactiveShowcase.Components

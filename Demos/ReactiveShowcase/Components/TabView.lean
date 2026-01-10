@@ -15,73 +15,71 @@ open Trellis
 
 namespace Demos.ReactiveShowcase.Components
 
-/-- A tab definition with label and content builder. -/
+/-- A tab definition with label and WidgetM content builder. -/
 structure TabDef where
   label : String
-  content : ComponentRender
+  content : WidgetM Unit
 
-/-- TabView component output - exposes tab state and render function. -/
-structure TabViewComponent where
-  /-- Event that fires with the newly selected tab index. -/
+instance : Inhabited TabDef where
+  default := { label := "", content := pure () }
+
+/-- TabView result - events and dynamics. -/
+structure TabViewResult where
   onTabChange : Event Spider Nat
-  /-- Currently active tab index as a Dynamic. -/
   activeTab : Dynamic Spider Nat
-  /-- Render function that samples state and returns the tab view widget. -/
-  render : ComponentRender
 
-/-- Create a self-contained tab view component.
-    The component manages its own hover and active tab state. -/
-def tabView (tabs : Array TabDef) (theme : Theme) (initialTab : Nat)
-    : ReactiveM TabViewComponent := do
-  -- Auto-generate names via registry
-  let containerName ← registerComponent "tabview" (isInteractive := false)
+/-- Create a tab view component using WidgetM.
+    Emits the tab view widget and returns tab state. -/
+def tabView (tabs : Array TabDef) (theme : Theme) (initialTab : Nat := 0)
+    : WidgetM TabViewResult := do
+  let containerName ← registerComponentW "tabview" (isInteractive := false)
 
-  -- Generate names for each tab header
   let mut headerNames : Array String := #[]
   for _ in tabs do
-    let name ← registerComponent "tab-header"
+    let name ← registerComponentW "tab-header"
     headerNames := headerNames.push name
   let headerNameFn (i : Nat) : String := headerNames.getD i ""
 
-  -- Get event streams
+  -- Pre-run all tab contents to get their renders
+  let mut tabContentRenders : Array (Array ComponentRender) := #[]
+  for tab in tabs do
+    let (_, renders) ← runWidgetChildren tab.content
+    tabContentRenders := tabContentRenders.push renders
+
   let allClicks ← useAllClicks
   let allHovers ← useAllHovers
 
-  -- Helper: find clicked tab index
   let findClickedTab (data : ClickData) : Option Nat :=
     (List.range tabs.size).findSome? fun i =>
       if hitWidget data (headerNameFn i) then some i else none
 
-  -- Helper: find hovered tab index
   let findHoveredTab (data : HoverData) : Option Nat :=
     (List.range tabs.size).findSome? fun i =>
       if hitWidgetHover data (headerNameFn i) then some i else none
 
-  -- Pure FRP: mapMaybeM + holdDyn for active tab
   let tabChanges ← Event.mapMaybeM findClickedTab allClicks
   let activeTab ← holdDyn initialTab tabChanges
   let onTabChange := tabChanges
 
-  -- Pure FRP: mapM + holdDyn for hovered tab
   let hoverChanges ← Event.mapM findHoveredTab allHovers
   let hoveredTab ← holdDyn none hoverChanges
 
-  -- Capture tabs for render closure
   let tabsRef := tabs
 
-  -- Render function
-  let render : ComponentRender := do
+  emit do
     let active ← activeTab.sample
     let hovered ← hoveredTab.sample
 
-    -- Build tab definitions for visual
     let mut tabDefs : Array (String × WidgetBuilder) := #[]
-    for tab in tabsRef do
-      let content ← tab.content
+    for i in [:tabsRef.size] do
+      let tab := tabsRef[i]!
+      let renders := tabContentRenders[i]!
+      let contentWidgets ← renders.mapM id
+      let content := column (gap := 0) (style := {}) contentWidgets
       tabDefs := tabDefs.push (tab.label, content)
 
     pure (tabViewVisual containerName headerNameFn tabDefs active hovered theme)
 
-  pure { onTabChange, activeTab, render }
+  pure { onTabChange, activeTab }
 
 end Demos.ReactiveShowcase.Components

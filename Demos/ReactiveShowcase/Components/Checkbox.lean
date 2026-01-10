@@ -15,14 +15,10 @@ open Trellis
 
 namespace Demos.ReactiveShowcase.Components
 
-/-- Checkbox component output - exposes state and render function. -/
-structure CheckboxComponent where
-  /-- Event that fires with the new checked state when toggled. -/
+/-- Checkbox result - events and dynamics. -/
+structure CheckboxResult where
   onToggle : Event Spider Bool
-  /-- Current checked state as a Dynamic. -/
   isChecked : Dynamic Spider Bool
-  /-- Render function that samples state and returns the checkbox widget. -/
-  render : ComponentRender
 
 /-- Build the visual for a checkbox given its state. -/
 private def checkboxVisual (name : String) (labelText : String) (theme : Theme)
@@ -58,32 +54,22 @@ private def checkboxVisual (name : String) (labelText : String) (theme : Theme)
   let label ← text' labelText theme.font theme.text .left
   pure (.flex wid (some name) props {} #[checkBox, label])
 
-/-- Create a self-contained checkbox component.
-    The component manages its own hover and checked state. -/
-def checkbox (label : String) (theme : Theme) (initialChecked : Bool)
-    : ReactiveM CheckboxComponent := do
-  -- Auto-generate name via registry
-  let name ← registerComponent "checkbox"
-
-  -- Create internal hover state
+/-- Create a checkbox component using WidgetM.
+    Emits the checkbox widget and returns toggle state. -/
+def checkbox (label : String) (theme : Theme) (initialChecked : Bool := false)
+    : WidgetM CheckboxResult := do
+  let name ← registerComponentW "checkbox"
   let isHovered ← useHover name
-
-  -- Get click events
   let clicks ← useClick name
-
-  -- Pure FRP: foldDyn toggles state on each click
   let isChecked ← foldDyn (fun _ checked => !checked) initialChecked clicks
-
-  -- onToggle fires with the new value after each toggle
   let onToggle := isChecked.updated
 
-  -- Render function samples state at render time
-  let render : ComponentRender := do
+  emit do
     let hovered ← isHovered.sample
     let checked ← isChecked.sample
     let state : WidgetState := { hovered, pressed := false, focused := false }
     pure (checkboxVisual name label theme checked state)
 
-  pure { onToggle, isChecked, render }
+  pure { onToggle, isChecked }
 
 end Demos.ReactiveShowcase.Components

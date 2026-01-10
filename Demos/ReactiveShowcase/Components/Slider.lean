@@ -15,43 +15,30 @@ open Trellis
 
 namespace Demos.ReactiveShowcase.Components
 
-/-- Slider component output - exposes value and render function. -/
-structure SliderComponent where
-  /-- Event that fires with the new value when changed. -/
+/-- Slider result - events and dynamics. -/
+structure SliderResult where
   onChange : Event Spider Float
-  /-- Current value (0.0 to 1.0) as a Dynamic. -/
   value : Dynamic Spider Float
-  /-- Render function that samples state and returns the slider widget. -/
-  render : ComponentRender
 
-/-- Create a self-contained slider component.
-    The component manages its own hover and value state. -/
-def slider (label : Option String) (theme : Theme) (initialValue : Float)
-    : ReactiveM SliderComponent := do
-  -- Auto-generate name via registry
-  let name ← registerComponent "slider"
-
-  -- Create internal hover state
+/-- Create a slider component using WidgetM.
+    Emits the slider widget and returns value state. -/
+def slider (label : Option String) (theme : Theme) (initialValue : Float := 0.5)
+    : WidgetM SliderResult := do
+  let name ← registerComponentW "slider"
   let isHovered ← useHover name
-
-  -- Get click events with position data
   let clicks ← useClickData name
 
-  -- Pure FRP: mapMaybeM extracts valid slider values, holdDyn holds latest
   let valueChanges ← Event.mapMaybeM
     (fun data => calculateSliderValue data.click.x data.layouts data.widget name) clicks
   let value ← holdDyn initialValue valueChanges
-
-  -- onChange fires with valid value changes
   let onChange := valueChanges
 
-  -- Render function samples state at render time
-  let render : ComponentRender := do
+  emit do
     let hovered ← isHovered.sample
     let v ← value.sample
     let state : WidgetState := { hovered, pressed := false, focused := false }
     pure (sliderVisual name label theme v state)
 
-  pure { onChange, value, render }
+  pure { onChange, value }
 
 end Demos.ReactiveShowcase.Components

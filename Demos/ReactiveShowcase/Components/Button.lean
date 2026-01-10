@@ -15,13 +15,6 @@ open Trellis
 
 namespace Demos.ReactiveShowcase.Components
 
-/-- Button component output - exposes onClick event and render function. -/
-structure ButtonComponent where
-  /-- Event that fires when the button is clicked. -/
-  onClick : Event Spider Unit
-  /-- Render function that samples hover state and returns the button widget. -/
-  render : ComponentRender
-
 /-- Build the visual for a button given its state. -/
 private def buttonVisual (name : String) (labelText : String) (theme : Theme)
     (variant : ButtonVariant) (state : WidgetState) : WidgetBuilder := do
@@ -41,25 +34,19 @@ private def buttonVisual (name : String) (labelText : String) (theme : Theme)
   namedCenter name (style := style) do
     text' labelText theme.font fgColor .center
 
-/-- Create a self-contained button component.
-    The component manages its own hover state and exposes an onClick event. -/
-def button (label : String) (theme : Theme) (variant : ButtonVariant)
-    : ReactiveM ButtonComponent := do
-  -- Auto-generate name via registry
-  let name ← registerComponent "button"
-
-  -- Internal hover state (via hook that accesses events implicitly)
+/-- Create a button component using WidgetM.
+    Emits the button widget and returns the onClick event. -/
+def button (label : String) (theme : Theme) (variant : ButtonVariant := .primary)
+    : WidgetM (Event Spider Unit) := do
+  let name ← registerComponentW "button"
   let isHovered ← useHover name
-
-  -- Create onClick event (filtered from global clicks)
   let onClick ← useClick name
 
-  -- Render function samples hover state at render time
-  let render : ComponentRender := do
+  emit do
     let hovered ← isHovered.sample
     let state : WidgetState := { hovered, pressed := false, focused := false }
     pure (buttonVisual name label theme variant state)
 
-  pure { onClick, render }
+  pure onClick
 
 end Demos.ReactiveShowcase.Components

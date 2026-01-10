@@ -1,5 +1,5 @@
 /-
-  ReactiveShowcase App - Composes all components into the demo UI.
+  ReactiveShowcase App - Composes all components into the demo UI using WidgetM.
 -/
 import Reactive
 import Afferent
@@ -32,224 +32,177 @@ structure AppState where
   render : ComponentRender
 
 /-- Create the complete reactive showcase application.
-    Sets up all components and their interactions.
-    Uses ReactiveM - the events context is implicit, not passed explicitly. -/
+    Sets up all components and their interactions using WidgetM. -/
 def createApp (env : DemoEnv) : ReactiveM AppState := do
   let theme : Theme := { Theme.dark with font := env.fontCanopyId, smallFont := env.fontCanopySmallId }
   let events ← getEvents
 
-  -- All 4 button variants
-  let primaryBtn ← Components.button "Primary" theme .primary
-  let secondaryBtn ← Components.button "Secondary" theme .secondary
-  let outlineBtn ← Components.button "Outline" theme .outline
-  let ghostBtn ← Components.button "Ghost" theme .ghost
+  -- Pre-create shared event triggers for cross-tree wiring
+  -- 1. Button click counter (buttons are in a panel, counter display is in title)
+  let (buttonClickTrigger, fireButtonClick) ← newTriggerEvent (t := Spider) (a := Unit)
+  let buttonClickCount ← foldDyn (fun _ n => n + 1) 0 buttonClickTrigger
 
-  -- Merge all button clicks using proper FRP combinators
-  let clicks12 ← Event.mergeM primaryBtn.onClick secondaryBtn.onClick
-  let clicks123 ← Event.mergeM clicks12 outlineBtn.onClick
-  let allButtonClicks ← Event.mergeM clicks123 ghostBtn.onClick
+  -- 2. Modal open trigger (trigger button is in a panel, modal is at root)
+  let (modalOpenTrigger, fireModalOpen) ← newTriggerEvent (t := Spider) (a := Unit)
 
-  -- Click counter using foldDyn (proper FRP - no manual subscriptions!)
-  let buttonClickCount ← foldDyn (fun _ n => n + 1) 0 allButtonClicks
-
-  -- Checkboxes
-  let checkbox1 ← Components.checkbox "Option 1" theme false
-  let checkbox2 ← Components.checkbox "Option 2" theme true
-
-  -- Radio group
-  let radioOptions : Array Components.RadioOption := #[
-    { label := "Option 1", value := "option1" },
-    { label := "Option 2", value := "option2" },
-    { label := "Option 3", value := "option3" }
-  ]
-  let radioGroup ← Components.radioGroup radioOptions theme "option1"
-
-  -- Switches
-  let switch1 ← Components.switch (some "Notifications") theme false
-  let switch2 ← Components.switch (some "Dark Mode") theme true
-
-  -- Modal
-  let modalContent : ComponentRender := do
-    pure (column (gap := 16) (style := {}) #[
-      bodyText "This is a modal dialog." theme,
-      bodyText "Click outside, press Escape, or click a button to close." theme
-    ])
-  let modal ← Components.modal "Sample Modal" theme modalContent
-  let modalTrigger ← Components.button "Open Modal" theme .primary
-  let openModalAction ← Event.mapM (fun _ => modal.openModal) modalTrigger.onClick
-  performEvent_ openModalAction
-
-  -- Sliders
-  let slider1 ← Components.slider (some "Volume") theme 0.3
-  let slider2 ← Components.slider (some "Brightness") theme 0.7
-
-  -- Dropdown
-  let dropdownOptions := #["Apple", "Banana", "Cherry", "Date", "Elderberry"]
-  let dropdown1 ← Components.dropdown dropdownOptions theme 0
-
-  -- Text inputs
-  let textInput1 ← Components.textInput theme "Enter text here..." ""
-  let textInput2 ← Components.textInput theme "Type something..." "Hello, World!"
-  let textArea ← Components.textArea theme "Enter multi-line text..." {} env.fontCanopy
-
-  -- TabView with rich content
-  -- Note: Settings tab checkbox is independent (not shared with main checkbox1)
-  let settingsCheckbox ← Components.checkbox "Enable feature" theme false
-  let tabs : Array Components.TabDef := #[
-    { label := "Overview", content := do
-        pure (column (gap := 8) (style := {}) #[
-          bodyText "TabView organizes content into separate panels." theme,
-          bodyText "Click a tab to switch between panels." theme
-        ])
-    },
-    { label := "Settings", content := do
-        pure (column (gap := 8) (style := {}) #[
-          caption "Sample settings panel:" theme,
-          row (gap := 16) (style := {}) #[← settingsCheckbox.render]
-        ])
-    },
-    { label := "About", content := do
-        pure (column (gap := 4) (style := {}) #[
-          heading3 "Reactive Widgets" theme,
-          caption "Version 1.0.0" theme
-        ])
-    }
-  ]
-  let tabView ← Components.tabView tabs theme 0
-
-  -- Automatic focus clearing based on registry
-  events.registry.setupFocusClearing
-
-  let render : ComponentRender := do
-    let clickCount ← buttonClickCount.sample
-    pure (column (gap := 20) (style := {
+  let (_, render) ← runWidget do
+    let rootStyle : BoxStyle := {
       backgroundColor := some (Color.gray 0.1)
       padding := EdgeInsets.uniform 24
       width := .percent 1.0
       height := .percent 1.0
       flexItem := some (FlexItem.growing 1)
-    }) #[
+    }
+
+    column' (gap := 20) (style := rootStyle) do
       -- Title
-      heading1 "Reactive Showcase" theme,
-      row (gap := 16) (style := {}) #[
-        caption "FRP-powered widget demo" theme,
-        if clickCount > 0 then caption s!"(Clicks: {clickCount})" theme else spacer 0 0
-      ],
+      heading1' "Reactive Showcase" theme
+      row' (gap := 16) (style := {}) do
+        caption' "FRP-powered widget demo" theme
+        emitDynamic do
+          let count ← buttonClickCount.sample
+          if count > 0 then pure (caption s!"(Clicks: {count})" theme)
+          else pure (spacer 0 0)
 
       -- Two-column layout
-      flexRow { FlexContainer.row 20 with alignItems := .flexStart }
-          (style := { flexItem := some (FlexItem.growing 1) }) #[
+      flexRow' { FlexContainer.row 20 with alignItems := .flexStart }
+          (style := { flexItem := some (FlexItem.growing 1) }) do
         -- Left column
-        column (gap := 16) (style := {}) #[
-          -- Labels section (non-interactive, no IO needed)
-          titledPanel "Labels" .outlined theme (
-            column (gap := 8) (style := {}) #[
-              heading1 "Heading 1" theme,
-              heading2 "Heading 2" theme,
-              heading3 "Heading 3" theme,
-              bodyText "Body text - normal paragraph content" theme,
-              caption "Caption - small muted text" theme
-            ]),
+        column' (gap := 16) (style := {}) do
+          -- Labels section (non-interactive)
+          titledPanel' "Labels" .outlined theme do
+            heading1' "Heading 1" theme
+            heading2' "Heading 2" theme
+            heading3' "Heading 3" theme
+            bodyText' "Body text - normal paragraph content" theme
+            caption' "Caption - small muted text" theme
 
           -- Buttons section
-          titledPanel "Buttons" .outlined theme (
-            column (gap := 12) (style := {}) #[
-              caption "Click a button to increment the counter:" theme,
-              row (gap := 8) (style := {}) #[← primaryBtn.render, ← secondaryBtn.render, ← outlineBtn.render, ← ghostBtn.render]
-            ]),
+          titledPanel' "Buttons" .outlined theme do
+            caption' "Click a button to increment the counter:" theme
+            row' (gap := 8) (style := {}) do
+              let c1 ← Components.button "Primary" theme .primary
+              let c2 ← Components.button "Secondary" theme .secondary
+              let c3 ← Components.button "Outline" theme .outline
+              let c4 ← Components.button "Ghost" theme .ghost
+              -- Wire all clicks to the pre-created trigger
+              let merged ← Event.leftmostM [c1, c2, c3, c4]
+              let fireAction ← Event.mapM (fun _ => fireButtonClick ()) merged
+              performEvent_ fireAction
 
           -- Checkboxes section
-          titledPanel "Checkboxes" .outlined theme (
-            column (gap := 8) (style := {}) #[
-              caption "Click to toggle:" theme,
-              row (gap := 24) (style := {}) #[← checkbox1.render, ← checkbox2.render]
-            ]),
+          titledPanel' "Checkboxes" .outlined theme do
+            caption' "Click to toggle:" theme
+            row' (gap := 24) (style := {}) do
+              let _ ← Components.checkbox "Option 1" theme false
+              let _ ← Components.checkbox "Option 2" theme true
+              pure ()
 
           -- Radio Buttons section
-          titledPanel "Radio Buttons" .outlined theme (
-            column (gap := 8) (style := {}) #[
-              caption "Click to select one option:" theme,
-              ← radioGroup.render
-            ]),
+          titledPanel' "Radio Buttons" .outlined theme do
+            caption' "Click to select one option:" theme
+            let radioOptions : Array Components.RadioOption := #[
+              { label := "Option 1", value := "option1" },
+              { label := "Option 2", value := "option2" },
+              { label := "Option 3", value := "option3" }
+            ]
+            let _ ← Components.radioGroup radioOptions theme "option1"
+            pure ()
 
           -- Switches section
-          titledPanel "Switches" .outlined theme (
-            column (gap := 8) (style := {}) #[
-              caption "Click to toggle:" theme,
-              row (gap := 24) (style := {}) #[← switch1.render, ← switch2.render]
-            ]),
+          titledPanel' "Switches" .outlined theme do
+            caption' "Click to toggle:" theme
+            row' (gap := 24) (style := {}) do
+              let _ ← Components.switch (some "Notifications") theme false
+              let _ ← Components.switch (some "Dark Mode") theme true
+              pure ()
 
           -- Modal section
-          titledPanel "Modal" .outlined theme (
-            column (gap := 8) (style := {}) #[
-              caption "Click button to open modal:" theme,
-              ← modalTrigger.render
-            ])
-        ],
+          titledPanel' "Modal" .outlined theme do
+            caption' "Click button to open modal:" theme
+            let triggerClick ← Components.button "Open Modal" theme .primary
+            let fireAction ← Event.mapM (fun _ => fireModalOpen ()) triggerClick
+            performEvent_ fireAction
 
         -- Right column
-        column (gap := 16) (style := {}) #[
+        column' (gap := 16) (style := {}) do
           -- Sliders section
-          titledPanel "Sliders" .outlined theme (
-            column (gap := 8) (style := {}) #[
-              caption "Click to adjust value:" theme,
-              row (gap := 24) (style := {}) #[← slider1.render, ← slider2.render]
-            ]),
+          titledPanel' "Sliders" .outlined theme do
+            caption' "Click to adjust value:" theme
+            row' (gap := 24) (style := {}) do
+              let _ ← Components.slider (some "Volume") theme 0.3
+              let _ ← Components.slider (some "Brightness") theme 0.7
+              pure ()
 
           -- Dropdown section
-          titledPanel "Dropdown" .outlined theme (
-            column (gap := 8) (style := {}) #[
-              caption "Click to open, select an option:" theme,
-              ← dropdown1.render
-            ]),
+          titledPanel' "Dropdown" .outlined theme do
+            caption' "Click to open, select an option:" theme
+            let dropdownOptions := #["Apple", "Banana", "Cherry", "Date", "Elderberry"]
+            let _ ← Components.dropdown dropdownOptions theme 0
+            pure ()
 
           -- Text Input section
-          titledPanel "Text Inputs" .outlined theme (
-            column (gap := 12) (style := {}) #[
-              caption "Click to focus, then type:" theme,
-              ← textInput1.render,
-              ← textInput2.render
-            ]),
+          titledPanel' "Text Inputs" .outlined theme do
+            caption' "Click to focus, then type:" theme
+            let _ ← Components.textInput theme "Enter text here..." ""
+            let _ ← Components.textInput theme "Type something..." "Hello, World!"
+            pure ()
 
           -- Text Area section
-          titledPanel "Text Area" .outlined theme (
-            column (gap := 8) (style := {}) #[
-              caption "Multi-line text with word wrapping:" theme,
-              ← textArea.render
-            ]),
+          titledPanel' "Text Area" .outlined theme do
+            caption' "Multi-line text with word wrapping:" theme
+            let _ ← Components.textArea theme "Enter multi-line text..." {} env.fontCanopy
+            pure ()
 
-          -- Panels section (non-interactive)
-          titledPanel "Panels" .outlined theme (
-            row (gap := 12) (style := {}) #[
-              elevatedPanel theme 12 (
-                column (gap := 4) (style := { minWidth := some 100 }) #[
-                  heading3 "Elevated" theme,
-                  caption "Card-like" theme
-                ]),
-              outlinedPanel theme 12 (
-                column (gap := 4) (style := { minWidth := some 100 }) #[
-                  heading3 "Outlined" theme,
-                  caption "Border only" theme
-                ]),
-              filledPanel theme 12 (
-                column (gap := 4) (style := { minWidth := some 100 }) #[
-                  heading3 "Filled" theme,
-                  caption "Solid bg" theme
-                ])
-            ]),
+          -- Panels section
+          titledPanel' "Panels" .outlined theme do
+            row' (gap := 12) (style := {}) do
+              elevatedPanel' theme 12 do
+                column' (gap := 4) (style := { minWidth := some 100 }) do
+                  heading3' "Elevated" theme
+                  caption' "Card-like" theme
+              outlinedPanel' theme 12 do
+                column' (gap := 4) (style := { minWidth := some 100 }) do
+                  heading3' "Outlined" theme
+                  caption' "Border only" theme
+              filledPanel' theme 12 do
+                column' (gap := 4) (style := { minWidth := some 100 }) do
+                  heading3' "Filled" theme
+                  caption' "Solid bg" theme
 
           -- TabView section
-          titledPanel "Tab View" .outlined theme (
-            column (gap := 8) (style := {}) #[
-              caption "Click tabs to switch content:" theme,
-              ← tabView.render
-            ])
-        ]
-      ],
+          titledPanel' "Tab View" .outlined theme do
+            caption' "Click tabs to switch content:" theme
+            let tabs : Array Components.TabDef := #[
+              { label := "Overview", content := do
+                  bodyText' "TabView organizes content into separate panels." theme
+                  bodyText' "Click a tab to switch between panels." theme
+              },
+              { label := "Settings", content := do
+                  caption' "Sample settings panel:" theme
+                  row' (gap := 16) (style := {}) do
+                    let _ ← Components.checkbox "Enable feature" theme false
+                    pure ()
+              },
+              { label := "About", content := do
+                  heading3' "Reactive Widgets" theme
+                  caption' "Version 1.0.0" theme
+              }
+            ]
+            let _ ← Components.tabView tabs theme 0
+            pure ()
 
       -- Modal overlay (renders on top when open)
-      ← modal.render
-    ])
+      let modalResult ← Components.modal "Sample Modal" theme do
+        bodyText' "This is a modal dialog." theme
+        bodyText' "Click outside, press Escape, or click a button to close." theme
+
+      -- Wire modal open trigger to modal's openModal
+      let openAction ← Event.mapM (fun _ => modalResult.openModal) modalOpenTrigger
+      performEvent_ openAction
+
+  -- Set up automatic focus clearing
+  events.registry.setupFocusClearing
 
   pure { render }
 
