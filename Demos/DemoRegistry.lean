@@ -660,10 +660,10 @@ instance : Demo .reactiveShowcase where
 
   step := fun c _ s => pure (c, s)
 
-  onExit := fun _c _env state => do
-    -- Clean up subscriptions when leaving demo
-    state.spiderEnv.currentScope.dispose
-    pure state
+  -- Note: We do NOT dispose the SpiderEnv on exit because the demo state
+  -- is preserved and reused when the user switches back to this tab.
+  -- Disposing would break all FRP subscriptions. The SpiderEnv will be
+  -- cleaned up naturally when the app closes and the state is GC'd.
 
 instance : Demo .seascape where
   name := "SEASCAPE demo (Gerstner waves)"
