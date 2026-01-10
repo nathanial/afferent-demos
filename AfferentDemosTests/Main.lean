@@ -5,7 +5,6 @@ import Crucible
 import Demos.Runner
 import AfferentDemosTests.Smoke
 import AfferentDemosTests.StrokeCards
-import AfferentDemosTests.CanopyShowcaseLayout
 import AfferentDemosTests.RegistryTests
 
 def main : IO UInt32 := do

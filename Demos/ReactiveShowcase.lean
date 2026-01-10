@@ -1,6 +1,6 @@
 /-
   ReactiveShowcase - FRP-Powered Widget Demo
-  Demonstrates the same UI as CanopyShowcase but using the data/reactive FRP library.
+  Demonstrates interactive widgets using the data/reactive FRP library.
 
   Uses a React-like component model where each widget is self-contained:
   - Creates its own internal state (dynamics)

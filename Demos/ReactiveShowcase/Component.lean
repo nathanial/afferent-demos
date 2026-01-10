@@ -8,7 +8,6 @@ import Afferent.Canopy
 import Demos.Demo
 import Demos.ReactiveShowcase.Types
 import Demos.ReactiveShowcase.Inputs
-import Demos.CanopyShowcase
 
 open Reactive Reactive.Host
 open Afferent.Canopy

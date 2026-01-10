@@ -17,7 +17,6 @@ import Demos.ReactiveShowcase.Components.Dropdown
 import Demos.ReactiveShowcase.Components.TextInput
 import Demos.ReactiveShowcase.Components.TabView
 import Demos.ReactiveShowcase.Components.Modal
-import Demos.CanopyShowcase  -- For visual helpers
 
 open Reactive Reactive.Host
 open Afferent CanvasM
@@ -84,7 +83,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
   let slider1 ← Components.slider (some "Volume") theme 0.3
   let slider2 ← Components.slider (some "Brightness") theme 0.7
 
-  -- Dropdown (with fruit options like CanopyShowcase)
+  -- Dropdown
   let dropdownOptions := #["Apple", "Banana", "Cherry", "Date", "Elderberry"]
   let dropdown1 ← Components.dropdown dropdownOptions theme 0
 
@@ -93,7 +92,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
   let textInput2 ← Components.textInput theme "Type something..." "Hello, World!"
   let textArea ← Components.textArea theme "Enter multi-line text..." {} env.fontCanopy
 
-  -- TabView with rich content (matching CanopyShowcase)
+  -- TabView with rich content
   -- Note: Settings tab checkbox is independent (not shared with main checkbox1)
   let settingsCheckbox ← Components.checkbox "Enable feature" theme false
   let tabs : Array Components.TabDef := #[
