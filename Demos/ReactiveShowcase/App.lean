@@ -16,6 +16,175 @@ open Trellis
 
 namespace Demos.ReactiveShowcase
 
+/-! ## Panel Components
+
+Each panel is a self-contained WidgetM component that can be composed into the main layout.
+-/
+
+/-- Labels panel - demonstrates text styling variants. -/
+def labelsPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Labels" .outlined theme do
+    heading1' "Heading 1" theme
+    heading2' "Heading 2" theme
+    heading3' "Heading 3" theme
+    bodyText' "Body text - normal paragraph content" theme
+    caption' "Caption - small muted text" theme
+
+/-- Buttons panel - demonstrates button variants with click counter.
+    Returns the merged click event for external wiring. -/
+def buttonsPanel (theme : Theme) : WidgetM (Reactive.Event Spider Unit) :=
+  titledPanel' "Buttons" .outlined theme do
+    caption' "Click a button to increment the counter:" theme
+    row' (gap := 8) (style := {}) do
+      let c1 ← button "Primary" theme .primary
+      let c2 ← button "Secondary" theme .secondary
+      let c3 ← button "Outline" theme .outline
+      let c4 ← button "Ghost" theme .ghost
+      Event.leftmostM [c1, c2, c3, c4]
+
+/-- Checkboxes panel - demonstrates checkbox toggle behavior. -/
+def checkboxesPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Checkboxes" .outlined theme do
+    caption' "Click to toggle:" theme
+    row' (gap := 24) (style := {}) do
+      let _ ← checkbox "Option 1" theme false
+      let _ ← checkbox "Option 2" theme true
+      pure ()
+
+/-- Radio buttons panel - demonstrates single-selection radio group. -/
+def radioButtonsPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Radio Buttons" .outlined theme do
+    caption' "Click to select one option:" theme
+    let radioOptions : Array RadioOption := #[
+      { label := "Option 1", value := "option1" },
+      { label := "Option 2", value := "option2" },
+      { label := "Option 3", value := "option3" }
+    ]
+    let _ ← radioGroup radioOptions theme "option1"
+    pure ()
+
+/-- Switches panel - demonstrates iOS-style toggle switches. -/
+def switchesPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Switches" .outlined theme do
+    caption' "Click to toggle:" theme
+    row' (gap := 24) (style := {}) do
+      let _ ← switch (some "Notifications") theme false
+      let _ ← switch (some "Dark Mode") theme true
+      pure ()
+
+/-- Modal trigger panel - button to open the modal dialog.
+    Returns the click event for external wiring. -/
+def modalTriggerPanel (theme : Theme) : WidgetM (Reactive.Event Spider Unit) :=
+  titledPanel' "Modal" .outlined theme do
+    caption' "Click button to open modal:" theme
+    button "Open Modal" theme .primary
+
+/-- Toast triggers panel - buttons to show different toast notifications.
+    Takes fire functions for each toast type. -/
+def toastsPanel (theme : Theme)
+    (fireInfo fireSuccess fireWarning fireError : Unit → IO Unit) : WidgetM Unit :=
+  titledPanel' "Toasts" .outlined theme do
+    caption' "Click to show notifications:" theme
+    row' (gap := 8) (style := {}) do
+      let infoClick ← button "Info" theme .primary
+      let successClick ← button "Success" theme .primary
+      let warnClick ← button "Warning" theme .secondary
+      let errorClick ← button "Error" theme .secondary
+      -- Wire clicks to toast triggers
+      let infoAction ← Event.mapM (fun _ => fireInfo ()) infoClick
+      let successAction ← Event.mapM (fun _ => fireSuccess ()) successClick
+      let warnAction ← Event.mapM (fun _ => fireWarning ()) warnClick
+      let errorAction ← Event.mapM (fun _ => fireError ()) errorClick
+      performEvent_ infoAction
+      performEvent_ successAction
+      performEvent_ warnAction
+      performEvent_ errorAction
+
+/-- Sliders panel - demonstrates slider input controls. -/
+def slidersPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Sliders" .outlined theme do
+    caption' "Click to adjust value:" theme
+    row' (gap := 24) (style := {}) do
+      let _ ← slider (some "Volume") theme 0.3
+      let _ ← slider (some "Brightness") theme 0.7
+      pure ()
+
+/-- Progress bars panel - demonstrates determinate and indeterminate progress. -/
+def progressBarsPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Progress Bars" .outlined theme do
+    caption' "Determinate and indeterminate progress:" theme
+    column' (gap := 12) (style := {}) do
+      let _ ← progressBar theme 0.65 .primary (some "Download") true
+      let _ ← progressBar theme 0.3 .success (some "Upload") true
+      let _ ← progressBar theme 0.85 .warning none true
+      let _ ← progressBarIndeterminate theme .primary (some "Loading...")
+      pure ()
+
+/-- Dropdown panel - demonstrates dropdown selection. -/
+def dropdownPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Dropdown" .outlined theme do
+    caption' "Click to open, select an option:" theme
+    let dropdownOptions := #["Apple", "Banana", "Cherry", "Date", "Elderberry"]
+    let _ ← dropdown dropdownOptions theme 0
+    pure ()
+
+/-- Text inputs panel - demonstrates single-line text input. -/
+def textInputsPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Text Inputs" .outlined theme do
+    caption' "Click to focus, then type:" theme
+    let _ ← textInput theme "Enter text here..." ""
+    let _ ← textInput theme "Type something..." "Hello, World!"
+    pure ()
+
+/-- Text area panel - demonstrates multi-line text input. -/
+def textAreaPanel (theme : Theme) (font : Afferent.Font) : WidgetM Unit :=
+  titledPanel' "Text Area" .outlined theme do
+    caption' "Multi-line text with word wrapping:" theme
+    let _ ← textArea theme "Enter multi-line text..." {} font
+    pure ()
+
+/-- Panels panel - demonstrates different panel styles. -/
+def panelsPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Panels" .outlined theme do
+    row' (gap := 12) (style := {}) do
+      elevatedPanel' theme 12 do
+        column' (gap := 4) (style := { minWidth := some 100 }) do
+          heading3' "Elevated" theme
+          caption' "Card-like" theme
+      outlinedPanel' theme 12 do
+        column' (gap := 4) (style := { minWidth := some 100 }) do
+          heading3' "Outlined" theme
+          caption' "Border only" theme
+      filledPanel' theme 12 do
+        column' (gap := 4) (style := { minWidth := some 100 }) do
+          heading3' "Filled" theme
+          caption' "Solid bg" theme
+
+/-- Tab view panel - demonstrates tabbed content switching. -/
+def tabViewPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Tab View" .outlined theme do
+    caption' "Click tabs to switch content:" theme
+    let tabs : Array TabDef := #[
+      { label := "Overview", content := do
+          bodyText' "TabView organizes content into separate panels." theme
+          bodyText' "Click a tab to switch between panels." theme
+      },
+      { label := "Settings", content := do
+          caption' "Sample settings panel:" theme
+          row' (gap := 16) (style := {}) do
+            let _ ← checkbox "Enable feature" theme false
+            pure ()
+      },
+      { label := "About", content := do
+          heading3' "Reactive Widgets" theme
+          caption' "Version 1.0.0" theme
+      }
+    ]
+    let _ ← tabView tabs theme 0
+    pure ()
+
+/-! ## Main Application -/
+
 /-- Application state returned from createApp. -/
 structure AppState where
   /-- Render function that samples all component state and returns the complete UI. -/
@@ -65,156 +234,33 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           (style := { flexItem := some (FlexItem.growing 1) }) do
         -- Left column
         column' (gap := 16) (style := {}) do
-          -- Labels section (non-interactive)
-          titledPanel' "Labels" .outlined theme do
-            heading1' "Heading 1" theme
-            heading2' "Heading 2" theme
-            heading3' "Heading 3" theme
-            bodyText' "Body text - normal paragraph content" theme
-            caption' "Caption - small muted text" theme
+          labelsPanel theme
 
-          -- Buttons section
-          titledPanel' "Buttons" .outlined theme do
-            caption' "Click a button to increment the counter:" theme
-            row' (gap := 8) (style := {}) do
-              let c1 ← button "Primary" theme .primary
-              let c2 ← button "Secondary" theme .secondary
-              let c3 ← button "Outline" theme .outline
-              let c4 ← button "Ghost" theme .ghost
-              -- Wire all clicks to the pre-created trigger
-              let merged ← Event.leftmostM [c1, c2, c3, c4]
-              let fireAction ← Event.mapM (fun _ => fireButtonClick ()) merged
-              performEvent_ fireAction
+          -- Buttons panel with click counter wiring
+          let buttonClicks ← buttonsPanel theme
+          let fireAction ← Event.mapM (fun _ => fireButtonClick ()) buttonClicks
+          performEvent_ fireAction
 
-          -- Checkboxes section
-          titledPanel' "Checkboxes" .outlined theme do
-            caption' "Click to toggle:" theme
-            row' (gap := 24) (style := {}) do
-              let _ ← checkbox "Option 1" theme false
-              let _ ← checkbox "Option 2" theme true
-              pure ()
+          checkboxesPanel theme
+          radioButtonsPanel theme
+          switchesPanel theme
 
-          -- Radio Buttons section
-          titledPanel' "Radio Buttons" .outlined theme do
-            caption' "Click to select one option:" theme
-            let radioOptions : Array RadioOption := #[
-              { label := "Option 1", value := "option1" },
-              { label := "Option 2", value := "option2" },
-              { label := "Option 3", value := "option3" }
-            ]
-            let _ ← radioGroup radioOptions theme "option1"
-            pure ()
+          -- Modal trigger panel with open wiring
+          let modalClick ← modalTriggerPanel theme
+          let fireAction ← Event.mapM (fun _ => fireModalOpen ()) modalClick
+          performEvent_ fireAction
 
-          -- Switches section
-          titledPanel' "Switches" .outlined theme do
-            caption' "Click to toggle:" theme
-            row' (gap := 24) (style := {}) do
-              let _ ← switch (some "Notifications") theme false
-              let _ ← switch (some "Dark Mode") theme true
-              pure ()
-
-          -- Modal section
-          titledPanel' "Modal" .outlined theme do
-            caption' "Click button to open modal:" theme
-            let triggerClick ← button "Open Modal" theme .primary
-            let fireAction ← Event.mapM (fun _ => fireModalOpen ()) triggerClick
-            performEvent_ fireAction
-
-          -- Toast section
-          titledPanel' "Toasts" .outlined theme do
-            caption' "Click to show notifications:" theme
-            row' (gap := 8) (style := {}) do
-              let infoClick ← button "Info" theme .primary
-              let successClick ← button "Success" theme .primary
-              let warnClick ← button "Warning" theme .secondary
-              let errorClick ← button "Error" theme .secondary
-              -- Wire clicks to toast triggers
-              let infoAction ← Event.mapM (fun _ => fireToastInfo ()) infoClick
-              let successAction ← Event.mapM (fun _ => fireToastSuccess ()) successClick
-              let warnAction ← Event.mapM (fun _ => fireToastWarning ()) warnClick
-              let errorAction ← Event.mapM (fun _ => fireToastError ()) errorClick
-              performEvent_ infoAction
-              performEvent_ successAction
-              performEvent_ warnAction
-              performEvent_ errorAction
+          toastsPanel theme fireToastInfo fireToastSuccess fireToastWarning fireToastError
 
         -- Right column
         column' (gap := 16) (style := {}) do
-          -- Sliders section
-          titledPanel' "Sliders" .outlined theme do
-            caption' "Click to adjust value:" theme
-            row' (gap := 24) (style := {}) do
-              let _ ← slider (some "Volume") theme 0.3
-              let _ ← slider (some "Brightness") theme 0.7
-              pure ()
-
-          -- Progress Bars section
-          titledPanel' "Progress Bars" .outlined theme do
-            caption' "Determinate and indeterminate progress:" theme
-            column' (gap := 12) (style := {}) do
-              let _ ← progressBar theme 0.65 .primary (some "Download") true
-              let _ ← progressBar theme 0.3 .success (some "Upload") true
-              let _ ← progressBar theme 0.85 .warning none true
-              let _ ← progressBarIndeterminate theme .primary (some "Loading...")
-              pure ()
-
-          -- Dropdown section
-          titledPanel' "Dropdown" .outlined theme do
-            caption' "Click to open, select an option:" theme
-            let dropdownOptions := #["Apple", "Banana", "Cherry", "Date", "Elderberry"]
-            let _ ← dropdown dropdownOptions theme 0
-            pure ()
-
-          -- Text Input section
-          titledPanel' "Text Inputs" .outlined theme do
-            caption' "Click to focus, then type:" theme
-            let _ ← textInput theme "Enter text here..." ""
-            let _ ← textInput theme "Type something..." "Hello, World!"
-            pure ()
-
-          -- Text Area section
-          titledPanel' "Text Area" .outlined theme do
-            caption' "Multi-line text with word wrapping:" theme
-            let _ ← textArea theme "Enter multi-line text..." {} env.fontCanopy
-            pure ()
-
-          -- Panels section
-          titledPanel' "Panels" .outlined theme do
-            row' (gap := 12) (style := {}) do
-              elevatedPanel' theme 12 do
-                column' (gap := 4) (style := { minWidth := some 100 }) do
-                  heading3' "Elevated" theme
-                  caption' "Card-like" theme
-              outlinedPanel' theme 12 do
-                column' (gap := 4) (style := { minWidth := some 100 }) do
-                  heading3' "Outlined" theme
-                  caption' "Border only" theme
-              filledPanel' theme 12 do
-                column' (gap := 4) (style := { minWidth := some 100 }) do
-                  heading3' "Filled" theme
-                  caption' "Solid bg" theme
-
-          -- TabView section
-          titledPanel' "Tab View" .outlined theme do
-            caption' "Click tabs to switch content:" theme
-            let tabs : Array TabDef := #[
-              { label := "Overview", content := do
-                  bodyText' "TabView organizes content into separate panels." theme
-                  bodyText' "Click a tab to switch between panels." theme
-              },
-              { label := "Settings", content := do
-                  caption' "Sample settings panel:" theme
-                  row' (gap := 16) (style := {}) do
-                    let _ ← checkbox "Enable feature" theme false
-                    pure ()
-              },
-              { label := "About", content := do
-                  heading3' "Reactive Widgets" theme
-                  caption' "Version 1.0.0" theme
-              }
-            ]
-            let _ ← tabView tabs theme 0
-            pure ()
+          slidersPanel theme
+          progressBarsPanel theme
+          dropdownPanel theme
+          textInputsPanel theme
+          textAreaPanel theme env.fontCanopy
+          panelsPanel theme
+          tabViewPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
