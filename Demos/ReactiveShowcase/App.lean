@@ -19,6 +19,7 @@ import Demos.ReactiveShowcase.Components.TextArea
 import Demos.ReactiveShowcase.Components.TabView
 import Demos.ReactiveShowcase.Components.Modal
 import Demos.ReactiveShowcase.Components.ProgressBar
+import Demos.ReactiveShowcase.Components.Toast
 
 open Reactive Reactive.Host
 open Afferent CanvasM
@@ -46,6 +47,12 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
 
   -- 2. Modal open trigger (trigger button is in a panel, modal is at root)
   let (modalOpenTrigger, fireModalOpen) ← newTriggerEvent (t := Spider) (a := Unit)
+
+  -- 3. Toast triggers (buttons in panel, toast manager at root)
+  let (toastInfoTrigger, fireToastInfo) ← newTriggerEvent (t := Spider) (a := Unit)
+  let (toastSuccessTrigger, fireToastSuccess) ← newTriggerEvent (t := Spider) (a := Unit)
+  let (toastWarningTrigger, fireToastWarning) ← newTriggerEvent (t := Spider) (a := Unit)
+  let (toastErrorTrigger, fireToastError) ← newTriggerEvent (t := Spider) (a := Unit)
 
   let (_, render) ← runWidget do
     let rootStyle : BoxStyle := {
@@ -125,6 +132,24 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
             let triggerClick ← Components.button "Open Modal" theme .primary
             let fireAction ← Event.mapM (fun _ => fireModalOpen ()) triggerClick
             performEvent_ fireAction
+
+          -- Toast section
+          titledPanel' "Toasts" .outlined theme do
+            caption' "Click to show notifications:" theme
+            row' (gap := 8) (style := {}) do
+              let infoClick ← Components.button "Info" theme .primary
+              let successClick ← Components.button "Success" theme .primary
+              let warnClick ← Components.button "Warning" theme .secondary
+              let errorClick ← Components.button "Error" theme .secondary
+              -- Wire clicks to toast triggers
+              let infoAction ← Event.mapM (fun _ => fireToastInfo ()) infoClick
+              let successAction ← Event.mapM (fun _ => fireToastSuccess ()) successClick
+              let warnAction ← Event.mapM (fun _ => fireToastWarning ()) warnClick
+              let errorAction ← Event.mapM (fun _ => fireToastError ()) errorClick
+              performEvent_ infoAction
+              performEvent_ successAction
+              performEvent_ warnAction
+              performEvent_ errorAction
 
         -- Right column
         column' (gap := 16) (style := {}) do
@@ -212,6 +237,19 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
       -- Wire modal open trigger to modal's openModal
       let openAction ← Event.mapM (fun _ => modalResult.openModal) modalOpenTrigger
       performEvent_ openAction
+
+      -- Toast manager (renders toast notifications)
+      let toastMgr ← Components.toastManager theme
+
+      -- Wire toast triggers to toast manager
+      let infoAction ← Event.mapM (fun _ => toastMgr.showInfo "This is an info message") toastInfoTrigger
+      let successAction ← Event.mapM (fun _ => toastMgr.showSuccess "Operation completed successfully!") toastSuccessTrigger
+      let warningAction ← Event.mapM (fun _ => toastMgr.showWarning "Please check your input") toastWarningTrigger
+      let errorAction ← Event.mapM (fun _ => toastMgr.showError "Something went wrong") toastErrorTrigger
+      performEvent_ infoAction
+      performEvent_ successAction
+      performEvent_ warningAction
+      performEvent_ errorAction
 
   -- Set up automatic focus clearing
   events.registry.setupFocusClearing
