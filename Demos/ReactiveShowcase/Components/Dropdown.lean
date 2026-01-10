@@ -31,14 +31,13 @@ structure DropdownComponent where
 def dropdown (options : Array String) (theme : Theme) (initialSelection : Nat)
     : ReactiveM DropdownComponent := do
   -- Auto-generate names via registry
-  let events ← getEvents
-  let containerName ← SpiderM.liftIO <| events.registry.register "dropdown" (isInteractive := false)
-  let triggerName ← SpiderM.liftIO <| events.registry.register "dropdown-trigger"
+  let containerName ← registerComponent "dropdown" (isInteractive := false)
+  let triggerName ← registerComponent "dropdown-trigger"
 
   -- Generate names for each option
   let mut optionNames : Array String := #[]
   for _ in options do
-    let name ← SpiderM.liftIO <| events.registry.register "dropdown-option"
+    let name ← registerComponent "dropdown-option"
     optionNames := optionNames.push name
   let optionNameFn (i : Nat) : String := optionNames.getD i ""
 

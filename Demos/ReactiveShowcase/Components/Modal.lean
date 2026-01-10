@@ -33,10 +33,9 @@ structure ModalComponent where
 def modal (title : String) (theme : Theme) (content : ComponentRender)
     : ReactiveM ModalComponent := do
   -- Auto-generate names via registry
-  let events ← getEvents
-  let containerName ← SpiderM.liftIO <| events.registry.register "modal" (isInteractive := false)
-  let backdropName ← SpiderM.liftIO <| events.registry.register "modal-backdrop" (isInteractive := false)
-  let closeName ← SpiderM.liftIO <| events.registry.register "modal-close"
+  let containerName ← registerComponent "modal" (isInteractive := false)
+  let backdropName ← registerComponent "modal-backdrop" (isInteractive := false)
+  let closeName ← registerComponent "modal-close"
 
   -- Create close button hover state
   let isCloseHovered ← useHover closeName

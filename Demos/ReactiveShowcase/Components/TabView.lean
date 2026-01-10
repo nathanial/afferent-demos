@@ -34,13 +34,12 @@ structure TabViewComponent where
 def tabView (tabs : Array TabDef) (theme : Theme) (initialTab : Nat)
     : ReactiveM TabViewComponent := do
   -- Auto-generate names via registry
-  let events ← getEvents
-  let containerName ← SpiderM.liftIO <| events.registry.register "tabview" (isInteractive := false)
+  let containerName ← registerComponent "tabview" (isInteractive := false)
 
   -- Generate names for each tab header
   let mut headerNames : Array String := #[]
   for _ in tabs do
-    let name ← SpiderM.liftIO <| events.registry.register "tab-header"
+    let name ← registerComponent "tab-header"
     headerNames := headerNames.push name
   let headerNameFn (i : Nat) : String := headerNames.getD i ""
 

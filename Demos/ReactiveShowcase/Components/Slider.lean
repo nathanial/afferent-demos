@@ -29,8 +29,7 @@ structure SliderComponent where
 def slider (label : Option String) (theme : Theme) (initialValue : Float)
     : ReactiveM SliderComponent := do
   -- Auto-generate name via registry
-  let events ← getEvents
-  let name ← SpiderM.liftIO <| events.registry.register "slider"
+  let name ← registerComponent "slider"
 
   -- Create internal hover state
   let isHovered ← useHover name

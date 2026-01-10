@@ -36,8 +36,8 @@ structure TextInputComponent where
 def textInput (theme : Theme) (placeholder : String) (initialValue : String)
     : ReactiveM TextInputComponent := do
   -- Auto-generate name via registry (marked as input)
+  let name ← registerComponent "text-input" (isInput := true)
   let events ← getEvents
-  let name ← SpiderM.liftIO <| events.registry.register "text-input" (isInput := true)
   let focusedInput := events.registry.focusedInput
   let fireFocusedInput := events.registry.fireFocus
 
@@ -117,8 +117,8 @@ def textArea (theme : Theme) (placeholder : String) (initialState : TextAreaStat
     (font : Afferent.Font) (width : Float := 280) (height : Float := 120)
     : ReactiveM TextAreaComponent := do
   -- Auto-generate name via registry (marked as input)
+  let name ← registerComponent "text-area" (isInput := true)
   let events ← getEvents
-  let name ← SpiderM.liftIO <| events.registry.register "text-area" (isInput := true)
   let focusedInput := events.registry.focusedInput
   let fireFocusedInput := events.registry.fireFocus
 

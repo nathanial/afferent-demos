@@ -60,6 +60,13 @@ def ReactiveM.run (events : ReactiveEvents) (m : ReactiveM α) : SpiderM α :=
 /-- Get the events from the implicit context. -/
 def getEvents : ReactiveM ReactiveEvents := read
 
+/-- Register a component and get an auto-generated name.
+    This is the preferred way to register components in ReactiveM context. -/
+def registerComponent (namePrefix : String) (isInput : Bool := false)
+    (isInteractive : Bool := true) : ReactiveM String := do
+  let events ← getEvents
+  SpiderM.liftIO <| events.registry.register namePrefix isInput isInteractive
+
 /-- Lift SpiderM into ReactiveM. Prefer using automatic lifting instead. -/
 @[deprecated "Use automatic monad lifting instead of explicit liftSpider"]
 def liftSpider (m : SpiderM α) : ReactiveM α := fun _ => m

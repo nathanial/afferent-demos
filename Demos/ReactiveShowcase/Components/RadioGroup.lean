@@ -35,10 +35,9 @@ def radioGroup (options : Array RadioOption) (theme : Theme)
     (initialSelection : String)
     : ReactiveM RadioGroupComponent := do
   -- Auto-generate names for each option via registry
-  let events ← getEvents
   let mut optionNames : Array String := #[]
   for _ in options do
-    let name ← SpiderM.liftIO <| events.registry.register "radio"
+    let name ← registerComponent "radio"
     optionNames := optionNames.push name
 
   -- Get event streams

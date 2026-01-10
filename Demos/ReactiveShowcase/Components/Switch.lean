@@ -31,8 +31,7 @@ structure SwitchComponent where
 def switch (label : Option String) (theme : Theme) (initialOn : Bool)
     : ReactiveM SwitchComponent := do
   -- Auto-generate name via registry
-  let events ← getEvents
-  let name ← SpiderM.liftIO <| events.registry.register "switch"
+  let name ← registerComponent "switch"
 
   -- Create internal hover state
   let isHovered ← useHover name
