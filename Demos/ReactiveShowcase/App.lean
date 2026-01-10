@@ -18,6 +18,7 @@ import Demos.ReactiveShowcase.Components.TextInput
 import Demos.ReactiveShowcase.Components.TextArea
 import Demos.ReactiveShowcase.Components.TabView
 import Demos.ReactiveShowcase.Components.Modal
+import Demos.ReactiveShowcase.Components.ProgressBar
 
 open Reactive Reactive.Host
 open Afferent CanvasM
@@ -133,6 +134,16 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
             row' (gap := 24) (style := {}) do
               let _ ← Components.slider (some "Volume") theme 0.3
               let _ ← Components.slider (some "Brightness") theme 0.7
+              pure ()
+
+          -- Progress Bars section
+          titledPanel' "Progress Bars" .outlined theme do
+            caption' "Determinate and indeterminate progress:" theme
+            column' (gap := 12) (style := {}) do
+              let _ ← Components.progressBar theme 0.65 .primary (some "Download") true
+              let _ ← Components.progressBar theme 0.3 .success (some "Upload") true
+              let _ ← Components.progressBar theme 0.85 .warning none true
+              let _ ← Components.indeterminateProgressBar theme .primary (some "Loading...")
               pure ()
 
           -- Dropdown section
