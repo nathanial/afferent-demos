@@ -239,6 +239,22 @@ def listBoxPanel (theme : Theme) : WidgetM Unit :=
     ) result.onSelect)
     pure ()
 
+/-- ColorPicker panel - demonstrates HSV color picker widget. -/
+def colorPickerPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "ColorPicker" .outlined theme do
+    caption' "Click and drag to select color:" theme
+    let result ← colorPicker theme Color.red
+    -- Display the current color value
+    emitDynamic do
+      let color ← result.color.sample
+      let hsv ← result.hsv.sample
+      let alpha ← result.alpha.sample
+      let r := (color.r * 255).floor.toUInt8
+      let g := (color.g * 255).floor.toUInt8
+      let b := (color.b * 255).floor.toUInt8
+      let a := (alpha * 100).floor.toUInt8
+      pure (caption s!"RGB({r}, {g}, {b}) H:{(hsv.h * 360).floor.toUInt16}° α:{a}%" theme)
+
 /-- TreeView panel - demonstrates hierarchical tree with expand/collapse. -/
 def treeViewPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "TreeView" .outlined theme do
@@ -507,6 +523,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           tablePanel theme
           listBoxPanel theme
           treeViewPanel theme
+          colorPickerPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
