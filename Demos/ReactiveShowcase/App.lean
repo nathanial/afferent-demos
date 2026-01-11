@@ -423,6 +423,44 @@ def tabViewPanel (theme : Theme) : WidgetM Unit :=
     let _ ← tabView tabs theme 0
     pure ()
 
+/-- Split pane panel - demonstrates draggable split container. -/
+def splitPanePanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Split Pane" .outlined theme do
+    caption' "Drag the divider to resize panes:" theme
+    let config : SplitPaneConfig := {
+      orientation := .horizontal
+      initialRatio := 0.4
+      minPaneSize := 120
+      handleThickness := 6
+      width := some 420
+      height := some 200
+    }
+    let ((_, _), result) ← splitPane config theme
+      (column' (gap := 6) (style := {
+        padding := EdgeInsets.uniform 12
+        backgroundColor := some (theme.panel.background.withAlpha 0.2)
+        width := .percent 1.0
+        height := .percent 1.0
+      }) do
+        heading3' "Navigator" theme
+        caption' "Left pane" theme
+      )
+      (column' (gap := 6) (style := {
+        padding := EdgeInsets.uniform 12
+        backgroundColor := some (theme.panel.background.withAlpha 0.1)
+        width := .percent 1.0
+        height := .percent 1.0
+      }) do
+        heading3' "Details" theme
+        caption' "Right pane" theme
+        bodyText' "Resize me with the handle." theme
+      )
+    emitDynamic do
+      let ratio ← result.ratio.sample
+      let leftPct := (ratio * 100.0).floor.toUInt32
+      let rightPct := ((1.0 - ratio) * 100.0).floor.toUInt32
+      pure (caption s!"Split ratio: {leftPct}% / {rightPct}%" theme)
+
 /-- Scroll container panel - demonstrates scrollable content viewport. -/
 def scrollContainerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "Scroll Container" .outlined theme do
@@ -550,6 +588,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           textAreaPanel theme env.fontCanopy
           panelsPanel theme
           tabViewPanel theme
+          splitPanePanel theme
 
         -- Right column
         column' (gap := 16) (style := {}) do
@@ -559,6 +598,10 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           listBoxPanel theme
           virtualListPanel theme
           treeViewPanel theme
+
+        -- Fourth column
+        column' (gap := 16) (style := {}) do
+          splitPanePanel theme
           colorPickerPanel theme
 
       -- Modal overlay (renders on top when open)
