@@ -417,6 +417,7 @@ def textInputsPanel (theme : Theme) (font : Afferent.Font) : WidgetM Unit :=
     caption' "Click to focus, then type:" theme
     let _ ← textInput theme font "Enter text here..." ""
     let _ ← textInput theme font "Type something..." "Hello, World!"
+    let _ ← passwordInput theme font "Enter password..." ""
     pure ()
 
 /-- Text area panel - demonstrates multi-line text input. -/
