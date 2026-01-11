@@ -239,6 +239,41 @@ def listBoxPanel (theme : Theme) : WidgetM Unit :=
     ) result.onSelect)
     pure ()
 
+/-- VirtualList panel - demonstrates efficient rendering of long lists. -/
+def virtualListPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "VirtualList" .outlined theme do
+    caption' "Only visible rows are rendered:" theme
+    let itemCount := 500
+    let config : VirtualListConfig := {
+      width := 220
+      height := 180
+      itemHeight := 28
+      overscan := 3
+    }
+    let result ← virtualList itemCount (fun idx => do
+      let isEven := idx % 2 == 0
+      let bg := if isEven then theme.panel.background.withAlpha 0.2 else Color.transparent
+      let rowStyle : BoxStyle := {
+        backgroundColor := some bg
+        padding := EdgeInsets.symmetric 8 4
+        width := .percent 1.0
+        minHeight := some config.itemHeight
+      }
+      let wid ← freshId
+      let props : FlexContainer := { FlexContainer.row 0 with alignItems := .center }
+      let label ← bodyText s!"Row {idx}" theme
+      pure (.flex wid none props rowStyle #[label])
+    ) theme config
+
+    emitDynamic do
+      let (start, stop) ← result.visibleRange.sample
+      pure (caption s!"Visible indices: [{start}, {stop})" theme)
+
+    let _ ← performEvent_ (← Event.mapM (fun idx => do
+      IO.println s!"VirtualList item clicked: {idx}"
+    ) result.onItemClick)
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -522,6 +557,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           tooltipsPanel theme env.fontCanopySmall
           tablePanel theme
           listBoxPanel theme
+          virtualListPanel theme
           treeViewPanel theme
           colorPickerPanel theme
 
