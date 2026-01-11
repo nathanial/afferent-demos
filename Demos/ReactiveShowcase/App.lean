@@ -226,6 +226,27 @@ def tablePanel (theme : Theme) : WidgetM Unit :=
     ) result.onRowSelect)
     pure ()
 
+/-- DataGrid panel - demonstrates editable grid cells. -/
+def dataGridPanel (theme : Theme) (font : Afferent.Font) : WidgetM Unit :=
+  titledPanel' "DataGrid" .outlined theme do
+    caption' "Click a cell to edit, press Enter to commit:" theme
+    let columns : Array DataGridColumn := #[
+      { header := "Item" },
+      { header := "Qty", width := some 60 },
+      { header := "Price", width := some 80 }
+    ]
+    let rows : Array (Array String) := #[
+      #["Apples", "3", "$2.40"],
+      #["Oranges", "5", "$4.10"],
+      #["Bananas", "2", "$1.10"],
+      #["Grapes", "1", "$3.25"]
+    ]
+    let result ← dataGrid columns rows theme font {}
+    let _ ← performEvent_ (← Event.mapM (fun (r, c, v) => do
+      IO.println s!"DataGrid edit: ({r}, {c}) = {v}"
+    ) result.onEdit)
+    pure ()
+
 /-- ListBox panel - demonstrates scrollable list with selection. -/
 def listBoxPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ListBox" .outlined theme do
@@ -608,6 +629,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           scrollContainerPanel theme
           tooltipsPanel theme env.fontCanopySmall
           tablePanel theme
+          dataGridPanel theme env.fontCanopy
           listBoxPanel theme
           virtualListPanel theme
           treeViewPanel theme
