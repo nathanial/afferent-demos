@@ -461,6 +461,20 @@ def splitPanePanel (theme : Theme) : WidgetM Unit :=
       let rightPct := ((1.0 - ratio) * 100.0).floor.toUInt32
       pure (caption s!"Split ratio: {leftPct}% / {rightPct}%" theme)
 
+/-- Date picker panel - demonstrates calendar-based date selection. -/
+def datePickerPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Date Picker" .outlined theme do
+    caption' "Click a day to select a date:" theme
+    let initial : DatePickerDate := { year := 2026, month := 1, day := 11 }
+    let result ← datePicker theme initial {}
+    emitDynamic do
+      let sel ← result.selected.sample
+      match sel with
+      | some date =>
+          pure (caption s!"Selected: {date.year}-{date.month}-{date.day}" theme)
+      | none =>
+          pure (caption "Selected: (none)" theme)
+
 /-- Scroll container panel - demonstrates scrollable content viewport. -/
 def scrollContainerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "Scroll Container" .outlined theme do
@@ -588,7 +602,6 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           textAreaPanel theme env.fontCanopy
           panelsPanel theme
           tabViewPanel theme
-          splitPanePanel theme
 
         -- Right column
         column' (gap := 16) (style := {}) do
@@ -602,6 +615,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
         -- Fourth column
         column' (gap := 16) (style := {}) do
           splitPanePanel theme
+          datePickerPanel theme
           colorPickerPanel theme
 
       -- Modal overlay (renders on top when open)
