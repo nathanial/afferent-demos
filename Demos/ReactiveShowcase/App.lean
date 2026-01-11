@@ -360,6 +360,16 @@ def rangeSliderPanel (theme : Theme) : WidgetM Unit :=
       let highPct := (high * 100.0).floor.toUInt32
       pure (caption s!"Range: {lowPct}% - {highPct}%" theme)
 
+/-- Stepper panel - demonstrates increment/decrement control. -/
+def stepperPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Stepper" .outlined theme do
+    caption' "Click + or - to change value:" theme
+    let config : StepperConfig := { min := 0, max := 20, step := 1, width := 160 }
+    let result ← stepper theme 5 config
+    emitDynamic do
+      let value ← result.value.sample
+      pure (caption s!"Value: {value}" theme)
+
 /-- Progress bars panel - demonstrates determinate and indeterminate progress. -/
 def progressBarsPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "Progress Bars" .outlined theme do
@@ -629,6 +639,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
         column' (gap := 16) (style := {}) do
           slidersPanel theme
           rangeSliderPanel theme
+          stepperPanel theme
           progressBarsPanel theme
           dropdownPanel theme
           dependentDropdownsPanel theme
