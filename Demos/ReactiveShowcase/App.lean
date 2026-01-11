@@ -348,6 +348,18 @@ def slidersPanel (theme : Theme) : WidgetM Unit :=
       let _ ← slider (some "Brightness") theme 0.7
       pure ()
 
+/-- Range slider panel - demonstrates dual-handle slider. -/
+def rangeSliderPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Range Slider" .outlined theme do
+    caption' "Drag handles to select a range:" theme
+    let result ← rangeSlider theme 0.2 0.8
+    emitDynamic do
+      let low ← result.low.sample
+      let high ← result.high.sample
+      let lowPct := (low * 100.0).floor.toUInt32
+      let highPct := (high * 100.0).floor.toUInt32
+      pure (caption s!"Range: {lowPct}% - {highPct}%" theme)
+
 /-- Progress bars panel - demonstrates determinate and indeterminate progress. -/
 def progressBarsPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "Progress Bars" .outlined theme do
@@ -616,6 +628,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
         -- Middle column
         column' (gap := 16) (style := {}) do
           slidersPanel theme
+          rangeSliderPanel theme
           progressBarsPanel theme
           dropdownPanel theme
           dependentDropdownsPanel theme
