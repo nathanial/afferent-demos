@@ -386,6 +386,32 @@ def horizontalBarChartPanel (theme : Theme) : WidgetM Unit :=
     let _ ← horizontalBarChart data labels theme .primary dims
     pure ()
 
+/-- BubbleChart panel - demonstrates bubble chart visualization. -/
+def bubbleChartPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Bubble Chart" .outlined theme do
+    caption' "Country stats (GDP vs Population):" theme
+    -- GDP (x, trillions), Population (y, hundreds of millions), Size = land area
+    let points : Array BubbleChart.DataPoint := #[
+      { x := 25.5, y := 3.3, size := 9.8, label := some "USA" },
+      { x := 17.9, y := 14.1, size := 9.6, label := some "China" },
+      { x := 4.2, y := 1.3, size := 0.4, label := some "Japan" },
+      { x := 4.1, y := 0.8, size := 0.4, label := some "Germany" },
+      { x := 3.5, y := 14.2, size := 3.3, label := some "India" },
+      { x := 3.1, y := 0.7, size := 0.2, label := some "UK" },
+      { x := 2.8, y := 0.7, size := 0.6, label := some "France" },
+      { x := 2.0, y := 2.1, size := 8.5, label := some "Brazil" },
+      { x := 1.8, y := 1.5, size := 17.1, label := some "Russia" },
+      { x := 1.7, y := 0.5, size := 10.0, label := some "Canada" }
+    ]
+    let dims : BubbleChart.Dimensions := {
+      width := 320, height := 220
+      marginLeft := 50, marginBottom := 40
+      minBubbleRadius := 6, maxBubbleRadius := 28
+      showBubbleLabels := false
+    }
+    let _ ← bubbleChart points theme dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -765,6 +791,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           donutChartPanel theme
           scatterPlotPanel theme
           horizontalBarChartPanel theme
+          bubbleChartPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
