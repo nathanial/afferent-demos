@@ -470,6 +470,24 @@ def heatmapPanel (theme : Theme) : WidgetM Unit :=
     let _ ← correlationMatrix values labels theme dims
     pure ()
 
+/-- StackedBarChart panel - demonstrates stacked bar chart visualization. -/
+def stackedBarChartPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Stacked Bar Chart" .outlined theme do
+    caption' "Quarterly revenue by product line:" theme
+    let categories := #["Q1", "Q2", "Q3", "Q4"]
+    let series : Array StackedBarChart.Series := #[
+      { name := "Hardware", values := #[42.0, 48.0, 55.0, 61.0] },
+      { name := "Software", values := #[28.0, 35.0, 42.0, 50.0] },
+      { name := "Services", values := #[15.0, 18.0, 22.0, 28.0] }
+    ]
+    let data : StackedBarChart.Data := { categories, series }
+    let dims : StackedBarChart.Dimensions := {
+      width := 340, height := 220
+      marginLeft := 45, marginBottom := 35
+    }
+    let _ ← stackedBarChart data theme dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -853,6 +871,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           histogramPanel theme
           boxPlotPanel theme
           heatmapPanel theme
+          stackedBarChartPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
