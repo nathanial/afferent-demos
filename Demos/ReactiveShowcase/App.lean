@@ -448,6 +448,28 @@ def boxPlotPanel (theme : Theme) : WidgetM Unit :=
     let _ ← boxPlotFromData #[engineering, sales, marketing] labels theme dims
     pure ()
 
+/-- Heatmap panel - demonstrates correlation matrix heatmap. -/
+def heatmapPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Heatmap" .outlined theme do
+    caption' "Feature correlation matrix:" theme
+    -- Simulated correlation matrix
+    let values : Array (Array Float) := #[
+      #[ 1.0,  0.8,  0.3, -0.2, -0.5],
+      #[ 0.8,  1.0,  0.5,  0.1, -0.3],
+      #[ 0.3,  0.5,  1.0,  0.6,  0.2],
+      #[-0.2,  0.1,  0.6,  1.0,  0.7],
+      #[-0.5, -0.3,  0.2,  0.7,  1.0]
+    ]
+    let labels := #["A", "B", "C", "D", "E"]
+    let dims : Heatmap.Dimensions := {
+      width := 280, height := 220
+      marginLeft := 30, marginTop := 30
+      marginBottom := 20, marginRight := 50
+      showValues := true
+    }
+    let _ ← correlationMatrix values labels theme dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -830,6 +852,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           bubbleChartPanel theme
           histogramPanel theme
           boxPlotPanel theme
+          heatmapPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
