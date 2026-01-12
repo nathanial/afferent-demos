@@ -305,6 +305,16 @@ def barChartPanel (theme : Theme) : WidgetM Unit :=
     let _ ← barChart salesData labels theme .primary dims
     pure ()
 
+/-- LineChart panel - demonstrates line chart visualization. -/
+def lineChartPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Line Chart" .outlined theme do
+    caption' "Monthly revenue trend:" theme
+    let revenueData := #[12.0, 19.0, 15.0, 25.0, 22.0, 30.0]
+    let labels := #["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+    let dims : LineChart.Dimensions := { width := 280, height := 180, marginLeft := 40 }
+    let _ ← lineChart revenueData labels theme .primary dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -675,6 +685,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           datePickerPanel theme
           colorPickerPanel theme
           barChartPanel theme
+          lineChartPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
