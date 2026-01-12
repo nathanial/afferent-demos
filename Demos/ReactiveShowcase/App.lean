@@ -541,6 +541,30 @@ def radarChartPanel (theme : Theme) : WidgetM Unit :=
     let _ ← radarChart data theme dims
     pure ()
 
+/-- CandlestickChart panel - demonstrates financial OHLC chart. -/
+def candlestickChartPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Candlestick Chart" .outlined theme do
+    caption' "Stock price movement (OHLC):" theme
+    let candles : Array CandlestickChart.Candle := #[
+      { openPrice := 100.0, highPrice := 105.0, lowPrice := 98.0, closePrice := 103.0, label := some "Mon" },
+      { openPrice := 103.0, highPrice := 108.0, lowPrice := 101.0, closePrice := 106.0, label := some "Tue" },
+      { openPrice := 106.0, highPrice := 110.0, lowPrice := 104.0, closePrice := 105.0, label := some "Wed" },
+      { openPrice := 105.0, highPrice := 107.0, lowPrice := 99.0, closePrice := 101.0, label := some "Thu" },
+      { openPrice := 101.0, highPrice := 104.0, lowPrice := 97.0, closePrice := 98.0, label := some "Fri" },
+      { openPrice := 98.0, highPrice := 102.0, lowPrice := 96.0, closePrice := 100.0, label := some "Sat" },
+      { openPrice := 100.0, highPrice := 106.0, lowPrice := 99.0, closePrice := 105.0, label := some "Sun" },
+      { openPrice := 105.0, highPrice := 112.0, lowPrice := 104.0, closePrice := 110.0, label := some "Mon" },
+      { openPrice := 110.0, highPrice := 115.0, lowPrice := 108.0, closePrice := 113.0, label := some "Tue" },
+      { openPrice := 113.0, highPrice := 116.0, lowPrice := 109.0, closePrice := 111.0, label := some "Wed" }
+    ]
+    let data : CandlestickChart.Data := { candles }
+    let dims : CandlestickChart.Dimensions := {
+      width := 360, height := 240
+      marginLeft := 50, marginBottom := 35
+    }
+    let _ ← candlestickChart data theme CandlestickChart.defaultColors dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -931,6 +955,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           groupedBarChartPanel theme
           stackedAreaChartPanel theme
           radarChartPanel theme
+          candlestickChartPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
