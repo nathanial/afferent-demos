@@ -611,6 +611,25 @@ def gaugeChartPanel (theme : Theme) : WidgetM Unit :=
     let _ ← gaugeChart data theme GaugeChart.defaultColors dims
     pure ()
 
+/-- FunnelChart panel - demonstrates sales pipeline funnel. -/
+def funnelChartPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Funnel Chart" .outlined theme do
+    caption' "Sales conversion funnel:" theme
+    let stages : Array FunnelChart.Stage := #[
+      { label := "Visitors", value := 10000.0 },
+      { label := "Leads", value := 5200.0 },
+      { label := "Prospects", value := 2800.0 },
+      { label := "Negotiations", value := 1400.0 },
+      { label := "Sales", value := 680.0 }
+    ]
+    let data : FunnelChart.Data := { stages }
+    let dims : FunnelChart.Dimensions := {
+      width := 340, height := 220
+      marginRight := 110
+    }
+    let _ ← funnelChart data theme dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -1004,6 +1023,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           candlestickChartPanel theme
           waterfallChartPanel theme
           gaugeChartPanel theme
+          funnelChartPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
