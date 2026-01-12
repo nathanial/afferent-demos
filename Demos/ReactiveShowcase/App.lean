@@ -295,6 +295,16 @@ def virtualListPanel (theme : Theme) : WidgetM Unit :=
     ) result.onItemClick)
     pure ()
 
+/-- BarChart panel - demonstrates bar chart visualization. -/
+def barChartPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Bar Chart" .outlined theme do
+    caption' "Sales data by quarter:" theme
+    let salesData := #[42.0, 78.0, 56.0, 91.0]
+    let labels := #["Q1", "Q2", "Q3", "Q4"]
+    let dims : BarChart.Dimensions := { width := 280, height := 180, marginLeft := 40 }
+    let _ ← barChart salesData labels theme .primary dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -664,6 +674,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           splitPanePanel theme
           datePickerPanel theme
           colorPickerPanel theme
+          barChartPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
