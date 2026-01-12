@@ -325,6 +325,21 @@ def areaChartPanel (theme : Theme) : WidgetM Unit :=
     let _ ← areaChart trafficData labels theme .primary dims
     pure ()
 
+/-- PieChart panel - demonstrates pie chart visualization. -/
+def pieChartPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Pie Chart" .outlined theme do
+    caption' "Market share by browser:" theme
+    let slices : Array PieChart.Slice := #[
+      { value := 65.0, label := some "Chrome" },
+      { value := 19.0, label := some "Safari" },
+      { value := 4.0, label := some "Firefox" },
+      { value := 3.0, label := some "Edge" },
+      { value := 9.0, label := some "Other" }
+    ]
+    let dims : PieChart.Dimensions := { width := 280, height := 200, radius := 70, showLabels := false }
+    let _ ← pieChartWithLegend slices theme dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -697,6 +712,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           barChartPanel theme
           lineChartPanel theme
           areaChartPanel theme
+          pieChartPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
