@@ -506,6 +506,24 @@ def groupedBarChartPanel (theme : Theme) : WidgetM Unit :=
     let _ ← groupedBarChart data theme dims
     pure ()
 
+/-- StackedAreaChart panel - demonstrates stacked area chart visualization. -/
+def stackedAreaChartPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Stacked Area Chart" .outlined theme do
+    caption' "Website traffic sources over time:" theme
+    let labels := #["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    let series : Array StackedAreaChart.Series := #[
+      { name := "Direct", values := #[120.0, 132.0, 101.0, 134.0, 90.0, 230.0, 210.0] },
+      { name := "Search", values := #[220.0, 182.0, 191.0, 234.0, 290.0, 330.0, 310.0] },
+      { name := "Social", values := #[150.0, 232.0, 201.0, 154.0, 190.0, 330.0, 410.0] }
+    ]
+    let data : StackedAreaChart.Data := { labels, series }
+    let dims : StackedAreaChart.Dimensions := {
+      width := 340, height := 220
+      marginLeft := 45, marginBottom := 35
+    }
+    let _ ← stackedAreaChart data theme dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -894,6 +912,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
         -- Sixth column (More charts)
         column' (gap := 16) (style := {}) do
           groupedBarChartPanel theme
+          stackedAreaChartPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
