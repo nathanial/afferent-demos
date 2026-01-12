@@ -361,6 +361,21 @@ def donutChartPanel (theme : Theme) : WidgetM Unit :=
     let _ ← donutChartWithLegend slices theme dims
     pure ()
 
+/-- ScatterPlot panel - demonstrates scatter plot visualization. -/
+def scatterPlotPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Scatter Plot" .outlined theme do
+    caption' "Height vs Weight correlation:" theme
+    let points : Array ScatterPlot.DataPoint := #[
+      { x := 160, y := 55 }, { x := 165, y := 62 }, { x := 170, y := 68 },
+      { x := 172, y := 65 }, { x := 175, y := 72 }, { x := 178, y := 75 },
+      { x := 180, y := 78 }, { x := 182, y := 82 }, { x := 168, y := 60 },
+      { x := 174, y := 70 }, { x := 185, y := 88 }, { x := 163, y := 58 },
+      { x := 177, y := 74 }, { x := 169, y := 64 }, { x := 183, y := 85 }
+    ]
+    let dims : ScatterPlot.Dimensions := { width := 280, height := 200, marginLeft := 45 }
+    let _ ← scatterPlot points theme dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -738,6 +753,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
         -- Fifth column (Charts continued)
         column' (gap := 16) (style := {}) do
           donutChartPanel theme
+          scatterPlotPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
