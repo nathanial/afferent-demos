@@ -659,6 +659,51 @@ def treemapChartPanel (theme : Theme) : WidgetM Unit :=
     let _ ← treemapChart data theme dims
     pure ()
 
+/-- SankeyDiagram panel - demonstrates flow diagram visualization. -/
+def sankeyDiagramPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Sankey Diagram" .outlined theme do
+    caption' "Energy flow from sources to uses:" theme
+    let nodes : Array SankeyDiagram.Node := #[
+      -- Sources (column 0)
+      { id := "coal", label := "Coal", column := 0 },
+      { id := "gas", label := "Natural Gas", column := 0 },
+      { id := "nuclear", label := "Nuclear", column := 0 },
+      { id := "renewable", label := "Renewable", column := 0 },
+      -- Conversion (column 1)
+      { id := "electricity", label := "Electricity", column := 1 },
+      { id := "heat", label := "Heat", column := 1 },
+      -- End uses (column 2)
+      { id := "residential", label := "Residential", column := 2 },
+      { id := "commercial", label := "Commercial", column := 2 },
+      { id := "industrial", label := "Industrial", column := 2 },
+      { id := "transport", label := "Transport", column := 2 }
+    ]
+    let links : Array SankeyDiagram.Link := #[
+      -- Sources to conversion
+      { source := "coal", target := "electricity", value := 120 },
+      { source := "coal", target := "heat", value := 30 },
+      { source := "gas", target := "electricity", value := 80 },
+      { source := "gas", target := "heat", value := 60 },
+      { source := "nuclear", target := "electricity", value := 90 },
+      { source := "renewable", target := "electricity", value := 50 },
+      -- Conversion to end uses
+      { source := "electricity", target := "residential", value := 100 },
+      { source := "electricity", target := "commercial", value := 80 },
+      { source := "electricity", target := "industrial", value := 120 },
+      { source := "electricity", target := "transport", value := 40 },
+      { source := "heat", target := "residential", value := 50 },
+      { source := "heat", target := "commercial", value := 25 },
+      { source := "heat", target := "industrial", value := 15 }
+    ]
+    let data : SankeyDiagram.Data := { nodes, links }
+    let dims : SankeyDiagram.Dimensions := {
+      width := 480, height := 280
+      marginLeft := 10, marginRight := 80
+      nodeWidth := 15
+    }
+    let _ ← sankeyDiagram data theme dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -1054,6 +1099,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           gaugeChartPanel theme
           funnelChartPanel theme
           treemapChartPanel theme
+          sankeyDiagramPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
