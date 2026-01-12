@@ -412,6 +412,25 @@ def bubbleChartPanel (theme : Theme) : WidgetM Unit :=
     let _ ← bubbleChart points theme dims
     pure ()
 
+/-- Histogram panel - demonstrates histogram visualization. -/
+def histogramPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Histogram" .outlined theme do
+    caption' "Test score distribution:" theme
+    -- Simulated test scores (roughly normal distribution)
+    let scores : Array Float := #[
+      62, 65, 67, 68, 70, 71, 72, 73, 74, 74,
+      75, 75, 76, 76, 77, 77, 77, 78, 78, 78,
+      79, 79, 80, 80, 80, 81, 81, 82, 82, 83,
+      83, 84, 85, 86, 87, 88, 90, 92, 95, 98
+    ]
+    let dims : Histogram.Dimensions := {
+      width := 300, height := 180
+      marginLeft := 45, marginBottom := 35
+    }
+    let binConfig : Histogram.BinConfig := { binCount := some 8 }
+    let _ ← histogram scores theme .primary dims binConfig
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -792,6 +811,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           scatterPlotPanel theme
           horizontalBarChartPanel theme
           bubbleChartPanel theme
+          histogramPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
