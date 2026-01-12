@@ -524,6 +524,23 @@ def stackedAreaChartPanel (theme : Theme) : WidgetM Unit :=
     let _ ← stackedAreaChart data theme dims
     pure ()
 
+/-- RadarChart panel - demonstrates radar/spider chart visualization. -/
+def radarChartPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Radar Chart" .outlined theme do
+    caption' "Product comparison (features):" theme
+    let axisLabels := #["Speed", "Reliability", "Comfort", "Safety", "Efficiency", "Price"]
+    let series : Array RadarChart.Series := #[
+      { name := "Product A", values := #[85.0, 90.0, 70.0, 95.0, 80.0, 60.0] },
+      { name := "Product B", values := #[70.0, 75.0, 90.0, 80.0, 85.0, 90.0] }
+    ]
+    let data : RadarChart.Data := { axisLabels, series }
+    let dims : RadarChart.Dimensions := {
+      width := 320, height := 280
+      radius := 90
+    }
+    let _ ← radarChart data theme dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -913,6 +930,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
         column' (gap := 16) (style := {}) do
           groupedBarChartPanel theme
           stackedAreaChartPanel theme
+          radarChartPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
