@@ -488,6 +488,24 @@ def stackedBarChartPanel (theme : Theme) : WidgetM Unit :=
     let _ ← stackedBarChart data theme dims
     pure ()
 
+/-- GroupedBarChart panel - demonstrates grouped bar chart visualization. -/
+def groupedBarChartPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Grouped Bar Chart" .outlined theme do
+    caption' "Monthly sales by region:" theme
+    let categories := #["Jan", "Feb", "Mar", "Apr"]
+    let series : Array GroupedBarChart.Series := #[
+      { name := "North", values := #[85.0, 92.0, 78.0, 95.0] },
+      { name := "South", values := #[65.0, 70.0, 82.0, 75.0] },
+      { name := "West", values := #[72.0, 68.0, 90.0, 88.0] }
+    ]
+    let data : GroupedBarChart.Data := { categories, series }
+    let dims : GroupedBarChart.Dimensions := {
+      width := 340, height := 220
+      marginLeft := 45, marginBottom := 35
+    }
+    let _ ← groupedBarChart data theme dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -872,6 +890,10 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           boxPlotPanel theme
           heatmapPanel theme
           stackedBarChartPanel theme
+
+        -- Sixth column (More charts)
+        column' (gap := 16) (style := {}) do
+          groupedBarChartPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
