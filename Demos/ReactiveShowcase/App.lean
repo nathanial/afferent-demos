@@ -587,6 +587,30 @@ def waterfallChartPanel (theme : Theme) : WidgetM Unit :=
     let _ ← waterfallChart data theme WaterfallChart.defaultColors dims
     pure ()
 
+/-- GaugeChart panel - demonstrates speedometer-style gauge. -/
+def gaugeChartPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Gauge Chart" .outlined theme do
+    caption' "CPU usage indicator:" theme
+    let segments : Array GaugeChart.Segment := #[
+      { startFrac := 0.0, endFrac := 0.6, color := Color.rgba 0.20 0.69 0.35 1.0 },   -- Green
+      { startFrac := 0.6, endFrac := 0.8, color := Color.rgba 0.95 0.75 0.10 1.0 },   -- Yellow
+      { startFrac := 0.8, endFrac := 1.0, color := Color.rgba 0.90 0.25 0.20 1.0 }    -- Red
+    ]
+    let data : GaugeChart.Data := {
+      value := 72.0
+      minValue := 0.0
+      maxValue := 100.0
+      label := some "CPU Usage"
+      unit := some "%"
+      segments
+    }
+    let dims : GaugeChart.Dimensions := {
+      width := 220, height := 160
+      radius := 70
+    }
+    let _ ← gaugeChart data theme GaugeChart.defaultColors dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -979,6 +1003,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           radarChartPanel theme
           candlestickChartPanel theme
           waterfallChartPanel theme
+          gaugeChartPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
