@@ -630,6 +630,35 @@ def funnelChartPanel (theme : Theme) : WidgetM Unit :=
     let _ ← funnelChart data theme dims
     pure ()
 
+/-- TreemapChart panel - demonstrates hierarchical treemap visualization. -/
+def treemapChartPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Treemap Chart" .outlined theme do
+    caption' "Disk usage by category:" theme
+    let nodes : Array TreemapChart.TreeNode := #[
+      { label := "Documents", value := 0, children := #[
+          { label := "PDFs", value := 2500 },
+          { label := "Word", value := 1800 },
+          { label := "Spreadsheets", value := 1200 }
+        ]
+      },
+      { label := "Media", value := 0, children := #[
+          { label := "Photos", value := 4500 },
+          { label := "Videos", value := 8000 },
+          { label := "Music", value := 2200 }
+        ]
+      },
+      { label := "Apps", value := 5500 },
+      { label := "System", value := 3200 },
+      { label := "Other", value := 1500 }
+    ]
+    let data : TreemapChart.Data := { nodes }
+    let dims : TreemapChart.Dimensions := {
+      width := 380, height := 260
+      maxDepth := 2
+    }
+    let _ ← treemapChart data theme dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -1024,6 +1053,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           waterfallChartPanel theme
           gaugeChartPanel theme
           funnelChartPanel theme
+          treemapChartPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
