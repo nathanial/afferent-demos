@@ -565,6 +565,28 @@ def candlestickChartPanel (theme : Theme) : WidgetM Unit :=
     let _ ← candlestickChart data theme CandlestickChart.defaultColors dims
     pure ()
 
+/-- WaterfallChart panel - demonstrates cumulative effect chart. -/
+def waterfallChartPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Waterfall Chart" .outlined theme do
+    caption' "Profit breakdown analysis:" theme
+    let bars : Array WaterfallChart.Bar := #[
+      { label := "Revenue", value := 500.0, barType := .initial },
+      { label := "COGS", value := -180.0, barType := .decrease },
+      { label := "Gross", value := 320.0, barType := .total },
+      { label := "Marketing", value := -45.0, barType := .decrease },
+      { label := "R&D", value := -65.0, barType := .decrease },
+      { label := "Admin", value := -30.0, barType := .decrease },
+      { label := "Other Inc", value := 20.0, barType := .increase },
+      { label := "Net Profit", value := 200.0, barType := .total }
+    ]
+    let data : WaterfallChart.Data := { bars }
+    let dims : WaterfallChart.Dimensions := {
+      width := 380, height := 240
+      marginLeft := 50, marginBottom := 45
+    }
+    let _ ← waterfallChart data theme WaterfallChart.defaultColors dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -956,6 +978,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           stackedAreaChartPanel theme
           radarChartPanel theme
           candlestickChartPanel theme
+          waterfallChartPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
