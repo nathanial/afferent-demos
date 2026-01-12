@@ -315,6 +315,16 @@ def lineChartPanel (theme : Theme) : WidgetM Unit :=
     let _ ← lineChart revenueData labels theme .primary dims
     pure ()
 
+/-- AreaChart panel - demonstrates area chart visualization. -/
+def areaChartPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Area Chart" .outlined theme do
+    caption' "Website traffic over time:" theme
+    let trafficData := #[120.0, 180.0, 150.0, 220.0, 190.0, 280.0, 250.0]
+    let labels := #["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    let dims : AreaChart.Dimensions := { width := 280, height := 180, marginLeft := 40 }
+    let _ ← areaChart trafficData labels theme .primary dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -686,6 +696,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           colorPickerPanel theme
           barChartPanel theme
           lineChartPanel theme
+          areaChartPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
