@@ -376,6 +376,16 @@ def scatterPlotPanel (theme : Theme) : WidgetM Unit :=
     let _ ← scatterPlot points theme dims
     pure ()
 
+/-- HorizontalBarChart panel - demonstrates horizontal bar chart. -/
+def horizontalBarChartPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Horizontal Bar Chart" .outlined theme do
+    caption' "Programming language popularity:" theme
+    let data := #[85.0, 72.0, 58.0, 45.0, 38.0]
+    let labels := #["Python", "JavaScript", "Java", "C++", "Go"]
+    let dims : HorizontalBarChart.Dimensions := { width := 280, height := 180, marginLeft := 70 }
+    let _ ← horizontalBarChart data labels theme .primary dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -754,6 +764,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
         column' (gap := 16) (style := {}) do
           donutChartPanel theme
           scatterPlotPanel theme
+          horizontalBarChartPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
