@@ -431,6 +431,23 @@ def histogramPanel (theme : Theme) : WidgetM Unit :=
     let _ ← histogram scores theme .primary dims binConfig
     pure ()
 
+/-- BoxPlot panel - demonstrates box and whisker plot. -/
+def boxPlotPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Box Plot" .outlined theme do
+    caption' "Salary distribution by department:" theme
+    -- Simulated salary data for different departments (in thousands)
+    let engineering := #[65, 72, 78, 82, 85, 88, 90, 92, 95, 98, 102, 105, 110, 115, 145]
+    let sales := #[45, 52, 55, 58, 60, 62, 65, 68, 70, 72, 75, 78, 82, 95]
+    let marketing := #[50, 55, 58, 60, 62, 65, 68, 70, 72, 75, 78, 80, 85]
+    let labels := #["Eng", "Sales", "Mkt"]
+    let dims : BoxPlot.Dimensions := {
+      width := 280, height := 200
+      marginLeft := 45, marginBottom := 35
+      boxWidth := 50
+    }
+    let _ ← boxPlotFromData #[engineering, sales, marketing] labels theme dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -812,6 +829,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           horizontalBarChartPanel theme
           bubbleChartPanel theme
           histogramPanel theme
+          boxPlotPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
