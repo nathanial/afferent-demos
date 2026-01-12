@@ -340,6 +340,27 @@ def pieChartPanel (theme : Theme) : WidgetM Unit :=
     let _ ← pieChartWithLegend slices theme dims
     pure ()
 
+/-- DonutChart panel - demonstrates donut chart visualization. -/
+def donutChartPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Donut Chart" .outlined theme do
+    caption' "Expense breakdown:" theme
+    let slices : Array DonutChart.Slice := #[
+      { value := 35.0, label := some "Housing" },
+      { value := 20.0, label := some "Food" },
+      { value := 15.0, label := some "Transport" },
+      { value := 10.0, label := some "Utilities" },
+      { value := 20.0, label := some "Other" }
+    ]
+    let dims : DonutChart.Dimensions := {
+      width := 280, height := 200
+      outerRadius := 70, innerRadius := 40
+      showLabels := false
+      centerLabel := some "Total"
+      centerValue := some "$3,500"
+    }
+    let _ ← donutChartWithLegend slices theme dims
+    pure ()
+
 /-- ColorPicker panel - demonstrates HSV color picker widget. -/
 def colorPickerPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "ColorPicker" .outlined theme do
@@ -713,6 +734,10 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           lineChartPanel theme
           areaChartPanel theme
           pieChartPanel theme
+
+        -- Fifth column (Charts continued)
+        column' (gap := 16) (style := {}) do
+          donutChartPanel theme
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
