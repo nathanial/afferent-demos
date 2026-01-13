@@ -43,7 +43,7 @@ def buttonsPanel (theme : Theme) : WidgetM (Reactive.Event Spider Unit) :=
       Event.leftmostM [c1, c2, c3, c4]
 
 /-- Click counter panel - demonstrates a button that shows its own click count.
-    Uses lower-level hooks with emitDynamic for dynamic label updates. -/
+    Uses lower-level hooks with dynWidget for dynamic label updates. -/
 def clickCounterPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "Click Counter" .outlined theme do
     caption' "Button displays its own click count:" theme
@@ -54,12 +54,11 @@ def clickCounterPanel (theme : Theme) : WidgetM Unit :=
     -- Count clicks using foldDyn
     let clickCount ← Reactive.foldDyn (fun _ n => n + 1) 0 onClick
     -- Emit button with dynamic label based on count
-    emitDynamic do
-      let count ← clickCount.sample
-      let hovered ← isHovered.sample
+    let combined ← Dynamic.zipWithM Prod.mk clickCount isHovered
+    let _ ← dynWidget combined fun (count, hovered) => do
       let state : WidgetState := { hovered, pressed := false, focused := false }
       let label := if count == 0 then "Click me!" else s!"Clicked {count} times"
-      pure (buttonVisual name label theme .primary state)
+      emit (pure (buttonVisual name label theme .primary state))
 
 /-- Checkboxes panel - demonstrates checkbox toggle behavior. -/
 def checkboxesPanel (theme : Theme) : WidgetM Unit :=
@@ -286,9 +285,8 @@ def virtualListPanel (theme : Theme) : WidgetM Unit :=
       pure (.flex wid none props rowStyle #[label])
     ) theme config
 
-    emitDynamic do
-      let (start, stop) ← result.visibleRange.sample
-      pure (caption s!"Visible indices: [{start}, {stop})" theme)
+    let _ ← dynWidget result.visibleRange fun (start, stop) =>
+      caption' s!"Visible indices: [{start}, {stop})" theme
 
     let _ ← performEvent_ (← Event.mapM (fun idx => do
       IO.println s!"VirtualList item clicked: {idx}"
@@ -710,15 +708,13 @@ def colorPickerPanel (theme : Theme) : WidgetM Unit :=
     caption' "Click and drag to select color:" theme
     let result ← colorPicker theme Color.red
     -- Display the current color value
-    emitDynamic do
-      let color ← result.color.sample
-      let hsv ← result.hsv.sample
-      let alpha ← result.alpha.sample
+    let combined ← Dynamic.zipWith3M (fun a b c => (a, b, c)) result.color result.hsv result.alpha
+    let _ ← dynWidget combined fun (color, hsv, alpha) => do
       let r := (color.r * 255).floor.toUInt8
       let g := (color.g * 255).floor.toUInt8
       let b := (color.b * 255).floor.toUInt8
       let a := (alpha * 100).floor.toUInt8
-      pure (caption s!"RGB({r}, {g}, {b}) H:{(hsv.h * 360).floor.toUInt16}° α:{a}%" theme)
+      caption' s!"RGB({r}, {g}, {b}) H:{(hsv.h * 360).floor.toUInt16}° α:{a}%" theme
 
 /-- TreeView panel - demonstrates hierarchical tree with expand/collapse. -/
 def treeViewPanel (theme : Theme) : WidgetM Unit :=
@@ -762,12 +758,11 @@ def rangeSliderPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "Range Slider" .outlined theme do
     caption' "Drag handles to select a range:" theme
     let result ← rangeSlider theme 0.2 0.8
-    emitDynamic do
-      let low ← result.low.sample
-      let high ← result.high.sample
+    let combined ← Dynamic.zipWithM Prod.mk result.low result.high
+    let _ ← dynWidget combined fun (low, high) => do
       let lowPct := (low * 100.0).floor.toUInt32
       let highPct := (high * 100.0).floor.toUInt32
-      pure (caption s!"Range: {lowPct}% - {highPct}%" theme)
+      caption' s!"Range: {lowPct}% - {highPct}%" theme
 
 /-- Stepper panel - demonstrates increment/decrement control. -/
 def stepperPanel (theme : Theme) : WidgetM Unit :=
@@ -775,9 +770,8 @@ def stepperPanel (theme : Theme) : WidgetM Unit :=
     caption' "Click + or - to change value:" theme
     let config : StepperConfig := { min := 0, max := 20, step := 1, width := 160 }
     let result ← stepper theme 5 config
-    emitDynamic do
-      let value ← result.value.sample
-      pure (caption s!"Value: {value}" theme)
+    let _ ← dynWidget result.value fun value =>
+      caption' s!"Value: {value}" theme
 
 /-- Progress bars panel - demonstrates determinate and indeterminate progress. -/
 def progressBarsPanel (theme : Theme) : WidgetM Unit :=
@@ -908,11 +902,10 @@ def splitPanePanel (theme : Theme) : WidgetM Unit :=
         caption' "Right pane" theme
         bodyText' "Resize me with the handle." theme
       )
-    emitDynamic do
-      let ratio ← result.ratio.sample
+    let _ ← dynWidget result.ratio fun ratio => do
       let leftPct := (ratio * 100.0).floor.toUInt32
       let rightPct := ((1.0 - ratio) * 100.0).floor.toUInt32
-      pure (caption s!"Split ratio: {leftPct}% / {rightPct}%" theme)
+      caption' s!"Split ratio: {leftPct}% / {rightPct}%" theme
 
 /-- Date picker panel - demonstrates calendar-based date selection. -/
 def datePickerPanel (theme : Theme) : WidgetM Unit :=
@@ -920,13 +913,10 @@ def datePickerPanel (theme : Theme) : WidgetM Unit :=
     caption' "Click a day to select a date:" theme
     let initial : DatePickerDate := { year := 2026, month := 1, day := 11 }
     let result ← datePicker theme initial {}
-    emitDynamic do
-      let sel ← result.selected.sample
+    let _ ← dynWidget result.selected fun sel =>
       match sel with
-      | some date =>
-          pure (caption s!"Selected: {date.year}-{date.month}-{date.day}" theme)
-      | none =>
-          pure (caption "Selected: (none)" theme)
+      | some date => caption' s!"Selected: {date.year}-{date.month}-{date.day}" theme
+      | none => caption' "Selected: (none)" theme
 
 /-- Scroll container panel - demonstrates scrollable content viewport. -/
 def scrollContainerPanel (theme : Theme) : WidgetM Unit :=
@@ -944,9 +934,8 @@ def scrollContainerPanel (theme : Theme) : WidgetM Unit :=
         -- Display current scroll position
         column' (gap := 4) (style := { padding := EdgeInsets.uniform 8 }) do
           caption' "Scroll position:" theme
-          emitDynamic do
-            let state ← scrollResult.scrollState.sample
-            pure (caption s!"Y: {state.offsetY.floor.toUInt32}px" theme)
+          let _ ← dynWidget scrollResult.scrollState fun state =>
+            caption' s!"Y: {state.offsetY.floor.toUInt32}px" theme
 
 /-- Tooltips panel - demonstrates hover tooltips with different positions. -/
 def tooltipsPanel (theme : Theme) (font : Afferent.Font) : WidgetM Unit :=
@@ -1012,10 +1001,9 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
       heading1' "Reactive Showcase" theme
       row' (gap := 16) (style := {}) do
         caption' "FRP-powered widget demo" theme
-        emitDynamic do
-          let count ← buttonClickCount.sample
-          if count > 0 then pure (caption s!"(Clicks: {count})" theme)
-          else pure (spacer 0 0)
+        let _ ← dynWidget buttonClickCount fun count =>
+          if count > 0 then caption' s!"(Clicks: {count})" theme
+          else spacer' 0 0
 
       -- Three-column layout
       flexRow' { FlexContainer.row 20 with alignItems := .flexStart }

@@ -21,6 +21,8 @@ import Demos.TextureMatrix
 import Demos.OrbitalInstanced
 import Demos.WorldmapDemo
 import Demos.ReactiveShowcase.App
+import Demos.SankeyGrid.App
+import Demos.BarChartGrid.App
 import Afferent.Canopy.Reactive
 import Reactive.Host.Spider
 import Worldmap
@@ -38,6 +40,8 @@ inductive DemoId where
   | layout
   | cssGrid
   | reactiveShowcase
+  | sankeyGrid
+  | barChartGrid
   | seascape
   | shapeGallery
   | worldmap
@@ -75,6 +79,20 @@ structure ReactiveShowcaseDemoState where
   /-- Cached widget from last render (updated each frame). -/
   cachedWidget : Afferent.Arbor.WidgetBuilder
 
+/-- State for the Sankey grid performance test. -/
+structure SankeyGridDemoState where
+  appState : SankeyGrid.AppState
+  inputs : Afferent.Canopy.Reactive.ReactiveInputs
+  spiderEnv : Reactive.Host.SpiderEnv
+  cachedWidget : Afferent.Arbor.WidgetBuilder
+
+/-- State for the Bar chart grid performance test. -/
+structure BarChartGridDemoState where
+  appState : BarChartGrid.AppState
+  inputs : Afferent.Canopy.Reactive.ReactiveInputs
+  spiderEnv : Reactive.Host.SpiderEnv
+  cachedWidget : Afferent.Arbor.WidgetBuilder
+
 /-- Demo state mapping by id. -/
 def DemoState : DemoId → Type
   | .demoGrid => DemoGridState
@@ -85,6 +103,8 @@ def DemoState : DemoId → Type
   | .layout => Unit
   | .cssGrid => Unit
   | .reactiveShowcase => ReactiveShowcaseDemoState
+  | .sankeyGrid => SankeyGridDemoState
+  | .barChartGrid => BarChartGridDemoState
   | .seascape => SeascapeState
   | .shapeGallery => ShapeGalleryState
   | .worldmap => WorldmapState
@@ -377,6 +397,82 @@ instance : Demo .reactiveShowcase where
   -- Disposing would break all FRP subscriptions. The SpiderEnv will be
   -- cleaned up naturally when the app closes and the state is GC'd.
 
+instance : Demo .sankeyGrid where
+  name := "SANKEY GRID performance test"
+  shortName := "Sankey Grid"
+  init := fun env => do
+    let spiderEnv ← Reactive.Host.SpiderEnv.new Reactive.Host.defaultErrorHandler
+    let (appState, inputs) ← (do
+      let (events, inputs) ← Afferent.Canopy.Reactive.createInputs
+      let appState ← Afferent.Canopy.Reactive.ReactiveM.run events (SankeyGrid.createApp env)
+      pure (appState, inputs)
+    ).run spiderEnv
+    spiderEnv.postBuildTrigger ()
+    let initialWidget ← appState.render
+    pure { appState, inputs, spiderEnv, cachedWidget := initialWidget }
+
+  update := fun env state => do
+    state.inputs.fireAnimationFrame env.dt
+    let widget ← state.appState.render
+    pure { state with cachedWidget := widget }
+
+  view := fun _env state => some state.cachedWidget
+
+  handleClickWithLayouts := fun _env state _contentId hitPath click layouts widget => do
+    let clickData : Afferent.Canopy.Reactive.ClickData := { click, hitPath, widget, layouts }
+    state.inputs.fireClick clickData
+    pure state
+
+  handleHoverWithLayouts := fun _env state _contentId hitPath mouseX mouseY layouts widget => do
+    let hoverData : Afferent.Canopy.Reactive.HoverData := { x := mouseX, y := mouseY, hitPath, widget, layouts }
+    state.inputs.fireHover hoverData
+    pure state
+
+  handleScrollWithLayouts := fun _env state hitPath scrollEvt layouts widget => do
+    let scrollData : Afferent.Canopy.Reactive.ScrollData := { scroll := scrollEvt, hitPath, widget, layouts }
+    state.inputs.fireScroll scrollData
+    pure state
+
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .barChartGrid where
+  name := "BAR CHART GRID performance test"
+  shortName := "Bar Grid"
+  init := fun env => do
+    let spiderEnv ← Reactive.Host.SpiderEnv.new Reactive.Host.defaultErrorHandler
+    let (appState, inputs) ← (do
+      let (events, inputs) ← Afferent.Canopy.Reactive.createInputs
+      let appState ← Afferent.Canopy.Reactive.ReactiveM.run events (BarChartGrid.createApp env)
+      pure (appState, inputs)
+    ).run spiderEnv
+    spiderEnv.postBuildTrigger ()
+    let initialWidget ← appState.render
+    pure { appState, inputs, spiderEnv, cachedWidget := initialWidget }
+
+  update := fun env state => do
+    state.inputs.fireAnimationFrame env.dt
+    let widget ← state.appState.render
+    pure { state with cachedWidget := widget }
+
+  view := fun _env state => some state.cachedWidget
+
+  handleClickWithLayouts := fun _env state _contentId hitPath click layouts widget => do
+    let clickData : Afferent.Canopy.Reactive.ClickData := { click, hitPath, widget, layouts }
+    state.inputs.fireClick clickData
+    pure state
+
+  handleHoverWithLayouts := fun _env state _contentId hitPath mouseX mouseY layouts widget => do
+    let hoverData : Afferent.Canopy.Reactive.HoverData := { x := mouseX, y := mouseY, hitPath, widget, layouts }
+    state.inputs.fireHover hoverData
+    pure state
+
+  handleScrollWithLayouts := fun _env state hitPath scrollEvt layouts widget => do
+    let scrollData : Afferent.Canopy.Reactive.ScrollData := { scroll := scrollEvt, hitPath, widget, layouts }
+    state.inputs.fireScroll scrollData
+    pure state
+
+  step := fun c _ s => pure (c, s)
+
 instance : Demo .seascape where
   name := "SEASCAPE demo (Gerstner waves)"
   shortName := "Seascape"
@@ -571,6 +667,8 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let layoutDemo ← mkAnyDemo .layout env
   let cssGridDemo ← mkAnyDemo .cssGrid env
   let reactiveShowcaseDemo ← mkAnyDemo .reactiveShowcase env
+  let sankeyGridDemo ← mkAnyDemo .sankeyGrid env
+  let barChartGridDemo ← mkAnyDemo .barChartGrid env
   let seascapeDemo ← mkAnyDemo .seascape env
   let shapeGalleryDemo ← mkAnyDemo .shapeGallery env
   let worldmapDemo ← mkAnyDemo .worldmap env
@@ -580,7 +678,7 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let textureMatrixDemo ← mkAnyDemo .textureMatrix env
   let orbitalInstancedDemo ← mkAnyDemo .orbitalInstanced env
   pure #[demoGrid, gridPerf, trianglesPerf, circlesPerf, spritesPerf, layoutDemo, cssGridDemo,
-    reactiveShowcaseDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
+    reactiveShowcaseDemo, sankeyGridDemo, barChartGridDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
     lineCapsDemo, dashedLinesDemo, linesPerfDemo, textureMatrixDemo, orbitalInstancedDemo]
 
 end Demos
