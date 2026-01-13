@@ -23,6 +23,7 @@ import Demos.WorldmapDemo
 import Demos.ReactiveShowcase.App
 import Demos.SankeyGrid.App
 import Demos.BarChartGrid.App
+import Demos.WidgetPerf.App
 import Afferent.Canopy.Reactive
 import Reactive.Host.Spider
 import Worldmap
@@ -42,6 +43,7 @@ inductive DemoId where
   | reactiveShowcase
   | sankeyGrid
   | barChartGrid
+  | widgetPerf
   | seascape
   | shapeGallery
   | worldmap
@@ -93,6 +95,13 @@ structure BarChartGridDemoState where
   spiderEnv : Reactive.Host.SpiderEnv
   cachedWidget : Afferent.Arbor.WidgetBuilder
 
+/-- State for the Widget perf diagnostic test. -/
+structure WidgetPerfDemoState where
+  appState : WidgetPerf.AppState
+  inputs : Afferent.Canopy.Reactive.ReactiveInputs
+  spiderEnv : Reactive.Host.SpiderEnv
+  cachedWidget : Afferent.Arbor.WidgetBuilder
+
 /-- Demo state mapping by id. -/
 def DemoState : DemoId → Type
   | .demoGrid => DemoGridState
@@ -105,6 +114,7 @@ def DemoState : DemoId → Type
   | .reactiveShowcase => ReactiveShowcaseDemoState
   | .sankeyGrid => SankeyGridDemoState
   | .barChartGrid => BarChartGridDemoState
+  | .widgetPerf => WidgetPerfDemoState
   | .seascape => SeascapeState
   | .shapeGallery => ShapeGalleryState
   | .worldmap => WorldmapState
@@ -473,6 +483,44 @@ instance : Demo .barChartGrid where
 
   step := fun c _ s => pure (c, s)
 
+instance : Demo .widgetPerf where
+  name := "WIDGET PERF diagnostic test"
+  shortName := "Widget Perf"
+  init := fun env => do
+    let spiderEnv ← Reactive.Host.SpiderEnv.new Reactive.Host.defaultErrorHandler
+    let (appState, inputs) ← (do
+      let (events, inputs) ← Afferent.Canopy.Reactive.createInputs
+      let appState ← Afferent.Canopy.Reactive.ReactiveM.run events (WidgetPerf.createApp env)
+      pure (appState, inputs)
+    ).run spiderEnv
+    spiderEnv.postBuildTrigger ()
+    let initialWidget ← appState.render
+    pure { appState, inputs, spiderEnv, cachedWidget := initialWidget }
+
+  update := fun env state => do
+    state.inputs.fireAnimationFrame env.dt
+    let widget ← state.appState.render
+    pure { state with cachedWidget := widget }
+
+  view := fun _env state => some state.cachedWidget
+
+  handleClickWithLayouts := fun _env state _contentId hitPath click layouts widget => do
+    let clickData : Afferent.Canopy.Reactive.ClickData := { click, hitPath, widget, layouts }
+    state.inputs.fireClick clickData
+    pure state
+
+  handleHoverWithLayouts := fun _env state _contentId hitPath mouseX mouseY layouts widget => do
+    let hoverData : Afferent.Canopy.Reactive.HoverData := { x := mouseX, y := mouseY, hitPath, widget, layouts }
+    state.inputs.fireHover hoverData
+    pure state
+
+  handleScrollWithLayouts := fun _env state hitPath scrollEvt layouts widget => do
+    let scrollData : Afferent.Canopy.Reactive.ScrollData := { scroll := scrollEvt, hitPath, widget, layouts }
+    state.inputs.fireScroll scrollData
+    pure state
+
+  step := fun c _ s => pure (c, s)
+
 instance : Demo .seascape where
   name := "SEASCAPE demo (Gerstner waves)"
   shortName := "Seascape"
@@ -669,6 +717,7 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let reactiveShowcaseDemo ← mkAnyDemo .reactiveShowcase env
   let sankeyGridDemo ← mkAnyDemo .sankeyGrid env
   let barChartGridDemo ← mkAnyDemo .barChartGrid env
+  let widgetPerfDemo ← mkAnyDemo .widgetPerf env
   let seascapeDemo ← mkAnyDemo .seascape env
   let shapeGalleryDemo ← mkAnyDemo .shapeGallery env
   let worldmapDemo ← mkAnyDemo .worldmap env
@@ -678,7 +727,7 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let textureMatrixDemo ← mkAnyDemo .textureMatrix env
   let orbitalInstancedDemo ← mkAnyDemo .orbitalInstanced env
   pure #[demoGrid, gridPerf, trianglesPerf, circlesPerf, spritesPerf, layoutDemo, cssGridDemo,
-    reactiveShowcaseDemo, sankeyGridDemo, barChartGridDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
+    reactiveShowcaseDemo, sankeyGridDemo, barChartGridDemo, widgetPerfDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
     lineCapsDemo, dashedLinesDemo, linesPerfDemo, textureMatrixDemo, orbitalInstancedDemo]
 
 end Demos
