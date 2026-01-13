@@ -1005,9 +1005,14 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           if count > 0 then caption' s!"(Clicks: {count})" theme
           else spacer' 0 0
 
-      -- Three-column layout
+      -- Three-column layout (fills remaining space)
+      let contentStyle : BoxStyle := {
+        flexItem := some (FlexItem.growing 1)
+        width := .percent 1.0
+        height := .percent 1.0
+      }
       flexRow' { FlexContainer.row 20 with alignItems := .flexStart }
-          (style := { flexItem := some (FlexItem.growing 1) }) do
+          (style := contentStyle) do
         -- Left column
         column' (gap := 16) (style := {}) do
           labelsPanel theme

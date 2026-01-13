@@ -701,7 +701,6 @@ def unifiedDemo : IO Unit := do
               (do
                 let rootBuild : RootBuild ← get
                 let (measuredWidget, layouts) ← StateT.lift (measureRoot rootBuild.widget)
-
                 let mut clickedTab : Option Nat := none
                 let mut demoClickPath : Option (Array Afferent.Arbor.WidgetId) := none
                 match click with

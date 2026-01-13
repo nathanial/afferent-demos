@@ -53,13 +53,23 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
       heading1' "Bar Chart Grid Performance Test" theme
       caption' "Multiple Bar charts (no FRP caching) for comparison" theme
 
-      -- Create a grid of Bar charts
-      -- 7 rows x 8 columns = 56 charts (to match ~51 panels in ReactiveShowcase)
-      for row in [0:7] do
-        row' (gap := 12) (style := {}) do
-          for col in [0:8] do
-            let index := row * 8 + col
-            barChartPanel theme index
+      -- Wrap grid in a growing container so it fills remaining space
+      let gridStyle : BoxStyle := {
+        flexItem := some (FlexItem.growing 1)
+        width := .percent 1.0
+      }
+      let rowStyle : BoxStyle := {
+        flexItem := some (FlexItem.growing 1)
+        width := .percent 1.0
+      }
+      column' (gap := 12) (style := gridStyle) do
+        -- Create a grid of Bar charts
+        -- 7 rows x 8 columns = 56 charts (to match ~51 panels in ReactiveShowcase)
+        for row in [0:7] do
+          row' (gap := 12) (style := rowStyle) do
+            for col in [0:8] do
+              let index := row * 8 + col
+              barChartPanel theme index
 
   pure { render }
 

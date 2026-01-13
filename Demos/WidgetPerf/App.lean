@@ -107,9 +107,14 @@ def sampleSankeyData : SankeyDiagram.Data :=
   ]
   { nodes, links }
 
-/-- Render a single widget of the given type. -/
+/-- Render a single widget of the given type, wrapped in a growing cell. -/
 def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Unit := do
-  match wtype with
+  let cellStyle : BoxStyle := {
+    flexItem := some (FlexItem.growing 1)
+    width := .percent 1.0
+    height := .percent 1.0
+  }
+  column' (gap := 0) (style := cellStyle) do match wtype with
   -- Simple
   | .label => heading3' s!"Label {index}" theme
   | .caption => caption' s!"Caption {index}" theme
@@ -307,10 +312,18 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
 
 /-- Render a grid of widgets for a given type. -/
 def renderWidgetGrid (wtype : WidgetType) (theme : Theme) : WidgetM Unit := do
-  column' (gap := 6) (style := {}) do
+  let gridStyle : BoxStyle := {
+    flexItem := some (FlexItem.growing 1)
+    width := .percent 1.0
+  }
+  let rowStyle : BoxStyle := {
+    flexItem := some (FlexItem.growing 1)
+    width := .percent 1.0
+  }
+  column' (gap := 6) (style := gridStyle) do
     heading3' s!"Grid of {wtype.name} (56 instances)" theme
     for row in [0:7] do
-      row' (gap := 6) (style := {}) do
+      row' (gap := 6) (style := rowStyle) do
         for col in [0:8] do
           let index := row * 8 + col
           renderWidget wtype theme index
@@ -340,9 +353,14 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
       heading1' "Widget Performance Test" theme
       caption' "Select a widget type to render 56 instances" theme
 
-      -- Main content row
+      -- Main content row (fills remaining space)
+      let contentRowStyle : BoxStyle := {
+        flexItem := some (FlexItem.growing 1)
+        width := .percent 1.0
+        height := .percent 1.0
+      }
       flexRow' { FlexContainer.row 16 with alignItems := .flexStart }
-          (style := { flexItem := some (FlexItem.growing 1) }) do
+          (style := contentRowStyle) do
         -- Left panel: widget selector
         column' (gap := 8) (style := { minWidth := some 180 }) do
           caption' "Widget type:" theme
@@ -358,8 +376,13 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
             caption' s!"Selected: {widgetTypeNames.getD sel "none"}" theme)
           pure ()
 
-        -- Right panel: Grid of selected widget type
-        column' (gap := 0) (style := { flexItem := some (FlexItem.growing 1) }) do
+        -- Right panel: Grid of selected widget type (fills remaining space)
+        let rightPanelStyle : BoxStyle := {
+          flexItem := some (FlexItem.growing 1)
+          width := .percent 1.0
+          height := .percent 1.0
+        }
+        column' (gap := 0) (style := rightPanelStyle) do
           let _ ← dynWidget selectedType (fun selIdx => do
             let wtype := allWidgetTypes.getD selIdx .label
             renderWidgetGrid wtype theme)
