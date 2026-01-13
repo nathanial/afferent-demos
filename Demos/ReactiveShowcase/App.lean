@@ -1014,7 +1014,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
       flexRow' { FlexContainer.row 20 with alignItems := .flexStart }
           (style := contentStyle) do
         -- Left column
-        column' (gap := 16) (style := {}) do
+        column' (gap := 16) (style := { flexItem := some (FlexItem.growing 1) }) do
           labelsPanel theme
 
           -- Buttons panel with click counter wiring
@@ -1039,7 +1039,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           menuBarPanel theme
 
         -- Middle column
-        column' (gap := 16) (style := {}) do
+        column' (gap := 16) (style := { flexItem := some (FlexItem.growing 1) }) do
           slidersPanel theme
           rangeSliderPanel theme
           stepperPanel theme
@@ -1052,7 +1052,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           tabViewPanel theme
 
         -- Right column
-        column' (gap := 16) (style := {}) do
+        column' (gap := 16) (style := { flexItem := some (FlexItem.growing 1) }) do
           scrollContainerPanel theme
           tooltipsPanel theme env.fontCanopySmall
           tablePanel theme
@@ -1062,7 +1062,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           treeViewPanel theme
 
         -- Fourth column
-        column' (gap := 16) (style := {}) do
+        column' (gap := 16) (style := { flexItem := some (FlexItem.growing 1) }) do
           splitPanePanel theme
           datePickerPanel theme
           colorPickerPanel theme
@@ -1072,7 +1072,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           pieChartPanel theme
 
         -- Fifth column (Charts continued)
-        column' (gap := 16) (style := {}) do
+        column' (gap := 16) (style := { flexItem := some (FlexItem.growing 1) }) do
           donutChartPanel theme
           scatterPlotPanel theme
           horizontalBarChartPanel theme
@@ -1083,7 +1083,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           stackedBarChartPanel theme
 
         -- Sixth column (More charts)
-        column' (gap := 16) (style := {}) do
+        column' (gap := 16) (style := { flexItem := some (FlexItem.growing 1) }) do
           groupedBarChartPanel theme
           stackedAreaChartPanel theme
           radarChartPanel theme
