@@ -359,13 +359,17 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
         width := .percent 1.0
         height := .percent 1.0
       }
-      flexRow' { FlexContainer.row 16 with alignItems := .flexStart }
+      flexRow' { FlexContainer.row 16 with alignItems := .stretch }
           (style := contentRowStyle) do
-        -- Left panel: widget selector
-        column' (gap := 8) (style := { minWidth := some 180 }) do
+        -- Left panel: widget selector (fixed width, fills height)
+        let leftPanelStyle : BoxStyle := {
+          minWidth := some 180
+          height := .percent 1.0
+        }
+        column' (gap := 8) (style := leftPanelStyle) do
           caption' "Widget type:" theme
 
-          let result ← listBox widgetTypeNames theme { maxVisibleItems := 14 }
+          let result ← listBox widgetTypeNames theme { fillHeight := true }
 
           -- Wire selection to the external Dynamic
           let selAction ← Event.mapM (fun idx => fireSelection idx) result.onSelect
