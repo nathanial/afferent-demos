@@ -242,7 +242,7 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
       series := #[{ name := "X", values := #[10.0, 20.0, 15.0] }, { name := "Y", values := #[20.0, 15.0, 25.0] }]
     }
     let dims : StackedAreaChart.Dimensions := { width := 140, height := 80, marginLeft := 25 }
-    let _ ← stackedAreaChart data theme dims
+    let _ ← stackedAreaChart' data theme dims
     pure ()
   | .radarChart =>
     let data : RadarChart.Data := {

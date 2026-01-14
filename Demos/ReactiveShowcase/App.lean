@@ -519,7 +519,7 @@ def stackedAreaChartPanel (theme : Theme) : WidgetM Unit :=
       width := 340, height := 220
       marginLeft := 45, marginBottom := 35
     }
-    let _ ← stackedAreaChart data theme dims
+    let _ ← stackedAreaChart' data theme dims
     pure ()
 
 /-- RadarChart panel - demonstrates radar/spider chart visualization. -/
