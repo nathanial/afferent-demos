@@ -94,6 +94,12 @@ private structure RunningState where
   displayFps : Float
   renderCommandCount : Nat
   widgetCount : Nat
+  cacheHits : Nat
+  cacheMisses : Nat
+  cacheSize : Nat
+  batchedCalls : Nat
+  individualCalls : Nat
+  rectsBatched : Nat
   peakRssKb : UInt64
   minorFaults : UInt64
   majorFaults : UInt64
@@ -600,6 +606,12 @@ def unifiedDemo : IO Unit := do
                   displayFps := 0.0
                   renderCommandCount := 0
                   widgetCount := 0
+                  cacheHits := 0
+                  cacheMisses := 0
+                  cacheSize := 0
+                  batchedCalls := 0
+                  individualCalls := 0
+                  rectsBatched := 0
                   peakRssKb := 0
                   minorFaults := 0
                   majorFaults := 0
@@ -633,8 +645,11 @@ def unifiedDemo : IO Unit := do
             let footerHeightPx := footerBarHeight * s
 
             let memMb : UInt64 := rs.peakRssKb / 1024
+            let cacheTotal := rs.cacheHits + rs.cacheMisses
+            let cacheRate := if cacheTotal > 0 then (rs.cacheHits * 100) / cacheTotal else 0
+            let totalDrawCalls := rs.batchedCalls + rs.individualCalls
             let footerText :=
-              s!"{rs.displayFps.toUInt32} FPS  |  cmds {rs.renderCommandCount}  |  widgets {rs.widgetCount}  |  mem {memMb}MB  |  pf {rs.minorFaults}/{rs.majorFaults}"
+              s!"{rs.displayFps.toUInt32} FPS  |  cmds {rs.renderCommandCount}  |  draws {totalDrawCalls} ({rs.batchedCalls}B+{rs.individualCalls}I, {rs.rectsBatched}r)  |  cache {cacheRate}% ({rs.cacheSize})  |  widgets {rs.widgetCount}  |  mem {memMb}MB"
 
             let buildDemoWidget := fun (tabBar : TabBarResult) (demo : AnyDemo)
                 (envForView : DemoEnv) =>
@@ -901,12 +916,16 @@ def unifiedDemo : IO Unit := do
               | none => pure ()
             rs := { rs with prevLeftDown := leftDown }
 
-            let commands := Afferent.Arbor.collectCommands measuredWidget layouts
+            let (commands, cacheHits, cacheMisses) ← Afferent.Arbor.collectCommandsCachedWithStats c.renderCache measuredWidget layouts
+            let cacheSize := (← c.renderCache.get).size
             let widgetCount := Afferent.Arbor.Widget.widgetCount measuredWidget
-            rs := { rs with renderCommandCount := commands.size, widgetCount := widgetCount }
-            c ← run' c do
-              Afferent.Widget.executeCommands rs.assets.fontPack.registry commands
+            rs := { rs with renderCommandCount := commands.size, widgetCount := widgetCount, cacheHits := cacheHits, cacheMisses := cacheMisses, cacheSize := cacheSize }
+            let (batchStats, c') ← CanvasM.run c do
+              let stats ← Afferent.Widget.executeCommandsBatchedWithStats rs.assets.fontPack.registry commands
               Afferent.Widget.renderCustomWidgets measuredWidget layouts
+              return stats
+            c := c'
+            rs := { rs with batchedCalls := batchStats.batchedCalls, individualCalls := batchStats.individualCalls, rectsBatched := batchStats.rectsBatched }
 
             if click.isSome then
               FFI.Window.clearClick c.ctx.window
