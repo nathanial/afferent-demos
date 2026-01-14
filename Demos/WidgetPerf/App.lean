@@ -25,6 +25,12 @@ inductive WidgetType
   | button | checkbox | switch | radioGroup
   | slider | stepper | progressBar | progressIndeterminate
   | dropdown
+  -- Spinners (standard)
+  | spinnerCircleDots | spinnerRing | spinnerBouncingDots
+  | spinnerBars | spinnerDualRing
+  -- Spinners (creative)
+  | spinnerOrbit | spinnerPulse | spinnerHelix | spinnerWave | spinnerSpiral
+  | spinnerClock | spinnerPendulum | spinnerRipple | spinnerHeartbeat | spinnerGears
   -- Charts
   | barChart | lineChart | areaChart
   | pieChart | donutChart
@@ -49,6 +55,24 @@ def WidgetType.name : WidgetType → String
   | .progressBar => "Progress Bar"
   | .progressIndeterminate => "Progress (Indeterminate)"
   | .dropdown => "Dropdown"
+  -- Spinners (standard)
+  | .spinnerCircleDots => "Spinner: Circle Dots"
+  | .spinnerRing => "Spinner: Ring"
+  | .spinnerBouncingDots => "Spinner: Bouncing Dots"
+  | .spinnerBars => "Spinner: Bars"
+  | .spinnerDualRing => "Spinner: Dual Ring"
+  -- Spinners (creative)
+  | .spinnerOrbit => "Spinner: Orbit"
+  | .spinnerPulse => "Spinner: Pulse"
+  | .spinnerHelix => "Spinner: Helix"
+  | .spinnerWave => "Spinner: Wave"
+  | .spinnerSpiral => "Spinner: Spiral"
+  | .spinnerClock => "Spinner: Clock"
+  | .spinnerPendulum => "Spinner: Pendulum"
+  | .spinnerRipple => "Spinner: Ripple"
+  | .spinnerHeartbeat => "Spinner: Heartbeat"
+  | .spinnerGears => "Spinner: Gears"
+  -- Charts
   | .barChart => "Bar Chart"
   | .lineChart => "Line Chart"
   | .areaChart => "Area Chart"
@@ -76,6 +100,13 @@ def allWidgetTypes : Array WidgetType := #[
   .button, .checkbox, .switch, .radioGroup,
   .slider, .stepper, .progressBar, .progressIndeterminate,
   .dropdown,
+  -- Spinners (standard)
+  .spinnerCircleDots, .spinnerRing, .spinnerBouncingDots,
+  .spinnerBars, .spinnerDualRing,
+  -- Spinners (creative)
+  .spinnerOrbit, .spinnerPulse, .spinnerHelix, .spinnerWave, .spinnerSpiral,
+  .spinnerClock, .spinnerPendulum, .spinnerRipple, .spinnerHeartbeat, .spinnerGears,
+  -- Charts
   .barChart, .lineChart, .areaChart,
   .pieChart, .donutChart,
   .scatterPlot, .horizontalBarChart, .bubbleChart,
@@ -153,6 +184,55 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
   | .dropdown =>
     let opts := #["Apple", "Banana", "Cherry"]
     let _ ← dropdown opts theme 0
+    pure ()
+
+  -- Spinners (standard)
+  | .spinnerCircleDots =>
+    let _ ← spinner theme { variant := .circleDots, dims := { size := 50 } }
+    pure ()
+  | .spinnerRing =>
+    let _ ← spinner theme { variant := .ring, dims := { size := 50 } }
+    pure ()
+  | .spinnerBouncingDots =>
+    let _ ← spinner theme { variant := .bouncingDots, dims := { size := 50 } }
+    pure ()
+  | .spinnerBars =>
+    let _ ← spinner theme { variant := .bars, dims := { size := 50 } }
+    pure ()
+  | .spinnerDualRing =>
+    let _ ← spinner theme { variant := .dualRing, dims := { size := 50 } }
+    pure ()
+
+  -- Spinners (creative)
+  | .spinnerOrbit =>
+    let _ ← spinner theme { variant := .orbit, dims := { size := 50 } }
+    pure ()
+  | .spinnerPulse =>
+    let _ ← spinner theme { variant := .pulse, dims := { size := 50 } }
+    pure ()
+  | .spinnerHelix =>
+    let _ ← spinner theme { variant := .helix, dims := { size := 50 } }
+    pure ()
+  | .spinnerWave =>
+    let _ ← spinner theme { variant := .wave, dims := { size := 50 } }
+    pure ()
+  | .spinnerSpiral =>
+    let _ ← spinner theme { variant := .spiral, dims := { size := 50 } }
+    pure ()
+  | .spinnerClock =>
+    let _ ← spinner theme { variant := .clock, dims := { size := 50 } }
+    pure ()
+  | .spinnerPendulum =>
+    let _ ← spinner theme { variant := .pendulum, dims := { size := 50 } }
+    pure ()
+  | .spinnerRipple =>
+    let _ ← spinner theme { variant := .ripple, dims := { size := 50 } }
+    pure ()
+  | .spinnerHeartbeat =>
+    let _ ← spinner theme { variant := .heartbeat, dims := { size := 50 } }
+    pure ()
+  | .spinnerGears =>
+    let _ ← spinner theme { variant := .gears, dims := { size := 50 } }
     pure ()
 
   -- Charts
