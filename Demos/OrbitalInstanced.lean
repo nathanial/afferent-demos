@@ -49,8 +49,9 @@ def orbitalInstancedWidget (t : Float) (screenScale : Float)
           let rot := angle
           let bufIndex : USize := (i * 8).toUSize
           FFI.FloatBuffer.setVec8 orbitalBuffer bufIndex x y rot size hue 0.0 0.0 1.0
-        FFI.Renderer.drawInstancedRectsBuffer
+        FFI.Renderer.drawInstancedShapesBuffer
           renderer
+          0
           orbitalBuffer
           orbitalCount.toUInt32
           a 0.0 0.0 d tx ty

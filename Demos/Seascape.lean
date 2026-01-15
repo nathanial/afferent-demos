@@ -695,6 +695,10 @@ private def renderSeascapeWithProj (renderer : Renderer) (t : Float)
     skyModel.toArray
     lightDir
     1.0  -- Full ambient for sky (no directional lighting)
+    cameraPos
+    #[0.0, 0.0, 0.0]
+    0.0
+    0.0
 
   -- Ocean model matrix (identity - ocean is at world origin)
   let model := Mat4.identity

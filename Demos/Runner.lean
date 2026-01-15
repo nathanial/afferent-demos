@@ -74,7 +74,7 @@ private structure LoadedAssets where
 
 /-- Fixed tabbar height in logical pixels. -/
 def tabBarHeight : Float := ({} : TabBarStyle).height
-def footerBarHeight : Float := 32
+def footerBarHeight : Float := 60
 
 private def tabBarStartId : Nat := 1
 
@@ -88,7 +88,6 @@ private structure RunningState where
   demos : Array AnyDemo
   demoRefs : Array (IO.Ref AnyDemo)
   displayMode : Nat
-  msaaEnabled : Bool
   frameCount : Nat
   fpsAccumulator : Float
   displayFps : Float
@@ -429,24 +428,31 @@ private def nextWidgetId (w : Afferent.Arbor.Widget) : Nat :=
   (Afferent.Arbor.Widget.allIds w).foldl (fun acc wid => max acc wid) 0 + 1
 
 private def buildFooterWidget (startId : Nat) (fontId : Afferent.Arbor.FontId)
-    (screenScale : Float) (text : String) : Afferent.Arbor.Widget :=
+    (screenScale : Float) (line1 line2 : String) : Afferent.Arbor.Widget :=
   Afferent.Arbor.buildFrom startId do
     let s := fun (v : Float) => v * screenScale
-    let props := { Trellis.FlexContainer.row (s 12) with alignItems := .center }
-    let style : Afferent.Arbor.BoxStyle := {
+    let outerStyle : Afferent.Arbor.BoxStyle := {
       backgroundColor := some (Color.gray 0.08)
-      padding := Trellis.EdgeInsets.symmetric (s 12) 0
+      padding := Trellis.EdgeInsets.symmetric (s 8) (s 4)
       height := .length (s footerBarHeight)
       flexItem := some (Trellis.FlexItem.fixed (s footerBarHeight))
     }
-    Afferent.Arbor.flexRow props style #[
-      Afferent.Arbor.text' text fontId (Color.gray 0.7) .left none
+    let rowStyle : Afferent.Arbor.BoxStyle := {
+      width := .percent 1.0
+    }
+    Afferent.Arbor.flexColumn (Trellis.FlexContainer.column (s 2)) outerStyle #[
+      Afferent.Arbor.flexRow { Trellis.FlexContainer.row 0 with alignItems := .center } rowStyle #[
+        Afferent.Arbor.text' line1 fontId (Color.gray 0.7) .left none
+      ],
+      Afferent.Arbor.flexRow { Trellis.FlexContainer.row 0 with alignItems := .center } rowStyle #[
+        Afferent.Arbor.text' line2 fontId (Color.gray 0.6) .left none
+      ]
     ]
 
 private def buildRootWidget (tabBar : TabBarResult) (content : Afferent.Arbor.Widget)
-    (footerText : String) (fontId : Afferent.Arbor.FontId) (screenScale : Float) : RootBuild :=
+    (footerLine1 footerLine2 : String) (fontId : Afferent.Arbor.FontId) (screenScale : Float) : RootBuild :=
   let footerStartId := nextWidgetId content
-  let footer := buildFooterWidget footerStartId fontId screenScale footerText
+  let footer := buildFooterWidget footerStartId fontId screenScale footerLine1 footerLine2
   let root : Afferent.Arbor.Widget :=
     .flex 0 none (Trellis.FlexContainer.column 0)
       { width := .percent 1.0, height := .percent 1.0 }
@@ -591,8 +597,6 @@ def unifiedDemo : IO Unit := do
                 let demos ← buildDemoList initEnv
                 let demoRefs ← demos.mapM (fun demo => IO.mkRef demo)
                 let displayMode : Nat := startMode % demos.size
-                let msaaEnabled : Bool := AnyDemo.msaaEnabled (demos[displayMode]!)
-                FFI.Renderer.setMSAAEnabled c.ctx.renderer msaaEnabled
                 -- Build initial tabbar state
                 let tabBar := rebuildTabBar demos displayMode assets.fontPack.smallId screenScale
                 IO.println "Rendering animated demo... (close window to exit)"
@@ -602,7 +606,6 @@ def unifiedDemo : IO Unit := do
                   demos := demos
                   demoRefs := demoRefs
                   displayMode := displayMode
-                  msaaEnabled := msaaEnabled
                   frameCount := 0
                   fpsAccumulator := 0.0
                   displayFps := 0.0
@@ -653,8 +656,14 @@ def unifiedDemo : IO Unit := do
             let cacheRate := if cacheTotal > 0 then (rs.cacheHits * 100) / cacheTotal else 0
             let totalDrawCalls := rs.batchedCalls + rs.individualCalls
             let totalBatched := rs.rectsBatched + rs.circlesBatched + rs.strokeRectsBatched
-            let footerText :=
-              s!"{rs.displayFps.toUInt32} FPS  |  cmds {rs.renderCommandCount}  |  draws {totalDrawCalls} ({rs.batchedCalls}B+{rs.individualCalls}I, {totalBatched}b: {rs.rectsBatched}r {rs.circlesBatched}c {rs.strokeRectsBatched}sr)  |  cache {cacheRate}% ({rs.cacheSize})  |  widgets {rs.widgetCount}  |  mem {memMb}MB"
+
+            -- Line 1: Performance, Commands, Draw Calls
+            let footerLine1 :=
+              s!"FPS: {rs.displayFps.toUInt32}  |  Render Commands: {rs.renderCommandCount}  |  Draw Calls: {totalDrawCalls} (Batched: {rs.batchedCalls}, Individual: {rs.individualCalls})  |  Widgets: {rs.widgetCount}"
+
+            -- Line 2: Batching Details, Cache, Memory
+            let footerLine2 :=
+              s!"Batched Items: {totalBatched} (Rects: {rs.rectsBatched}, Circles: {rs.circlesBatched}, StrokeRects: {rs.strokeRectsBatched})  |  Cache: {cacheRate}% ({rs.cacheHits} hits, {rs.cacheMisses} misses, {rs.cacheSize} entries)  |  Memory: {memMb}MB"
 
             let buildDemoWidget := fun (tabBar : TabBarResult) (demo : AnyDemo)
                 (envForView : DemoEnv) =>
@@ -665,7 +674,7 @@ def unifiedDemo : IO Unit := do
             let buildRoot := fun (tabBar : TabBarResult) (demo : AnyDemo)
                 (envForView : DemoEnv) =>
               buildRootWidget tabBar (buildDemoWidget tabBar demo envForView)
-                footerText rs.assets.fontPack.smallId s
+                footerLine1 footerLine2 rs.assets.fontPack.smallId s
 
             let measureRoot := fun (root : Afferent.Arbor.Widget) => do
               let measureResult ← runWithFonts rs.assets.fontPack.registry
@@ -714,7 +723,7 @@ def unifiedDemo : IO Unit := do
                   pure (buildRoot rs.tabBar demo envForView)
               | none =>
                   pure (buildRootWidget rs.tabBar (.spacer rs.tabBar.finalId none 0 0)
-                    footerText rs.assets.fontPack.smallId s)
+                    footerLine1 footerLine2 rs.assets.fontPack.smallId s)
 
             let initRootBuild ← buildRootBuild
             let ((measuredWidget, layouts, clickedTab, demoClickPath), rootBuild) ←
@@ -755,8 +764,6 @@ def unifiedDemo : IO Unit := do
                   rs := { rs with displayMode := newTabIdx }
                   c := c.resetState
                   c.ctx.resetScissor
-                  rs := { rs with msaaEnabled := AnyDemo.msaaEnabled (rs.demos[rs.displayMode]!) }
-                  FFI.Renderer.setMSAAEnabled c.ctx.renderer rs.msaaEnabled
                   let newTabBar := rebuildTabBar rs.demos newTabIdx rs.assets.fontPack.smallId s
                   rs := { rs with tabBar := newTabBar }
                   IO.println s!"Switched to {AnyDemo.name (rs.demos[rs.displayMode]!)}"

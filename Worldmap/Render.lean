@@ -1,7 +1,7 @@
 /-
   Tile Map Rendering and Async Loading
   Extracted from Afferent to Worldmap
-  Uses Afferent's drawTexturedRect and Wisp HTTP
+  Uses Afferent sprite rendering and Wisp HTTP
 -/
 import Worldmap.State
 import Worldmap.Input
@@ -13,6 +13,7 @@ import Worldmap.Prefetch
 import Wisp
 import Afferent.FFI.Texture
 import Afferent.FFI.Renderer
+import Afferent.FFI.FloatBuffer
 
 namespace Worldmap
 
@@ -454,7 +455,13 @@ def tileScreenPosFrac (vp : MapViewport) (tile : TileCoord) (displayZoom : Float
 def renderTilesAt (renderer : Renderer) (state : MapState)
     (offsetX offsetY canvasWidth canvasHeight : Float) : IO Unit := do
   let visible := state.viewport.visibleTiles
-  let textureSize : Float := 512.0  -- @2x retina tiles are 512px
+  let spriteBuffer ← Afferent.FFI.FloatBuffer.create 5
+  let drawSprite := fun (texture : Texture) (dstX dstY size : Float) => do
+    let half := size / 2.0
+    let cx := dstX + half
+    let cy := dstY + half
+    Afferent.FFI.FloatBuffer.setVec5 spriteBuffer 0 cx cy 0.0 half 1.0
+    Renderer.drawSpritesInstanceBuffer renderer texture spriteBuffer 1 canvasWidth canvasHeight
 
   -- Compute scale factor for fractional zoom
   let tileZoom := state.viewport.zoom
@@ -472,11 +479,7 @@ def renderTilesAt (renderer : Renderer) (state : MapState)
         let (px, py) := tileScreenPosFrac state.viewport parentCoord state.displayZoom
         let dstX := px + offsetX
         let dstY := py + offsetY
-        Renderer.drawTexturedRect renderer texture
-          0.0 0.0 textureSize textureSize  -- Source (full texture)
-          dstX dstY parentTileSize parentTileSize  -- Destination
-          canvasWidth canvasHeight
-          1.0  -- Alpha
+        drawSprite texture dstX dstY parentTileSize
       | _ => pure ()
 
   -- PASS 2: Render visible tiles on top (higher resolution)
@@ -486,28 +489,16 @@ def renderTilesAt (renderer : Renderer) (state : MapState)
     | some (.loaded texture _) =>
       let dstX := x + offsetX
       let dstY := y + offsetY
-      Renderer.drawTexturedRect renderer texture
-        0.0 0.0 textureSize textureSize  -- Source
-        dstX dstY scaledTileSize scaledTileSize  -- Destination
-        canvasWidth canvasHeight
-        1.0  -- Alpha
+      drawSprite texture dstX dstY scaledTileSize
     | _ =>
       -- Not loaded - try fallback from parent
       match findParentFallback state.cache coord with
-      | some (ancestor, tex, delta) =>
-        let (srcOffsetX, srcOffsetY) := computeAncestorOffset coord ancestor delta
-        let srcScale := Float.pow 2.0 (intToFloat (natToInt delta))
-        let srcSize := textureSize / srcScale
-        let srcX := srcOffsetX * textureSize
-        let srcY := srcOffsetY * textureSize
+      | some (_, tex, _) =>
         let dstX := x + offsetX
         let dstY := y + offsetY
-        Renderer.drawTexturedRect renderer tex
-          srcX srcY srcSize srcSize  -- Source (sub-region of ancestor)
-          dstX dstY scaledTileSize scaledTileSize  -- Destination
-          canvasWidth canvasHeight
-          1.0
+        drawSprite tex dstX dstY scaledTileSize
       | none => pure ()
+  Afferent.FFI.FloatBuffer.destroy spriteBuffer
 
 /-- Render all visible tiles with fractional zoom scaling -/
 def renderTiles (renderer : Renderer) (state : MapState) : IO Unit := do

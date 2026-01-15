@@ -16,7 +16,7 @@ def renderGridTestM (t : Float) (font : Font) (particles : Render.Dynamic.Partic
     (halfSize : Float) : CanvasM Unit := do
   setFillColor Color.white
   fillTextXY s!"Grid: {particles.count} dynamic squares (Space to advance)" 20 30 font
-  fillDynamicRectsAnimated particles halfSize t 3.0
+  fillDynamicInstancedAnimated 0 particles halfSize t 3.0
 
 def gridPerfWidget (t : Float) (font : Font)
     (particles : Render.Dynamic.ParticleState) (halfSize : Float) : Afferent.Arbor.WidgetBuilder := do

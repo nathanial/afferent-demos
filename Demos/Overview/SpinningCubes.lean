@@ -34,6 +34,8 @@ def spinningCubesInitialState : SpinningCubesState :=
 private def renderCubesWithView (renderer : Renderer) (t : Float)
     (proj view : Mat4) : IO Unit := do
   let lightDir := #[0.5, 0.7, 0.5]
+  let cameraPos := #[0.0, 0.0, 0.0]
+  let fogColor := #[0.0, 0.0, 0.0]
   for row in [:5] do
     for col in [:5] do
       let x := (col.toFloat - 2.0) * 2.0
@@ -52,6 +54,10 @@ private def renderCubesWithView (renderer : Renderer) (t : Float)
         model.toArray
         lightDir
         0.5
+        cameraPos
+        fogColor
+        0.0
+        0.0
 
 private def applyViewport (proj : Mat4) (offsetX offsetY contentW contentH fullW fullH : Float) : Mat4 :=
   Id.run do
