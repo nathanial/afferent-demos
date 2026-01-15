@@ -110,6 +110,12 @@ private structure RunningState where
   lastMouseX : Float := 0.0
   lastMouseY : Float := 0.0
   prevLeftDown : Bool := false
+  -- Timing stats (in milliseconds)
+  timeUpdateMs : Float := 0.0
+  timeBuildMs : Float := 0.0
+  timeLayoutMs : Float := 0.0
+  timeCollectMs : Float := 0.0
+  timeGpuMs : Float := 0.0
 
 private inductive AppState where
   | loading (state : LoadingState)
@@ -655,15 +661,15 @@ def unifiedDemo : IO Unit := do
             let cacheTotal := rs.cacheHits + rs.cacheMisses
             let cacheRate := if cacheTotal > 0 then (rs.cacheHits * 100) / cacheTotal else 0
             let totalDrawCalls := rs.batchedCalls + rs.individualCalls
-            let totalBatched := rs.rectsBatched + rs.circlesBatched + rs.strokeRectsBatched
 
             -- Line 1: Performance, Commands, Draw Calls
             let footerLine1 :=
               s!"FPS: {rs.displayFps.toUInt32}  |  Render Commands: {rs.renderCommandCount}  |  Draw Calls: {totalDrawCalls} (Batched: {rs.batchedCalls}, Individual: {rs.individualCalls})  |  Widgets: {rs.widgetCount}"
 
-            -- Line 2: Batching Details, Cache, Memory
+            -- Line 2: Timing breakdown and memory
+            let fmt := fun (v : Float) => s!"{(v * 10).toUInt32.toFloat / 10}"  -- 1 decimal place
             let footerLine2 :=
-              s!"Batched Items: {totalBatched} (Rects: {rs.rectsBatched}, Circles: {rs.circlesBatched}, StrokeRects: {rs.strokeRectsBatched})  |  Cache: {cacheRate}% ({rs.cacheHits} hits, {rs.cacheMisses} misses, {rs.cacheSize} entries)  |  Memory: {memMb}MB"
+              s!"Timing: Update {fmt rs.timeUpdateMs}ms, Build {fmt rs.timeBuildMs}ms, Layout {fmt rs.timeLayoutMs}ms, Collect {fmt rs.timeCollectMs}ms, GPU {fmt rs.timeGpuMs}ms  |  Cache: {cacheRate}%  |  Mem: {memMb}MB"
 
             let buildDemoWidget := fun (tabBar : TabBarResult) (demo : AnyDemo)
                 (envForView : DemoEnv) =>
@@ -710,12 +716,17 @@ def unifiedDemo : IO Unit := do
               { x := 0, y := tabBarHeightPx, width := screenW, height := fallbackContentH }
             let defaultLayout := Trellis.ComputedLayout.simple 0 defaultContentRect
             let envForView := envFromLayout defaultLayout t dt keyCode c.clearKey
+            -- Timing: Update phase (FRP propagation for Canopy demos)
+            let tUpdate0 ← IO.monoMsNow
             match rs.demoRefs[rs.displayMode]? with
             | some demoRef => do
                 let demo ← demoRef.get
                 let demo' ← AnyDemo.update demo envForView
                 demoRef.set demo'
             | none => pure ()
+            let tUpdate1 ← IO.monoMsNow
+            -- Timing: Build phase (widget tree construction)
+            let tBuild0 ← IO.monoMsNow
             let buildRootBuild : IO RootBuild := do
               match rs.demoRefs[rs.displayMode]? with
               | some demoRef => do
@@ -726,6 +737,9 @@ def unifiedDemo : IO Unit := do
                     footerLine1 footerLine2 rs.assets.fontPack.smallId s)
 
             let initRootBuild ← buildRootBuild
+            let tBuild1 ← IO.monoMsNow
+            -- Timing: Layout phase (measurement and layout calculation)
+            let tLayout0 ← IO.monoMsNow
             let ((measuredWidget, layouts, clickedTab, demoClickPath), rootBuild) ←
               (do
                 let rootBuild : RootBuild ← get
@@ -743,6 +757,7 @@ def unifiedDemo : IO Unit := do
                 | none => pure ()
                 pure (measuredWidget, layouts, clickedTab, demoClickPath)
               ) |>.run initRootBuild
+            let tLayout1 ← IO.monoMsNow
 
             let mut measuredWidget := measuredWidget
             let mut layouts := layouts
@@ -928,16 +943,30 @@ def unifiedDemo : IO Unit := do
               | none => pure ()
             rs := { rs with prevLeftDown := leftDown }
 
+            -- Timing: Collect phase (render command generation)
+            let tCollect0 ← IO.monoMsNow
             let (commands, cacheHits, cacheMisses) ← Afferent.Arbor.collectCommandsCachedWithStats c.renderCache measuredWidget layouts
+            let tCollect1 ← IO.monoMsNow
             let cacheSize := (← c.renderCache.get).size
             let widgetCount := Afferent.Arbor.Widget.widgetCount measuredWidget
             rs := { rs with renderCommandCount := commands.size, widgetCount := widgetCount, cacheHits := cacheHits, cacheMisses := cacheMisses, cacheSize := cacheSize }
+            -- Timing: GPU phase (batching and draw calls)
+            let tGpu0 ← IO.monoMsNow
             let (batchStats, c') ← CanvasM.run c do
               let stats ← Afferent.Widget.executeCommandsBatchedWithStats rs.assets.fontPack.registry commands
               Afferent.Widget.renderCustomWidgets measuredWidget layouts
               return stats
             c := c'
+            let tGpu1 ← IO.monoMsNow
             rs := { rs with batchedCalls := batchStats.batchedCalls, individualCalls := batchStats.individualCalls, rectsBatched := batchStats.rectsBatched, circlesBatched := batchStats.circlesBatched, strokeRectsBatched := batchStats.strokeRectsBatched }
+            -- Store timing stats
+            rs := { rs with
+              timeUpdateMs := (tUpdate1 - tUpdate0).toFloat
+              timeBuildMs := (tBuild1 - tBuild0).toFloat
+              timeLayoutMs := (tLayout1 - tLayout0).toFloat
+              timeCollectMs := (tCollect1 - tCollect0).toFloat
+              timeGpuMs := (tGpu1 - tGpu0).toFloat
+            }
 
             if click.isSome then
               FFI.Window.clearClick c.ctx.window

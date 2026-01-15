@@ -1,6 +1,6 @@
 /-
   WidgetPerf - Diagnostic page to isolate widget performance.
-  Select a widget type from the list to see 56 instances in a grid.
+  Select a widget type from the list to see 1000 instances in a grid.
 -/
 import Reactive
 import Afferent
@@ -401,11 +401,11 @@ def renderWidgetGrid (wtype : WidgetType) (theme : Theme) : WidgetM Unit := do
     width := .percent 1.0
   }
   column' (gap := 6) (style := gridStyle) do
-    heading3' s!"Grid of {wtype.name} (56 instances)" theme
-    for row in [0:7] do
+    heading3' s!"Grid of {wtype.name} (1000 instances)" theme
+    for row in [0:25] do
       row' (gap := 6) (style := rowStyle) do
-        for col in [0:8] do
-          let index := row * 8 + col
+        for col in [0:40] do
+          let index := row * 40 + col
           renderWidget wtype theme index
 
 /-- Application state. -/
@@ -431,7 +431,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
 
     column' (gap := 16) (style := rootStyle) do
       heading1' "Widget Performance Test" theme
-      caption' "Select a widget type to render 56 instances" theme
+      caption' "Select a widget type to render 1000 instances" theme
 
       -- Main content row (fills remaining space)
       let contentRowStyle : BoxStyle := {
