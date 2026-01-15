@@ -123,6 +123,7 @@ private structure RunningState where
   timeFlattenMs : Float := 0.0
   timeCoalesceMs : Float := 0.0
   timeBatchLoopMs : Float := 0.0
+  timeDrawCallsMs : Float := 0.0
   -- Canopy demo stats (for debugging memory leaks)
   canopyStats : Option CanopyDemoStats := none
 
@@ -687,8 +688,8 @@ def unifiedDemo : IO Unit := do
             let canopyStatsStr := match rs.canopyStats with
               | some stats => s!"  |  Subs: {stats.scopeSubscriptionCount}"
               | none => ""
-            -- GPU breakdown: Flatten (transform tracking), Coalesce (sort), Loop (batch+draw)
-            let gpuBreakdown := s!"GPU {fmt rs.timeGpuMs}ms [F:{fmt rs.timeFlattenMs} C:{fmt rs.timeCoalesceMs} L:{fmt rs.timeBatchLoopMs}]"
+            -- GPU breakdown: Flatten, Coalesce, Loop (total), Draw (FFI calls within loop)
+            let gpuBreakdown := s!"GPU {fmt rs.timeGpuMs}ms [F:{fmt rs.timeFlattenMs} C:{fmt rs.timeCoalesceMs} L:{fmt rs.timeBatchLoopMs} D:{fmt rs.timeDrawCallsMs}]"
             let footerLine2 :=
               s!"Timing: Update {fmt rs.timeUpdateMs}ms, Build {fmt rs.timeBuildMs}ms, Layout {fmt rs.timeLayoutMs}ms, Collect {fmt rs.timeCollectMs}ms, {gpuBreakdown}  |  Cache: {cacheRate}%  |  Mem: {memMb}MB{canopyStatsStr}"
 
@@ -991,7 +992,7 @@ def unifiedDemo : IO Unit := do
               return stats
             c := c'
             let tGpu1 ← IO.monoMsNow
-            rs := { rs with batchedCalls := batchStats.batchedCalls, individualCalls := batchStats.individualCalls, rectsBatched := batchStats.rectsBatched, circlesBatched := batchStats.circlesBatched, strokeRectsBatched := batchStats.strokeRectsBatched, linesBatched := batchStats.linesBatched, textsBatched := batchStats.textsBatched, timeFlattenMs := batchStats.timeFlattenMs, timeCoalesceMs := batchStats.timeCoalesceMs, timeBatchLoopMs := batchStats.timeBatchLoopMs }
+            rs := { rs with batchedCalls := batchStats.batchedCalls, individualCalls := batchStats.individualCalls, rectsBatched := batchStats.rectsBatched, circlesBatched := batchStats.circlesBatched, strokeRectsBatched := batchStats.strokeRectsBatched, linesBatched := batchStats.linesBatched, textsBatched := batchStats.textsBatched, timeFlattenMs := batchStats.timeFlattenMs, timeCoalesceMs := batchStats.timeCoalesceMs, timeBatchLoopMs := batchStats.timeBatchLoopMs, timeDrawCallsMs := batchStats.timeDrawCallsMs }
             -- Store timing stats
             rs := { rs with
               timeUpdateMs := (tUpdate1 - tUpdate0).toFloat
