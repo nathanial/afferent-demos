@@ -66,23 +66,36 @@ structure ShapeGalleryState where
 structure WorldmapState where
   mapState : Worldmap.MapState
 
+/-- Diagnostic stats for Canopy demos. -/
+structure CanopyDemoStats where
+  /-- Number of subscriptions in the root scope. -/
+  scopeSubscriptionCount : Nat := 0
+
 /-- State for the reactive showcase demo, keeping the SpiderEnv alive. -/
 structure ReactiveShowcaseDemoState where
   /-- The app state with render function. -/
   appState : ReactiveShowcase.AppState
+  /-- The reactive events (for resetting registry each frame). -/
+  events : Afferent.Canopy.Reactive.ReactiveEvents
   /-- The reactive inputs for firing events. -/
   inputs : Afferent.Canopy.Reactive.ReactiveInputs
   /-- The Spider environment (keeps subscriptions alive). -/
   spiderEnv : Reactive.Host.SpiderEnv
   /-- Cached widget from last render (updated each frame). -/
   cachedWidget : Afferent.Arbor.WidgetBuilder
+  /-- Diagnostic stats (updated each frame). -/
+  stats : CanopyDemoStats := {}
 
 /-- State for the Widget perf diagnostic test. -/
 structure WidgetPerfDemoState where
   appState : WidgetPerf.AppState
+  /-- The reactive events (for resetting registry each frame). -/
+  events : Afferent.Canopy.Reactive.ReactiveEvents
   inputs : Afferent.Canopy.Reactive.ReactiveInputs
   spiderEnv : Reactive.Host.SpiderEnv
   cachedWidget : Afferent.Arbor.WidgetBuilder
+  /-- Diagnostic stats (updated each frame). -/
+  stats : CanopyDemoStats := {}
 
 /-- Demo state mapping by id. -/
 def DemoState : DemoId → Type
@@ -323,10 +336,10 @@ instance : Demo .reactiveShowcase where
     let spiderEnv ← Reactive.Host.SpiderEnv.new Reactive.Host.defaultErrorHandler
 
     -- Run the app setup within the env
-    let (appState, inputs) ← (do
+    let (appState, events, inputs) ← (do
       let (events, inputs) ← Afferent.Canopy.Reactive.createInputs
       let appState ← Afferent.Canopy.Reactive.ReactiveM.run events (ReactiveShowcase.createApp env)
-      pure (appState, inputs)
+      pure (appState, events, inputs)
     ).run spiderEnv
 
     -- Fire post-build event (but don't dispose!)
@@ -335,14 +348,19 @@ instance : Demo .reactiveShowcase where
     -- Initial render
     let initialWidget ← appState.render
 
-    pure { appState, inputs, spiderEnv, cachedWidget := initialWidget }
+    pure { appState, events, inputs, spiderEnv, cachedWidget := initialWidget }
 
   update := fun env state => do
     -- Fire animation frame event with delta time
     state.inputs.fireAnimationFrame env.dt
     -- Re-render (samples all dynamics)
     let widget ← state.appState.render
-    pure { state with cachedWidget := widget }
+    -- Collect diagnostic stats
+    let scopeCount ← state.spiderEnv.currentScope.subscriptionCount
+    let stats : CanopyDemoStats := {
+      scopeSubscriptionCount := scopeCount
+    }
+    pure { state with cachedWidget := widget, stats := stats }
 
   view := fun _env state => some state.cachedWidget
 
@@ -392,19 +410,25 @@ instance : Demo .widgetPerf where
   shortName := "Widget Perf"
   init := fun env => do
     let spiderEnv ← Reactive.Host.SpiderEnv.new Reactive.Host.defaultErrorHandler
-    let (appState, inputs) ← (do
+    let (appState, events, inputs) ← (do
       let (events, inputs) ← Afferent.Canopy.Reactive.createInputs
       let appState ← Afferent.Canopy.Reactive.ReactiveM.run events (WidgetPerf.createApp env)
-      pure (appState, inputs)
+      pure (appState, events, inputs)
     ).run spiderEnv
     spiderEnv.postBuildTrigger ()
     let initialWidget ← appState.render
-    pure { appState, inputs, spiderEnv, cachedWidget := initialWidget }
+    pure { appState, events, inputs, spiderEnv, cachedWidget := initialWidget }
 
   update := fun env state => do
+    -- Reset registry to prevent memory leak from unbounded widget name growth
     state.inputs.fireAnimationFrame env.dt
     let widget ← state.appState.render
-    pure { state with cachedWidget := widget }
+    -- Collect diagnostic stats
+    let scopeCount ← state.spiderEnv.currentScope.subscriptionCount
+    let stats : CanopyDemoStats := {
+      scopeSubscriptionCount := scopeCount
+    }
+    pure { state with cachedWidget := widget, stats := stats }
 
   view := fun _env state => some state.cachedWidget
 
@@ -424,6 +448,13 @@ instance : Demo .widgetPerf where
     pure state
 
   step := fun c _ s => pure (c, s)
+
+/-- Get Canopy demo stats from an AnyDemo if it's a Canopy demo. -/
+def getCanopyStats (d : AnyDemo) : Option CanopyDemoStats :=
+  match d with
+  | ⟨.reactiveShowcase, state⟩ => some state.stats
+  | ⟨.widgetPerf, state⟩ => some state.stats
+  | _ => none
 
 instance : Demo .seascape where
   name := "SEASCAPE demo (Gerstner waves)"

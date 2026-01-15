@@ -96,6 +96,7 @@ private structure RunningState where
   cacheHits : Nat
   cacheMisses : Nat
   cacheSize : Nat
+  cacheCapacity : Nat
   batchedCalls : Nat
   individualCalls : Nat
   rectsBatched : Nat
@@ -116,6 +117,8 @@ private structure RunningState where
   timeLayoutMs : Float := 0.0
   timeCollectMs : Float := 0.0
   timeGpuMs : Float := 0.0
+  -- Canopy demo stats (for debugging memory leaks)
+  canopyStats : Option CanopyDemoStats := none
 
 private inductive AppState where
   | loading (state : LoadingState)
@@ -620,6 +623,7 @@ def unifiedDemo : IO Unit := do
                   cacheHits := 0
                   cacheMisses := 0
                   cacheSize := 0
+                  cacheCapacity := 0
                   batchedCalls := 0
                   individualCalls := 0
                   rectsBatched := 0
@@ -666,10 +670,13 @@ def unifiedDemo : IO Unit := do
             let footerLine1 :=
               s!"FPS: {rs.displayFps.toUInt32}  |  Render Commands: {rs.renderCommandCount}  |  Draw Calls: {totalDrawCalls} (Batched: {rs.batchedCalls}, Individual: {rs.individualCalls})  |  Widgets: {rs.widgetCount}"
 
-            -- Line 2: Timing breakdown and memory
+            -- Line 2: Timing breakdown, memory, and Canopy stats
             let fmt := fun (v : Float) => s!"{(v * 10).toUInt32.toFloat / 10}"  -- 1 decimal place
+            let canopyStatsStr := match rs.canopyStats with
+              | some stats => s!"  |  Subs: {stats.scopeSubscriptionCount}"
+              | none => ""
             let footerLine2 :=
-              s!"Timing: Update {fmt rs.timeUpdateMs}ms, Build {fmt rs.timeBuildMs}ms, Layout {fmt rs.timeLayoutMs}ms, Collect {fmt rs.timeCollectMs}ms, GPU {fmt rs.timeGpuMs}ms  |  Cache: {cacheRate}%  |  Mem: {memMb}MB"
+              s!"Timing: Update {fmt rs.timeUpdateMs}ms, Build {fmt rs.timeBuildMs}ms, Layout {fmt rs.timeLayoutMs}ms, Collect {fmt rs.timeCollectMs}ms, GPU {fmt rs.timeGpuMs}ms  |  Cache: {cacheRate}% ({rs.cacheSize}/{rs.cacheCapacity})  |  Mem: {memMb}MB{canopyStatsStr}"
 
             let buildDemoWidget := fun (tabBar : TabBarResult) (demo : AnyDemo)
                 (envForView : DemoEnv) =>
@@ -718,12 +725,15 @@ def unifiedDemo : IO Unit := do
             let envForView := envFromLayout defaultLayout t dt keyCode c.clearKey
             -- Timing: Update phase (FRP propagation for Canopy demos)
             let tUpdate0 ← IO.monoMsNow
-            match rs.demoRefs[rs.displayMode]? with
+            let canopyStats ← match rs.demoRefs[rs.displayMode]? with
             | some demoRef => do
                 let demo ← demoRef.get
                 let demo' ← AnyDemo.update demo envForView
                 demoRef.set demo'
-            | none => pure ()
+                -- Extract canopy stats from updated demo
+                pure (getCanopyStats demo')
+            | none => pure none
+            rs := { rs with canopyStats := canopyStats }
             let tUpdate1 ← IO.monoMsNow
             -- Timing: Build phase (widget tree construction)
             let tBuild0 ← IO.monoMsNow
@@ -947,9 +957,18 @@ def unifiedDemo : IO Unit := do
             let tCollect0 ← IO.monoMsNow
             let (commands, cacheHits, cacheMisses) ← Afferent.Arbor.collectCommandsCachedWithStats c.renderCache measuredWidget layouts
             let tCollect1 ← IO.monoMsNow
-            let cacheSize := (← c.renderCache.get).size
+            let renderCache ← c.renderCache.get
+            let cacheSize := renderCache.size
+            let cacheCapacity := renderCache.capacity
             let widgetCount := Afferent.Arbor.Widget.widgetCount measuredWidget
-            rs := { rs with renderCommandCount := commands.size, widgetCount := widgetCount, cacheHits := cacheHits, cacheMisses := cacheMisses, cacheSize := cacheSize }
+            rs := { rs with
+              renderCommandCount := commands.size
+              widgetCount := widgetCount
+              cacheHits := cacheHits
+              cacheMisses := cacheMisses
+              cacheSize := cacheSize
+              cacheCapacity := cacheCapacity
+            }
             -- Timing: GPU phase (batching and draw calls)
             let tGpu0 ← IO.monoMsNow
             let (batchStats, c') ← CanvasM.run c do
