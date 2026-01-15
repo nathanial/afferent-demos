@@ -100,6 +100,8 @@ private structure RunningState where
   batchedCalls : Nat
   individualCalls : Nat
   rectsBatched : Nat
+  circlesBatched : Nat
+  strokeRectsBatched : Nat
   peakRssKb : UInt64
   minorFaults : UInt64
   majorFaults : UInt64
@@ -612,6 +614,8 @@ def unifiedDemo : IO Unit := do
                   batchedCalls := 0
                   individualCalls := 0
                   rectsBatched := 0
+                  circlesBatched := 0
+                  strokeRectsBatched := 0
                   peakRssKb := 0
                   minorFaults := 0
                   majorFaults := 0
@@ -648,8 +652,9 @@ def unifiedDemo : IO Unit := do
             let cacheTotal := rs.cacheHits + rs.cacheMisses
             let cacheRate := if cacheTotal > 0 then (rs.cacheHits * 100) / cacheTotal else 0
             let totalDrawCalls := rs.batchedCalls + rs.individualCalls
+            let totalBatched := rs.rectsBatched + rs.circlesBatched + rs.strokeRectsBatched
             let footerText :=
-              s!"{rs.displayFps.toUInt32} FPS  |  cmds {rs.renderCommandCount}  |  draws {totalDrawCalls} ({rs.batchedCalls}B+{rs.individualCalls}I, {rs.rectsBatched}r)  |  cache {cacheRate}% ({rs.cacheSize})  |  widgets {rs.widgetCount}  |  mem {memMb}MB"
+              s!"{rs.displayFps.toUInt32} FPS  |  cmds {rs.renderCommandCount}  |  draws {totalDrawCalls} ({rs.batchedCalls}B+{rs.individualCalls}I, {totalBatched}b: {rs.rectsBatched}r {rs.circlesBatched}c {rs.strokeRectsBatched}sr)  |  cache {cacheRate}% ({rs.cacheSize})  |  widgets {rs.widgetCount}  |  mem {memMb}MB"
 
             let buildDemoWidget := fun (tabBar : TabBarResult) (demo : AnyDemo)
                 (envForView : DemoEnv) =>
@@ -925,7 +930,7 @@ def unifiedDemo : IO Unit := do
               Afferent.Widget.renderCustomWidgets measuredWidget layouts
               return stats
             c := c'
-            rs := { rs with batchedCalls := batchStats.batchedCalls, individualCalls := batchStats.individualCalls, rectsBatched := batchStats.rectsBatched }
+            rs := { rs with batchedCalls := batchStats.batchedCalls, individualCalls := batchStats.individualCalls, rectsBatched := batchStats.rectsBatched, circlesBatched := batchStats.circlesBatched, strokeRectsBatched := batchStats.strokeRectsBatched }
 
             if click.isSome then
               FFI.Window.clearClick c.ctx.window
