@@ -102,6 +102,7 @@ private structure RunningState where
   rectsBatched : Nat
   circlesBatched : Nat
   strokeRectsBatched : Nat
+  textsBatched : Nat
   peakRssKb : UInt64
   minorFaults : UInt64
   majorFaults : UInt64
@@ -629,6 +630,7 @@ def unifiedDemo : IO Unit := do
                   rectsBatched := 0
                   circlesBatched := 0
                   strokeRectsBatched := 0
+                  textsBatched := 0
                   peakRssKb := 0
                   minorFaults := 0
                   majorFaults := 0
@@ -667,8 +669,12 @@ def unifiedDemo : IO Unit := do
             let totalDrawCalls := rs.batchedCalls + rs.individualCalls
 
             -- Line 1: Performance, Commands, Draw Calls
+            let totalBatched := rs.rectsBatched + rs.circlesBatched + rs.strokeRectsBatched + rs.textsBatched
+            let avgBatchSize := if rs.batchedCalls > 0 then (totalBatched * 10 / rs.batchedCalls).toFloat / 10.0 else 0.0
+            let avgBatchStr := s!"{(avgBatchSize * 10).toUInt32.toFloat / 10}"
+            let batchBreakdown := s!"R:{rs.rectsBatched} C:{rs.circlesBatched} S:{rs.strokeRectsBatched} T:{rs.textsBatched}"
             let footerLine1 :=
-              s!"FPS: {rs.displayFps.toUInt32}  |  Render Commands: {rs.renderCommandCount}  |  Draw Calls: {totalDrawCalls} (Batched: {rs.batchedCalls}, Individual: {rs.individualCalls})  |  Widgets: {rs.widgetCount}"
+              s!"FPS: {rs.displayFps.toUInt32}  |  Commands: {rs.renderCommandCount}  |  Draw Calls: {totalDrawCalls} (Batched: {rs.batchedCalls}, Avg: {avgBatchStr}, {batchBreakdown})  |  Widgets: {rs.widgetCount}"
 
             -- Line 2: Timing breakdown, memory, and Canopy stats
             let fmt := fun (v : Float) => s!"{(v * 10).toUInt32.toFloat / 10}"  -- 1 decimal place
@@ -977,7 +983,7 @@ def unifiedDemo : IO Unit := do
               return stats
             c := c'
             let tGpu1 ← IO.monoMsNow
-            rs := { rs with batchedCalls := batchStats.batchedCalls, individualCalls := batchStats.individualCalls, rectsBatched := batchStats.rectsBatched, circlesBatched := batchStats.circlesBatched, strokeRectsBatched := batchStats.strokeRectsBatched }
+            rs := { rs with batchedCalls := batchStats.batchedCalls, individualCalls := batchStats.individualCalls, rectsBatched := batchStats.rectsBatched, circlesBatched := batchStats.circlesBatched, strokeRectsBatched := batchStats.strokeRectsBatched, textsBatched := batchStats.textsBatched }
             -- Store timing stats
             rs := { rs with
               timeUpdateMs := (tUpdate1 - tUpdate0).toFloat
