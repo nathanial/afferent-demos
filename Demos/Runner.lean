@@ -9,6 +9,7 @@ import Demos.Demo
 import Demos.DemoRegistry
 import Demos.TabBar
 import Std.Internal.Async.Process
+import Std.Data.HashMap
 import Wisp
 import Init.Data.FloatArray
 
@@ -83,6 +84,12 @@ private structure RootBuild where
   tabBar : TabBarResult
   contentId : Afferent.Arbor.WidgetId
 
+private structure FrameCache where
+  rootBuild : RootBuild
+  measuredWidget : Afferent.Arbor.Widget
+  layouts : Trellis.LayoutResult
+  hitIndex : Afferent.Arbor.HitTestIndex
+
 private structure RunningState where
   assets : LoadedAssets
   demos : Array AnyDemo
@@ -109,6 +116,7 @@ private structure RunningState where
   majorFaults : UInt64
   framesLeft : Nat
   tabBar : TabBarResult
+  frameCache : Option FrameCache := none
   lastHoverPath : Array Afferent.Arbor.WidgetId := #[]
   lastMouseX : Float := 0.0
   lastMouseY : Float := 0.0
@@ -643,12 +651,17 @@ def unifiedDemo : IO Unit := do
                   majorFaults := 0
                   framesLeft := exitAfterFrames
                   tabBar := tabBar
+                  frameCache := none
                 }
             | none =>
                 state := .loading ls
             c ← c.endFrame
         | .running rs =>
             let mut rs := rs
+            let frameNameMap := match rs.frameCache with
+              | some cache => cache.hitIndex.nameMap
+              | none => ({} : Std.HashMap String Afferent.Arbor.WidgetId)
+            setFrameNameMap frameNameMap
             let keyCode ← c.getKeyCode
             let click ← FFI.Window.getClick c.ctx.window
             let s := rs.assets.screenScale
@@ -737,7 +750,11 @@ def unifiedDemo : IO Unit := do
             let defaultContentRect : Trellis.LayoutRect :=
               { x := 0, y := tabBarHeightPx, width := screenW, height := fallbackContentH }
             let defaultLayout := Trellis.ComputedLayout.simple 0 defaultContentRect
-            let envForView := envFromLayout defaultLayout t dt keyCode c.clearKey
+            let contentLayoutForEnv := match rs.frameCache with
+              | some cache =>
+                  (cache.layouts.get cache.rootBuild.contentId).getD defaultLayout
+              | none => defaultLayout
+            let envForView := envFromLayout contentLayoutForEnv t dt keyCode c.clearKey
             -- Timing: Update phase (FRP propagation for Canopy demos)
             let tUpdate0 ← IO.monoMsNow
             let canopyStats ← match rs.demoRefs[rs.displayMode]? with
@@ -750,8 +767,7 @@ def unifiedDemo : IO Unit := do
             | none => pure none
             rs := { rs with canopyStats := canopyStats }
             let tUpdate1 ← IO.monoMsNow
-            -- Timing: Build phase (widget tree construction)
-            let tBuild0 ← IO.monoMsNow
+
             let buildRootBuild : IO RootBuild := do
               match rs.demoRefs[rs.displayMode]? with
               | some demoRef => do
@@ -760,213 +776,162 @@ def unifiedDemo : IO Unit := do
               | none =>
                   pure (buildRootWidget rs.tabBar (.spacer rs.tabBar.finalId none 0 0)
                     footerLine1 footerLine2 rs.assets.fontPack.smallId s)
+            let mut tabSwitched := false
 
-            let initRootBuild ← buildRootBuild
-            let tBuild1 ← IO.monoMsNow
-            -- Timing: Layout phase (measurement and layout calculation)
-            let tLayout0 ← IO.monoMsNow
-            let ((measuredWidget, layouts, clickedTab, demoClickPath), rootBuild) ←
-              (do
-                let rootBuild : RootBuild ← get
-                let (measuredWidget, layouts) ← StateT.lift (measureRoot rootBuild.widget)
+            match rs.frameCache with
+            | some cache =>
                 let mut clickedTab : Option Nat := none
                 let mut demoClickPath : Option (Array Afferent.Arbor.WidgetId) := none
                 match click with
                 | some ce =>
-                    let hitPath := Afferent.Arbor.hitTestPath measuredWidget layouts ce.x ce.y
-                    let inTabBar := hitPath.any (· == rootBuild.tabBar.rowId)
+                    let hitPath := Afferent.Arbor.hitTestPathIndexed cache.hitIndex ce.x ce.y
+                    let inTabBar := hitPath.any (· == cache.rootBuild.tabBar.rowId)
                     if inTabBar then
-                      clickedTab := rootBuild.tabBar.tabIds.findIdx? (fun tabId => hitPath.any (· == tabId))
+                      clickedTab := cache.rootBuild.tabBar.tabIds.findIdx? (fun tabId => hitPath.any (· == tabId))
                     else
                       demoClickPath := some hitPath
                 | none => pure ()
-                pure (measuredWidget, layouts, clickedTab, demoClickPath)
-              ) |>.run initRootBuild
-            let tLayout1 ← IO.monoMsNow
 
-            let mut measuredWidget := measuredWidget
-            let mut layouts := layouts
-            let mut rootBuild := rootBuild
-
-            let mut tabSwitched := false
-            match clickedTab with
-            | some newTabIdx =>
-                if newTabIdx != rs.displayMode then
-                  let contentLayout :=
-                    (layouts.get rootBuild.contentId).getD (Trellis.ComputedLayout.simple rootBuild.contentId defaultContentRect)
-                  let exitEnv := envFromLayout contentLayout 0.0 0.0 keyCode c.clearKey
-                  match rs.demoRefs[rs.displayMode]? with
-                  | some demoRef =>
-                      let currentDemo ← demoRef.get
-                      let nextDemo ← AnyDemo.onExit currentDemo c exitEnv
-                      demoRef.set nextDemo
-                  | none => pure ()
-                  rs := { rs with displayMode := newTabIdx }
-                  c := c.resetState
-                  c.ctx.resetScissor
-                  let newTabBar := rebuildTabBar rs.demos newTabIdx rs.assets.fontPack.smallId s
-                  rs := { rs with tabBar := newTabBar }
-                  IO.println s!"Switched to {AnyDemo.name (rs.demos[rs.displayMode]!)}"
-                  tabSwitched := true
-
-                  let ((measuredWidget', layouts'), rootBuild') ←
-                    (do
-                      let rootBuild : RootBuild ← StateT.lift buildRootBuild
-                      set rootBuild
-                      let (measuredWidget, layouts) ← StateT.lift (measureRoot rootBuild.widget)
-                      pure (measuredWidget, layouts)
-                    ) |>.run rootBuild
-                  measuredWidget := measuredWidget'
-                  layouts := layouts'
-                  rootBuild := rootBuild'
-            | none => pure ()
-
-            if !tabSwitched then
-              match demoClickPath with
-              | some hitPath =>
-                  match click with
-                  | some ce =>
+                match clickedTab with
+                | some newTabIdx =>
+                    if newTabIdx != rs.displayMode then
                       let contentLayout :=
-                        (layouts.get rootBuild.contentId).getD (Trellis.ComputedLayout.simple rootBuild.contentId defaultContentRect)
-                      let clickEnv := envFromLayout contentLayout t dt keyCode c.clearKey
+                        (cache.layouts.get cache.rootBuild.contentId).getD defaultLayout
+                      let exitEnv := envFromLayout contentLayout 0.0 0.0 keyCode c.clearKey
+                      match rs.demoRefs[rs.displayMode]? with
+                      | some demoRef =>
+                          let currentDemo ← demoRef.get
+                          let nextDemo ← AnyDemo.onExit currentDemo c exitEnv
+                          demoRef.set nextDemo
+                      | none => pure ()
+                      rs := { rs with displayMode := newTabIdx, lastHoverPath := #[] }
+                      c := c.resetState
+                      c.ctx.resetScissor
+                      let newTabBar := rebuildTabBar rs.demos newTabIdx rs.assets.fontPack.smallId s
+                      rs := { rs with tabBar := newTabBar }
+                      IO.println s!"Switched to {AnyDemo.name (rs.demos[rs.displayMode]!)}"
+                      tabSwitched := true
+                | none => pure ()
+
+                if !tabSwitched then
+                  match demoClickPath with
+                  | some hitPath =>
+                      match click with
+                      | some ce =>
+                          let contentLayout :=
+                            (cache.layouts.get cache.rootBuild.contentId).getD defaultLayout
+                          let clickEnv := envFromLayout contentLayout t dt keyCode c.clearKey
+                          match rs.demoRefs[rs.displayMode]? with
+                          | some demoRef =>
+                              let demo ← demoRef.get
+                              let demo' ← AnyDemo.handleClickWithLayouts demo clickEnv cache.rootBuild.contentId hitPath ce cache.layouts cache.measuredWidget
+                              demoRef.set demo'
+                          | none => pure ()
+                      | none => pure ()
+                  | none => pure ()
+
+                  let (mouseX, mouseY) ← FFI.Window.getMousePos c.ctx.window
+                  let mut hoverPathOpt : Option (Array Afferent.Arbor.WidgetId) := none
+                  let mouseMoved := mouseX != rs.lastMouseX || mouseY != rs.lastMouseY
+                  if mouseMoved then
+                    let hoverPath := Afferent.Arbor.hitTestPathIndexed cache.hitIndex mouseX mouseY
+                    hoverPathOpt := some hoverPath
+                    let inTabBar := hoverPath.any (· == cache.rootBuild.tabBar.rowId)
+                    if !inTabBar then
+                      let contentLayout :=
+                        (cache.layouts.get cache.rootBuild.contentId).getD defaultLayout
+                      let hoverEnv := envFromLayout contentLayout t dt keyCode c.clearKey
                       match rs.demoRefs[rs.displayMode]? with
                       | some demoRef =>
                           let demo ← demoRef.get
-                          let demo' ← AnyDemo.handleClickWithLayouts demo clickEnv rootBuild.contentId hitPath ce layouts measuredWidget
+                          let demo' ← AnyDemo.handleHoverWithLayouts demo hoverEnv cache.rootBuild.contentId hoverPath mouseX mouseY cache.layouts cache.measuredWidget
                           demoRef.set demo'
-                          let ((measuredWidget', layouts'), rootBuild') ←
-                            (do
-                              let rootBuild : RootBuild ← StateT.lift buildRootBuild
-                              set rootBuild
-                              let (measuredWidget, layouts) ← StateT.lift (measureRoot rootBuild.widget)
-                              pure (measuredWidget, layouts)
-                            ) |>.run rootBuild
-                          measuredWidget := measuredWidget'
-                          layouts := layouts'
-                          rootBuild := rootBuild'
                       | none => pure ()
-                  | none => pure ()
-              | none => pure ()
+                    rs := { rs with lastHoverPath := hoverPath, lastMouseX := mouseX, lastMouseY := mouseY }
 
-            -- Handle hover events (mouse movement)
-            let (mouseX, mouseY) ← FFI.Window.getMousePos c.ctx.window
-            let hoverPath := Afferent.Arbor.hitTestPath measuredWidget layouts mouseX mouseY
-            let inTabBar := hoverPath.any (· == rootBuild.tabBar.rowId)
-            -- Only dispatch hover if not in tab bar and path changed
-            if !inTabBar && (hoverPath != rs.lastHoverPath || mouseX != rs.lastMouseX || mouseY != rs.lastMouseY) then
-              let contentLayout :=
-                (layouts.get rootBuild.contentId).getD (Trellis.ComputedLayout.simple rootBuild.contentId defaultContentRect)
-              let hoverEnv := envFromLayout contentLayout t dt keyCode c.clearKey
-              match rs.demoRefs[rs.displayMode]? with
-              | some demoRef =>
-                  let demo ← demoRef.get
-                  let demo' ← AnyDemo.handleHoverWithLayouts demo hoverEnv rootBuild.contentId hoverPath mouseX mouseY layouts measuredWidget
-                  demoRef.set demo'
-                  -- Rebuild widget to reflect hover state changes
-                  let ((measuredWidget', layouts'), rootBuild') ←
-                    (do
-                      let rootBuild : RootBuild ← StateT.lift buildRootBuild
-                      set rootBuild
-                      let (measuredWidget, layouts) ← StateT.lift (measureRoot rootBuild.widget)
-                      pure (measuredWidget, layouts)
-                    ) |>.run rootBuild
-                  measuredWidget := measuredWidget'
-                  layouts := layouts'
-                  rootBuild := rootBuild'
-              | none => pure ()
-              rs := { rs with lastHoverPath := hoverPath, lastMouseX := mouseX, lastMouseY := mouseY }
+                  -- Handle keyboard events (use hasKeyPressed to distinguish key code 0 from "no key")
+                  let hasKey ← FFI.Window.hasKeyPressed c.ctx.window
+                  if hasKey then
+                    let modifiers ← FFI.Window.getModifiers c.ctx.window
+                    let keyEvent : Afferent.Arbor.KeyEvent := {
+                      key := Afferent.Arbor.Key.fromKeyCode keyCode
+                      modifiers := Afferent.Arbor.Modifiers.fromBitmask modifiers
+                    }
+                    let contentLayout :=
+                      (cache.layouts.get cache.rootBuild.contentId).getD defaultLayout
+                    let keyEnv := envFromLayout contentLayout t dt keyCode c.clearKey
+                    match rs.demoRefs[rs.displayMode]? with
+                    | some demoRef =>
+                        let demo ← demoRef.get
+                        let demo' ← AnyDemo.handleKey demo keyEnv keyEvent
+                        demoRef.set demo'
+                        c.clearKey
+                    | none => pure ()
 
-            -- Handle keyboard events (use hasKeyPressed to distinguish key code 0 from "no key")
-            let hasKey ← FFI.Window.hasKeyPressed c.ctx.window
-            if hasKey then
-              let modifiers ← FFI.Window.getModifiers c.ctx.window
-              let keyEvent : Afferent.Arbor.KeyEvent := {
-                key := Afferent.Arbor.Key.fromKeyCode keyCode
-                modifiers := Afferent.Arbor.Modifiers.fromBitmask modifiers
+                  -- Handle scroll events
+                  let (scrollX, scrollY) ← FFI.Window.getScrollDelta c.ctx.window
+                  if scrollX != 0.0 || scrollY != 0.0 then
+                    let modifiers ← FFI.Window.getModifiers c.ctx.window
+                    let scrollEvent : Afferent.Arbor.ScrollEvent := {
+                      x := mouseX
+                      y := mouseY
+                      deltaX := scrollX
+                      deltaY := scrollY
+                      modifiers := Afferent.Arbor.Modifiers.fromBitmask modifiers
+                    }
+                    let contentLayout :=
+                      (cache.layouts.get cache.rootBuild.contentId).getD defaultLayout
+                    let scrollEnv := envFromLayout contentLayout t dt keyCode c.clearKey
+                    match rs.demoRefs[rs.displayMode]? with
+                    | some demoRef =>
+                        let demo ← demoRef.get
+                        let scrollPath := match hoverPathOpt with
+                          | some path => path
+                          | none => Afferent.Arbor.hitTestPathIndexed cache.hitIndex mouseX mouseY
+                        let demo' ← AnyDemo.handleScrollWithLayouts demo scrollEnv scrollPath scrollEvent cache.layouts cache.measuredWidget
+                        demoRef.set demo'
+                    | none => pure ()
+                    FFI.Window.clearScroll c.ctx.window
+
+                  -- Handle mouse button release (for ending drag interactions)
+                  let buttons ← FFI.Window.getMouseButtons c.ctx.window
+                  let leftDown := (buttons &&& (1 : UInt8)) != (0 : UInt8)
+                  if !leftDown && rs.prevLeftDown then
+                    let contentLayout :=
+                      (cache.layouts.get cache.rootBuild.contentId).getD defaultLayout
+                    let mouseUpEnv := envFromLayout contentLayout t dt keyCode c.clearKey
+                    match rs.demoRefs[rs.displayMode]? with
+                    | some demoRef =>
+                        let demo ← demoRef.get
+                        let mouseUpPath := match hoverPathOpt with
+                          | some path => path
+                          | none => Afferent.Arbor.hitTestPathIndexed cache.hitIndex mouseX mouseY
+                        let demo' ← AnyDemo.handleMouseUpWithLayouts demo mouseUpEnv mouseX mouseY mouseUpPath cache.layouts cache.measuredWidget
+                        demoRef.set demo'
+                    | none => pure ()
+                  rs := { rs with prevLeftDown := leftDown }
+            | none =>
+                let buttons ← FFI.Window.getMouseButtons c.ctx.window
+                let leftDown := (buttons &&& (1 : UInt8)) != (0 : UInt8)
+                rs := { rs with prevLeftDown := leftDown }
+
+            -- Timing: Build phase (widget tree construction)
+            let tBuild0 ← IO.monoMsNow
+            let rootBuild ← buildRootBuild
+            let tBuild1 ← IO.monoMsNow
+            -- Timing: Layout phase (measurement and layout calculation)
+            let tLayout0 ← IO.monoMsNow
+            let (measuredWidget, layouts) ← measureRoot rootBuild.widget
+            let tLayout1 ← IO.monoMsNow
+            let hitIndex := Afferent.Arbor.buildHitTestIndex measuredWidget layouts
+            rs := { rs with
+              frameCache := some {
+                rootBuild := rootBuild
+                measuredWidget := measuredWidget
+                layouts := layouts
+                hitIndex := hitIndex
               }
-              let contentLayout :=
-                (layouts.get rootBuild.contentId).getD (Trellis.ComputedLayout.simple rootBuild.contentId defaultContentRect)
-              let keyEnv := envFromLayout contentLayout t dt keyCode c.clearKey
-              match rs.demoRefs[rs.displayMode]? with
-              | some demoRef =>
-                  let demo ← demoRef.get
-                  let demo' ← AnyDemo.handleKey demo keyEnv keyEvent
-                  demoRef.set demo'
-                  c.clearKey
-                  -- Rebuild widget to reflect keyboard input changes
-                  let ((measuredWidget', layouts'), rootBuild') ←
-                    (do
-                      let rootBuild : RootBuild ← StateT.lift buildRootBuild
-                      set rootBuild
-                      let (measuredWidget, layouts) ← StateT.lift (measureRoot rootBuild.widget)
-                      pure (measuredWidget, layouts)
-                    ) |>.run rootBuild
-                  measuredWidget := measuredWidget'
-                  layouts := layouts'
-                  rootBuild := rootBuild'
-              | none => pure ()
-
-            -- Handle scroll events
-            let (scrollX, scrollY) ← FFI.Window.getScrollDelta c.ctx.window
-            if scrollX != 0.0 || scrollY != 0.0 then
-              let modifiers ← FFI.Window.getModifiers c.ctx.window
-              let scrollEvent : Afferent.Arbor.ScrollEvent := {
-                x := mouseX
-                y := mouseY
-                deltaX := scrollX
-                deltaY := scrollY
-                modifiers := Afferent.Arbor.Modifiers.fromBitmask modifiers
-              }
-              let contentLayout :=
-                (layouts.get rootBuild.contentId).getD (Trellis.ComputedLayout.simple rootBuild.contentId defaultContentRect)
-              let scrollEnv := envFromLayout contentLayout t dt keyCode c.clearKey
-              match rs.demoRefs[rs.displayMode]? with
-              | some demoRef =>
-                  let demo ← demoRef.get
-                  -- Calculate fresh hit path at scroll position (not stale hoverPath)
-                  let scrollPath := Afferent.Arbor.hitTestPath measuredWidget layouts mouseX mouseY
-                  let demo' ← AnyDemo.handleScrollWithLayouts demo scrollEnv scrollPath scrollEvent layouts measuredWidget
-                  demoRef.set demo'
-                  -- Rebuild widget to reflect scroll changes
-                  let ((measuredWidget', layouts'), rootBuild') ←
-                    (do
-                      let rootBuild : RootBuild ← StateT.lift buildRootBuild
-                      set rootBuild
-                      let (measuredWidget, layouts) ← StateT.lift (measureRoot rootBuild.widget)
-                      pure (measuredWidget, layouts)
-                    ) |>.run rootBuild
-                  measuredWidget := measuredWidget'
-                  layouts := layouts'
-                  rootBuild := rootBuild'
-              | none => pure ()
-              FFI.Window.clearScroll c.ctx.window
-
-            -- Handle mouse button release (for ending drag interactions)
-            let buttons ← FFI.Window.getMouseButtons c.ctx.window
-            let leftDown := (buttons &&& (1 : UInt8)) != (0 : UInt8)
-            if !leftDown && rs.prevLeftDown then
-              let contentLayout :=
-                (layouts.get rootBuild.contentId).getD (Trellis.ComputedLayout.simple rootBuild.contentId defaultContentRect)
-              let mouseUpEnv := envFromLayout contentLayout t dt keyCode c.clearKey
-              match rs.demoRefs[rs.displayMode]? with
-              | some demoRef =>
-                  let demo ← demoRef.get
-                  let mouseUpPath := Afferent.Arbor.hitTestPath measuredWidget layouts mouseX mouseY
-                  let demo' ← AnyDemo.handleMouseUpWithLayouts demo mouseUpEnv mouseX mouseY mouseUpPath layouts measuredWidget
-                  demoRef.set demo'
-                  -- Rebuild widget to reflect state changes from mouse up
-                  let ((measuredWidget', layouts'), rootBuild') ←
-                    (do
-                      let rootBuild : RootBuild ← StateT.lift buildRootBuild
-                      set rootBuild
-                      let (measuredWidget, layouts) ← StateT.lift (measureRoot rootBuild.widget)
-                      pure (measuredWidget, layouts)
-                    ) |>.run rootBuild
-                  measuredWidget := measuredWidget'
-                  layouts := layouts'
-                  rootBuild := rootBuild'
-              | none => pure ()
-            rs := { rs with prevLeftDown := leftDown }
+            }
 
             -- Timing: Collect phase (render command generation)
             let tCollect0 ← IO.monoMsNow

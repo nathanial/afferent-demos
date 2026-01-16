@@ -25,10 +25,19 @@ import Demos.WidgetPerf.App
 import Afferent.Canopy.Reactive
 import Reactive.Host.Spider
 import Worldmap
+import Std.Data.HashMap
 
 open Afferent
 
 namespace Demos
+
+initialize frameNameMapRef : IO.Ref (Std.HashMap String Afferent.Arbor.WidgetId) ← IO.mkRef {}
+
+def setFrameNameMap (m : Std.HashMap String Afferent.Arbor.WidgetId) : IO Unit :=
+  frameNameMapRef.set m
+
+def getFrameNameMap : IO (Std.HashMap String Afferent.Arbor.WidgetId) :=
+  frameNameMapRef.get
 
 inductive DemoId where
   | demoGrid
@@ -366,12 +375,14 @@ instance : Demo .reactiveShowcase where
 
   handleClickWithLayouts := fun _env state _contentId hitPath click layouts widget => do
     -- Fire click event into reactive network
-    let clickData : Afferent.Canopy.Reactive.ClickData := { click, hitPath, widget, layouts }
+    let nameMap ← getFrameNameMap
+    let clickData : Afferent.Canopy.Reactive.ClickData := { click, hitPath, widget, layouts, nameMap }
     state.inputs.fireClick clickData
     pure state
 
   handleHoverWithLayouts := fun _env state _contentId hitPath mouseX mouseY layouts widget => do
-    let hoverData : Afferent.Canopy.Reactive.HoverData := { x := mouseX, y := mouseY, hitPath, widget, layouts }
+    let nameMap ← getFrameNameMap
+    let hoverData : Afferent.Canopy.Reactive.HoverData := { x := mouseX, y := mouseY, hitPath, widget, layouts, nameMap }
     state.inputs.fireHover hoverData
     pure state
 
@@ -382,11 +393,13 @@ instance : Demo .reactiveShowcase where
 
   handleScrollWithLayouts := fun _env state hitPath scrollEvt layouts widget => do
     dbg_trace s!"[ReactiveShowcase] scroll event: deltaY={scrollEvt.deltaY} hitPath.size={hitPath.size}"
-    let scrollData : Afferent.Canopy.Reactive.ScrollData := { scroll := scrollEvt, hitPath, widget, layouts }
+    let nameMap ← getFrameNameMap
+    let scrollData : Afferent.Canopy.Reactive.ScrollData := { scroll := scrollEvt, hitPath, widget, layouts, nameMap }
     state.inputs.fireScroll scrollData
     pure state
 
   handleMouseUpWithLayouts := fun _env state mouseX mouseY hitPath layouts widget => do
+    let nameMap ← getFrameNameMap
     let mouseUpData : Afferent.Canopy.Reactive.MouseButtonData := {
       x := mouseX
       y := mouseY
@@ -394,6 +407,7 @@ instance : Demo .reactiveShowcase where
       hitPath
       widget
       layouts
+      nameMap
     }
     state.inputs.fireMouseUp mouseUpData
     pure state
@@ -433,17 +447,20 @@ instance : Demo .widgetPerf where
   view := fun _env state => some state.cachedWidget
 
   handleClickWithLayouts := fun _env state _contentId hitPath click layouts widget => do
-    let clickData : Afferent.Canopy.Reactive.ClickData := { click, hitPath, widget, layouts }
+    let nameMap ← getFrameNameMap
+    let clickData : Afferent.Canopy.Reactive.ClickData := { click, hitPath, widget, layouts, nameMap }
     state.inputs.fireClick clickData
     pure state
 
   handleHoverWithLayouts := fun _env state _contentId hitPath mouseX mouseY layouts widget => do
-    let hoverData : Afferent.Canopy.Reactive.HoverData := { x := mouseX, y := mouseY, hitPath, widget, layouts }
+    let nameMap ← getFrameNameMap
+    let hoverData : Afferent.Canopy.Reactive.HoverData := { x := mouseX, y := mouseY, hitPath, widget, layouts, nameMap }
     state.inputs.fireHover hoverData
     pure state
 
   handleScrollWithLayouts := fun _env state hitPath scrollEvt layouts widget => do
-    let scrollData : Afferent.Canopy.Reactive.ScrollData := { scroll := scrollEvt, hitPath, widget, layouts }
+    let nameMap ← getFrameNameMap
+    let scrollData : Afferent.Canopy.Reactive.ScrollData := { scroll := scrollEvt, hitPath, widget, layouts, nameMap }
     state.inputs.fireScroll scrollData
     pure state
 
