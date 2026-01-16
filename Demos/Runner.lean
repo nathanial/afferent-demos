@@ -127,6 +127,16 @@ private structure RunningState where
   timeLayoutMs : Float := 0.0
   timeCollectMs : Float := 0.0
   timeGpuMs : Float := 0.0
+  collectLookupMs : Float := 0.0
+  collectTouchMs : Float := 0.0
+  collectEmitAllMs : Float := 0.0
+  collectSpecMs : Float := 0.0
+  collectInsertMs : Float := 0.0
+  collectLookupCount : Nat := 0
+  collectTouchCount : Nat := 0
+  collectEmitAllCount : Nat := 0
+  collectSpecCount : Nat := 0
+  collectInsertCount : Nat := 0
   -- GPU phase breakdown
   timeFlattenMs : Float := 0.0
   timeCoalesceMs : Float := 0.0
@@ -581,6 +591,7 @@ def unifiedDemo : IO Unit := do
   let startTime ← IO.monoMsNow
 
   let renderLoop : IO (Canvas × AppState) := do
+    let _ ← Afferent.Arbor.enableCollectMetrics
     let mut c := canvas
     let mut state : AppState := .loading {}
     let mut lastTime := startTime
@@ -703,8 +714,19 @@ def unifiedDemo : IO Unit := do
               | none => ""
             -- GPU breakdown: Flatten, Coalesce, Loop (total), Draw (FFI calls within loop)
             let gpuBreakdown := s!"GPU {fmt rs.timeGpuMs}ms [F:{fmt rs.timeFlattenMs} C:{fmt rs.timeCoalesceMs} L:{fmt rs.timeBatchLoopMs} D:{fmt rs.timeDrawCallsMs}]"
+            let collectDetailStr :=
+              if rs.collectLookupCount == 0 && rs.collectTouchCount == 0 &&
+                 rs.collectEmitAllCount == 0 && rs.collectSpecCount == 0 &&
+                 rs.collectInsertCount == 0 then
+                ""
+              else
+                s!"  |  Collect detail L:{fmt rs.collectLookupMs}({rs.collectLookupCount})" ++
+                s!" T:{fmt rs.collectTouchMs}({rs.collectTouchCount})" ++
+                s!" E:{fmt rs.collectEmitAllMs}({rs.collectEmitAllCount})" ++
+                s!" S:{fmt rs.collectSpecMs}({rs.collectSpecCount})" ++
+                s!" I:{fmt rs.collectInsertMs}({rs.collectInsertCount})"
             let footerLine2 :=
-              s!"Timing: Update {fmt rs.timeUpdateMs}ms, Build {fmt rs.timeBuildMs}ms, Layout {fmt rs.timeLayoutMs}ms, Collect {fmt rs.timeCollectMs}ms, {gpuBreakdown}  |  Cache: {cacheRate}%  |  Mem: {memMb}MB{canopyStatsStr}"
+              s!"Timing: Update {fmt rs.timeUpdateMs}ms, Build {fmt rs.timeBuildMs}ms, Layout {fmt rs.timeLayoutMs}ms, Collect {fmt rs.timeCollectMs}ms, {gpuBreakdown}{collectDetailStr}  |  Cache: {cacheRate}%  |  Mem: {memMb}MB{canopyStatsStr}"
 
             let buildDemoWidget := fun (tabBar : TabBarResult) (demo : AnyDemo)
                 (envForView : DemoEnv) =>
@@ -934,9 +956,18 @@ def unifiedDemo : IO Unit := do
             }
 
             -- Timing: Collect phase (render command generation)
+            let collectMetricsOpt ← Afferent.Arbor.getCollectMetrics
+            match collectMetricsOpt with
+            | some metrics => Afferent.Arbor.CollectMetrics.reset metrics
+            | none => pure ()
             let tCollect0 ← IO.monoMsNow
             let (commands, cacheHits, cacheMisses) ← Afferent.Arbor.collectCommandsCachedWithStats c.renderCache measuredWidget layouts
             let tCollect1 ← IO.monoMsNow
+            let collectSnapOpt ← match collectMetricsOpt with
+            | some metrics => do
+                let snap ← Afferent.Arbor.CollectMetrics.snapshot metrics
+                pure (some snap)
+            | none => pure none
             let renderCache ← c.renderCache.get
             let cacheSize := renderCache.size
             let cacheCapacity := renderCache.capacity
@@ -948,6 +979,29 @@ def unifiedDemo : IO Unit := do
               cacheMisses := cacheMisses
               cacheSize := cacheSize
               cacheCapacity := cacheCapacity
+            }
+            let nanosToMs := fun (n : Nat) => n.toFloat / 1000000.0
+            let (lookupMs, lookupCount, touchMs, touchCount, emitAllMs, emitAllCount, specMs, specCount, insertMs, insertCount) :=
+              match collectSnapOpt with
+              | some snap =>
+                  (nanosToMs snap.lookupNanos, snap.lookupCount,
+                   nanosToMs snap.touchNanos, snap.touchCount,
+                   nanosToMs snap.emitAllNanos, snap.emitAllCount,
+                   nanosToMs snap.collectNanos, snap.collectCount,
+                   nanosToMs snap.insertNanos, snap.insertCount)
+              | none =>
+                  (0.0, 0, 0.0, 0, 0.0, 0, 0.0, 0, 0.0, 0)
+            rs := { rs with
+              collectLookupMs := lookupMs
+              collectLookupCount := lookupCount
+              collectTouchMs := touchMs
+              collectTouchCount := touchCount
+              collectEmitAllMs := emitAllMs
+              collectEmitAllCount := emitAllCount
+              collectSpecMs := specMs
+              collectSpecCount := specCount
+              collectInsertMs := insertMs
+              collectInsertCount := insertCount
             }
             -- Timing: GPU phase (batching and draw calls)
             let tGpu0 ← IO.monoMsNow
