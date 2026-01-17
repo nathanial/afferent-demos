@@ -56,7 +56,6 @@ private structure BenchAccum where
   buildMs : Float := 0
   measureMs : Float := 0
   layoutMs : Float := 0
-  scaleMs : Float := 0
   hitIndexMs : Float := 0
   collectMs : Float := 0
   hitTestMs : Float := 0
@@ -65,14 +64,13 @@ private structure BenchAccum where
 deriving Inhabited
 
 private def BenchAccum.add (acc : BenchAccum)
-    (update build measure layout scale hitIndex collect hitTest hover : Float) : BenchAccum :=
+    (update build measure layout hitIndex collect hitTest hover : Float) : BenchAccum :=
   { acc with
     frames := acc.frames + 1
     updateMs := acc.updateMs + update
     buildMs := acc.buildMs + build
     measureMs := acc.measureMs + measure
     layoutMs := acc.layoutMs + layout
-    scaleMs := acc.scaleMs + scale
     hitIndexMs := acc.hitIndexMs + hitIndex
     collectMs := acc.collectMs + collect
     hitTestMs := acc.hitTestMs + hitTest
@@ -87,12 +85,10 @@ private structure BenchResult where
   targetCount : Nat
   widgetCount : Nat
   layoutNodeCount : Nat
-  contentScaleCount : Nat
   updateMs : Float
   buildMs : Float
   measureMs : Float
   layoutMs : Float
-  scaleMs : Float
   hitIndexMs : Float
   collectMs : Float
   hitTestMs : Float
@@ -101,13 +97,13 @@ private structure BenchResult where
 deriving Inhabited
 
 private def BenchResult.totalMs (r : BenchResult) : Float :=
-  r.updateMs + r.buildMs + r.measureMs + r.layoutMs + r.scaleMs +
+  r.updateMs + r.buildMs + r.measureMs + r.layoutMs +
     r.hitIndexMs + r.collectMs + r.hitTestMs + r.hoverMs
 
 private def BenchResult.format (label : String) (r : BenchResult) : String :=
-  s!"{label}: frames={r.frames}, targets={r.targetCount}, widgets={r.widgetCount}, nodes={r.layoutNodeCount}, scaled={r.contentScaleCount}, " ++
+  s!"{label}: frames={r.frames}, targets={r.targetCount}, widgets={r.widgetCount}, nodes={r.layoutNodeCount}, " ++
   s!"update={fmtMs r.updateMs}ms, build={fmtMs r.buildMs}ms, measure={fmtMs r.measureMs}ms, " ++
-  s!"layout={fmtMs r.layoutMs}ms, scale={fmtMs r.scaleMs}ms, " ++
+  s!"layout={fmtMs r.layoutMs}ms, " ++
   s!"hitIndex={fmtMs r.hitIndexMs}ms, collect={fmtMs r.collectMs}ms, " ++
   s!"hitTest={fmtMs r.hitTestMs}ms, hover={fmtMs r.hoverMs}ms, total={fmtMs r.totalMs}ms"
 
@@ -116,12 +112,10 @@ private def BenchResult.diff (base next : BenchResult) : BenchResult :=
     targetCount := next.targetCount
     widgetCount := next.widgetCount
     layoutNodeCount := next.layoutNodeCount
-    contentScaleCount := next.contentScaleCount
     updateMs := next.updateMs - base.updateMs
     buildMs := next.buildMs - base.buildMs
     measureMs := next.measureMs - base.measureMs
     layoutMs := next.layoutMs - base.layoutMs
-    scaleMs := next.scaleMs - base.scaleMs
     hitIndexMs := next.hitIndexMs - base.hitIndexMs
     collectMs := next.collectMs - base.collectMs
     hitTestMs := next.hitTestMs - base.hitTestMs
@@ -231,19 +225,6 @@ private def collectCentersByPrefix (index : HitTestIndex) (namePrefix : String) 
           acc
     | none => acc
 
-private partial def countContentScale (w : Widget) : Nat :=
-  match w with
-  | .flex _ _ _ style children =>
-      let base := if style.contentScale.isSome then 1 else 0
-      base + children.foldl (fun acc child => acc + countContentScale child) 0
-  | .grid _ _ _ style children =>
-      let base := if style.contentScale.isSome then 1 else 0
-      base + children.foldl (fun acc child => acc + countContentScale child) 0
-  | .scroll _ _ style _ _ _ _ child =>
-      let base := if style.contentScale.isSome then 1 else 0
-      base + countContentScale child
-  | _ => 0
-
 private def runBench (render : ComponentRender) (inputs : ReactiveInputs)
     (registry : FontRegistry) (config : BenchConfig) (targetPrefix : String) : IO BenchResult := do
   let renderCache ← IO.mkRef RenderCache.empty
@@ -253,7 +234,6 @@ private def runBench (render : ComponentRender) (inputs : ReactiveInputs)
   let mut targetCount : Nat := 0
   let mut widgetCount : Nat := 0
   let mut layoutNodeCount : Nat := 0
-  let mut contentScaleCount : Nat := 0
   let mut accum : BenchAccum := {}
 
   for frameIdx in [0:totalFrames] do
@@ -305,27 +285,16 @@ private def runBench (render : ComponentRender) (inputs : ReactiveInputs)
     let _ := layouts.layoutMap.size
     let tLayout1 ← IO.monoNanosNow
 
-    let tScale0 ← IO.monoNanosNow
-    let layoutsScaled ←
-      if measureResult.hasContentScale then
-        Afferent.runWithFonts registry
-          (Afferent.Arbor.applyContentScale measureResult.widget layouts)
-      else
-        pure layouts
-    let scaledCount := layoutsScaled.layouts.size
-    let _ := layoutsScaled.layoutMap.size
-    let tScale1 ← IO.monoNanosNow
-
     let tHitIndex0 ← IO.monoNanosNow
-    let hitIndex := Afferent.Arbor.buildHitTestIndex measureResult.widget layoutsScaled
+    let hitIndex := Afferent.Arbor.buildHitTestIndex measureResult.widget layouts
     let tHitIndex1 ← IO.monoNanosNow
 
     let tCollect0 ← IO.monoNanosNow
     let _ ← Afferent.Arbor.collectCommandsCachedWithStats renderCache
-      measureResult.widget layoutsScaled
+      measureResult.widget layouts
     let tCollect1 ← IO.monoNanosNow
 
-    cache := some { widget := measureResult.widget, layouts := layoutsScaled, hitIndex := hitIndex }
+    cache := some { widget := measureResult.widget, layouts := layouts, hitIndex := hitIndex }
 
     if hoverPoints.isEmpty then
       hoverPoints := collectCentersByPrefix hitIndex targetPrefix
@@ -334,10 +303,6 @@ private def runBench (render : ComponentRender) (inputs : ReactiveInputs)
       widgetCount := measureResult.widget.widgetCount
     if layoutNodeCount == 0 then
       layoutNodeCount := layoutCount
-    if scaledCount != layoutNodeCount then
-      layoutNodeCount := scaledCount
-    if contentScaleCount == 0 then
-      contentScaleCount := countContentScale measureResult.widget
 
     if frameIdx >= config.warmupFrames then
       accum := accum.add
@@ -345,7 +310,6 @@ private def runBench (render : ComponentRender) (inputs : ReactiveInputs)
         (deltaMs tBuild0 tBuild1)
         (deltaMs tMeasure0 tMeasure1)
         (deltaMs tLayout0 tLayout1)
-        (deltaMs tScale0 tScale1)
         (deltaMs tHitIndex0 tHitIndex1)
         (deltaMs tCollect0 tCollect1)
         hitTestMs
@@ -357,12 +321,10 @@ private def runBench (render : ComponentRender) (inputs : ReactiveInputs)
     targetCount := targetCount
     widgetCount := widgetCount
     layoutNodeCount := layoutNodeCount
-    contentScaleCount := contentScaleCount
     updateMs := avg accum.updateMs frames
     buildMs := avg accum.buildMs frames
     measureMs := avg accum.measureMs frames
     layoutMs := avg accum.layoutMs frames
-    scaleMs := avg accum.scaleMs frames
     hitIndexMs := avg accum.hitIndexMs frames
     collectMs := avg accum.collectMs frames
     hitTestMs := avg accum.hitTestMs frames
@@ -428,6 +390,27 @@ test "dropdown pipeline baseline vs hover" := do
 
   ensure (hover.targetCount == 1000)
     s!"Expected 1000 dropdown triggers, got {hover.targetCount}"
+
+  destroyBenchAssets assets
+
+test "stepper pipeline baseline vs hover" := do
+  let assets ← loadBenchAssets
+  let appBaseline ← initBenchApp assets.theme .stepper
+  let appHover ← initBenchApp assets.theme .stepper
+
+  let baseConfig : BenchConfig := { withHover := false }
+  let hoverConfig : BenchConfig := { withHover := true }
+
+  let baseline ← runBench appBaseline.render appBaseline.inputs assets.registry baseConfig "stepper-dec"
+  let hover ← runBench appHover.render appHover.inputs assets.registry hoverConfig "stepper-dec"
+  let delta := BenchResult.diff baseline hover
+
+  IO.println (BenchResult.format "baseline (stepper)" baseline)
+  IO.println (BenchResult.format "hover (stepper)" hover)
+  IO.println (BenchResult.format "delta(hover-baseline) (stepper)" delta)
+
+  ensure (hover.targetCount == 1000)
+    s!"Expected 1000 stepper buttons, got {hover.targetCount}"
 
   destroyBenchAssets assets
 

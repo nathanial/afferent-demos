@@ -12,7 +12,6 @@ import Demos.Overview.Gradients
 import Demos.Overview.Text
 import Demos.Overview.Animations
 import Demos.Overview.Card
-import Demos.Overview.Counter
 import Demos.Overview.Paths
 import Demos.Overview.SpinningCubes
 
@@ -55,16 +54,6 @@ def cellWidget (config : CellConfig) (screenScale : Float)
     config.content t demoFonts
   ]
 
-/-- Build the counter overview cell using the counter widget. -/
-def counterCellWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts)
-    (counterValue : Int) : WidgetBuilder := do
-  let config : CellConfig := {
-    bg := Color.hsva 0.92 0.25 0.20 1.0
-    label := "Counter"
-    content := fun _ fonts => counterWidget fonts.medium fonts.small counterValue screenScale
-  }
-  cellWidget config screenScale t demoFonts
-
 /-- Build the paths overview cell using path cards. -/
 def pathsCellWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts) : WidgetBuilder := do
   let config : CellConfig := {
@@ -85,7 +74,7 @@ def spinningCubesCellWidget (screenScale : Float) (t : Float) (demoFonts : DemoF
   cellWidget config screenScale t demoFonts
 
 /-- Build the normal demo mode: 3x3 grid of demo cells using Arbor widgets. -/
-def demoGridWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts) (counterValue : Int)
+def demoGridWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts)
     (spinningState : SpinningCubesState) (windowW windowH : Float) : WidgetBuilder := do
   let props := GridContainer.withTemplate
     #[.fr 1, .fr 1, .fr 1]  -- 3 rows, each 1fr
@@ -106,7 +95,6 @@ def demoGridWidget (screenScale : Float) (t : Float) (demoFonts : DemoFonts) (co
     cellWidget (getCellConfig 5) screenScale t demoFonts,  -- Animations
     -- Row 3
     pathsCellWidget screenScale t demoFonts,               -- Paths
-    counterCellWidget screenScale t demoFonts counterValue, -- Counter
     spinningCubesCellWidget screenScale t demoFonts windowW windowH spinningState  -- 3D Cubes
   ]
 

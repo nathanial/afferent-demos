@@ -10,7 +10,6 @@ import Demos.TrianglesPerf
 import Demos.CirclesPerf
 import Demos.SpritesPerf
 import Demos.Grid
-import Demos.Overview.Counter
 import Demos.Overview.SpinningCubes
 import Demos.Seascape
 import Demos.ShapeGallery
@@ -66,7 +65,6 @@ structure SpritesState where
   particles : Render.Dynamic.ParticleState
 
 structure DemoGridState where
-  counter : CounterState
   spinningCubes : SpinningCubesState
 
 structure ShapeGalleryState where
@@ -165,7 +163,6 @@ structure AnyDemo where
 
 instance : Inhabited AnyDemo :=
   ⟨{ id := .demoGrid, state := {
-    counter := CounterState.initial
     spinningCubes := spinningCubesInitialState
   } }⟩
 
@@ -239,7 +236,6 @@ instance : Demo .demoGrid where
   name := "DEMO mode"
   shortName := "Overview"
   init := fun _ => pure {
-    counter := CounterState.initial
     spinningCubes := spinningCubesInitialState
   }
   update := fun env state => do
@@ -247,7 +243,7 @@ instance : Demo .demoGrid where
     pure { state with spinningCubes := nextCubes }
   view := fun env state =>
     let demoFonts := demoFontsFromEnv env
-    some (demoGridWidget env.screenScale env.t demoFonts state.counter.value state.spinningCubes
+    some (demoGridWidget env.screenScale env.t demoFonts state.spinningCubes
       env.windowWidthF env.windowHeightF)
   handleClick := fun env state contentId hitPath click => do
     if click.button != 0 then
@@ -256,24 +252,12 @@ instance : Demo .demoGrid where
       let demoFonts := demoFontsFromEnv env
       let gridWidget :=
         Afferent.Arbor.buildFrom contentId
-          (demoGridWidget env.screenScale env.t demoFonts state.counter.value state.spinningCubes
+          (demoGridWidget env.screenScale env.t demoFonts state.spinningCubes
             env.windowWidthF env.windowHeightF)
-      let clickedIncrement := hitPathHasNamedWidget gridWidget hitPath counterIncrementName
-      let clickedDecrement := hitPathHasNamedWidget gridWidget hitPath counterDecrementName
-      let clickedReset := hitPathHasNamedWidget gridWidget hitPath counterResetName
       let clickedSpinningCubes := hitPathHasNamedWidget gridWidget hitPath spinningCubesWidgetName
       if clickedSpinningCubes then
         FFI.Window.setPointerLock env.window true
-      let nextCounter :=
-        if clickedIncrement then
-          CounterState.increment state.counter
-        else if clickedDecrement then
-          CounterState.decrement state.counter
-        else if clickedReset then
-          CounterState.reset state.counter
-        else
-          state.counter
-      pure { state with counter := nextCounter }
+      pure state
   step := fun c _ s => pure (c, s)
 
 instance : Demo .gridPerf where
