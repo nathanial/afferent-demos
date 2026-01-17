@@ -15,13 +15,54 @@ open Trellis
 
 namespace Demos.ReactiveShowcase
 
+/-! ## Chart Dimension Constants -/
+
+/-- Standard chart width for simple charts. -/
+def standardWidth : Float := 280
+/-- Medium chart width for charts with more data. -/
+def mediumWidth : Float := 320
+/-- Large chart width for complex charts. -/
+def largeWidth : Float := 340
+/-- Wide chart width for charts needing extra horizontal space. -/
+def wideWidth : Float := 380
+/-- Extra wide chart width for diagrams. -/
+def extraWideWidth : Float := 480
+
+/-- Standard chart height. -/
+def standardHeight : Float := 180
+/-- Medium chart height. -/
+def mediumHeight : Float := 200
+/-- Tall chart height. -/
+def tallHeight : Float := 220
+/-- Extra tall chart height. -/
+def extraTallHeight : Float := 240
+
+/-- Standard left margin. -/
+def standardMarginLeft : Float := 40
+/-- Medium left margin for longer labels. -/
+def mediumMarginLeft : Float := 45
+/-- Large left margin for wide labels. -/
+def largeMarginLeft : Float := 50
+/-- Extra large left margin for very wide labels. -/
+def extraLargeMarginLeft : Float := 70
+
+/-- Standard bottom margin. -/
+def standardMarginBottom : Float := 35
+/-- Large bottom margin for rotated labels. -/
+def largeMarginBottom : Float := 45
+
+/-- Standard radius for circular charts. -/
+def standardRadius : Float := 70
+/-- Large radius for radar charts. -/
+def largeRadius : Float := 90
+
 /-- BarChart panel - demonstrates bar chart visualization. -/
 def barChartPanel (theme : Theme) : WidgetM Unit :=
   titledPanel' "Bar Chart" .outlined theme do
     caption' "Sales data by quarter:" theme
     let salesData := #[42.0, 78.0, 56.0, 91.0]
     let labels := #["Q1", "Q2", "Q3", "Q4"]
-    let dims : BarChart.Dimensions := { width := 280, height := 180, marginLeft := 40 }
+    let dims : BarChart.Dimensions := { width := standardWidth, height := standardHeight, marginLeft := standardMarginLeft }
     let _ ← barChart salesData labels theme .primary dims
     pure ()
 
@@ -31,7 +72,7 @@ def lineChartPanel (theme : Theme) : WidgetM Unit :=
     caption' "Monthly revenue trend:" theme
     let revenueData := #[12.0, 19.0, 15.0, 25.0, 22.0, 30.0]
     let labels := #["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
-    let dims : LineChart.Dimensions := { width := 280, height := 180, marginLeft := 40 }
+    let dims : LineChart.Dimensions := { width := standardWidth, height := standardHeight, marginLeft := standardMarginLeft }
     let _ ← lineChart revenueData labels theme .primary dims
     pure ()
 
@@ -41,7 +82,7 @@ def areaChartPanel (theme : Theme) : WidgetM Unit :=
     caption' "Website traffic over time:" theme
     let trafficData := #[120.0, 180.0, 150.0, 220.0, 190.0, 280.0, 250.0]
     let labels := #["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    let dims : AreaChart.Dimensions := { width := 280, height := 180, marginLeft := 40 }
+    let dims : AreaChart.Dimensions := { width := standardWidth, height := standardHeight, marginLeft := standardMarginLeft }
     let _ ← areaChart trafficData labels theme .primary dims
     pure ()
 
@@ -56,7 +97,7 @@ def pieChartPanel (theme : Theme) : WidgetM Unit :=
       { value := 3.0, label := some "Edge" },
       { value := 9.0, label := some "Other" }
     ]
-    let dims : PieChart.Dimensions := { width := 280, height := 200, radius := 70, showLabels := false }
+    let dims : PieChart.Dimensions := { width := standardWidth, height := mediumHeight, radius := standardRadius, showLabels := false }
     let _ ← pieChartWithLegend slices theme dims
     pure ()
 
@@ -72,8 +113,8 @@ def donutChartPanel (theme : Theme) : WidgetM Unit :=
       { value := 20.0, label := some "Other" }
     ]
     let dims : DonutChart.Dimensions := {
-      width := 280, height := 200
-      outerRadius := 70, innerRadius := 40
+      width := standardWidth, height := mediumHeight
+      outerRadius := standardRadius, innerRadius := 40
       showLabels := false
       centerLabel := some "Total"
       centerValue := some "$3,500"
@@ -92,7 +133,7 @@ def scatterPlotPanel (theme : Theme) : WidgetM Unit :=
       { x := 174, y := 70 }, { x := 185, y := 88 }, { x := 163, y := 58 },
       { x := 177, y := 74 }, { x := 169, y := 64 }, { x := 183, y := 85 }
     ]
-    let dims : ScatterPlot.Dimensions := { width := 280, height := 200, marginLeft := 45 }
+    let dims : ScatterPlot.Dimensions := { width := standardWidth, height := mediumHeight, marginLeft := mediumMarginLeft }
     let _ ← scatterPlot points theme dims
     pure ()
 
@@ -102,7 +143,7 @@ def horizontalBarChartPanel (theme : Theme) : WidgetM Unit :=
     caption' "Programming language popularity:" theme
     let data := #[85.0, 72.0, 58.0, 45.0, 38.0]
     let labels := #["Python", "JavaScript", "Java", "C++", "Go"]
-    let dims : HorizontalBarChart.Dimensions := { width := 280, height := 180, marginLeft := 70 }
+    let dims : HorizontalBarChart.Dimensions := { width := standardWidth, height := standardHeight, marginLeft := extraLargeMarginLeft }
     let _ ← horizontalBarChart data labels theme .primary dims
     pure ()
 
@@ -124,8 +165,8 @@ def bubbleChartPanel (theme : Theme) : WidgetM Unit :=
       { x := 1.7, y := 0.5, size := 10.0, label := some "Canada" }
     ]
     let dims : BubbleChart.Dimensions := {
-      width := 320, height := 220
-      marginLeft := 50, marginBottom := 40
+      width := mediumWidth, height := tallHeight
+      marginLeft := largeMarginLeft, marginBottom := 40
       minBubbleRadius := 6, maxBubbleRadius := 28
       showBubbleLabels := false
     }
@@ -144,8 +185,8 @@ def histogramPanel (theme : Theme) : WidgetM Unit :=
       83, 84, 85, 86, 87, 88, 90, 92, 95, 98
     ]
     let dims : Histogram.Dimensions := {
-      width := 300, height := 180
-      marginLeft := 45, marginBottom := 35
+      width := 300, height := standardHeight
+      marginLeft := mediumMarginLeft, marginBottom := standardMarginBottom
     }
     let binConfig : Histogram.BinConfig := { binCount := some 8 }
     let _ ← histogram scores theme .primary dims binConfig
@@ -161,8 +202,8 @@ def boxPlotPanel (theme : Theme) : WidgetM Unit :=
     let marketing := #[50, 55, 58, 60, 62, 65, 68, 70, 72, 75, 78, 80, 85]
     let labels := #["Eng", "Sales", "Mkt"]
     let dims : BoxPlot.Dimensions := {
-      width := 280, height := 200
-      marginLeft := 45, marginBottom := 35
+      width := standardWidth, height := mediumHeight
+      marginLeft := mediumMarginLeft, marginBottom := standardMarginBottom
       boxWidth := 50
     }
     let _ ← boxPlotFromData #[engineering, sales, marketing] labels theme dims
@@ -182,7 +223,7 @@ def heatmapPanel (theme : Theme) : WidgetM Unit :=
     ]
     let labels := #["A", "B", "C", "D", "E"]
     let dims : Heatmap.Dimensions := {
-      width := 280, height := 220
+      width := standardWidth, height := tallHeight
       marginLeft := 30, marginTop := 30
       marginBottom := 20, marginRight := 50
       showValues := true
@@ -202,8 +243,8 @@ def stackedBarChartPanel (theme : Theme) : WidgetM Unit :=
     ]
     let data : StackedBarChart.Data := { categories, series }
     let dims : StackedBarChart.Dimensions := {
-      width := 340, height := 220
-      marginLeft := 45, marginBottom := 35
+      width := largeWidth, height := tallHeight
+      marginLeft := mediumMarginLeft, marginBottom := standardMarginBottom
     }
     let _ ← stackedBarChart data theme dims
     pure ()
@@ -220,8 +261,8 @@ def groupedBarChartPanel (theme : Theme) : WidgetM Unit :=
     ]
     let data : GroupedBarChart.Data := { categories, series }
     let dims : GroupedBarChart.Dimensions := {
-      width := 340, height := 220
-      marginLeft := 45, marginBottom := 35
+      width := largeWidth, height := tallHeight
+      marginLeft := mediumMarginLeft, marginBottom := standardMarginBottom
     }
     let _ ← groupedBarChart data theme dims
     pure ()
@@ -238,8 +279,8 @@ def stackedAreaChartPanel (theme : Theme) : WidgetM Unit :=
     ]
     let data : StackedAreaChart.Data := { labels, series }
     let dims : StackedAreaChart.Dimensions := {
-      width := 340, height := 220
-      marginLeft := 45, marginBottom := 35
+      width := largeWidth, height := tallHeight
+      marginLeft := mediumMarginLeft, marginBottom := standardMarginBottom
     }
     let _ ← stackedAreaChart' data theme dims
     pure ()
@@ -255,8 +296,8 @@ def radarChartPanel (theme : Theme) : WidgetM Unit :=
     ]
     let data : RadarChart.Data := { axisLabels, series }
     let dims : RadarChart.Dimensions := {
-      width := 320, height := 280
-      radius := 90
+      width := mediumWidth, height := 280
+      radius := largeRadius
     }
     let _ ← radarChart data theme dims
     pure ()
@@ -279,8 +320,8 @@ def candlestickChartPanel (theme : Theme) : WidgetM Unit :=
     ]
     let data : CandlestickChart.Data := { candles }
     let dims : CandlestickChart.Dimensions := {
-      width := 360, height := 240
-      marginLeft := 50, marginBottom := 35
+      width := 360, height := extraTallHeight
+      marginLeft := largeMarginLeft, marginBottom := standardMarginBottom
     }
     let _ ← candlestickChart data theme CandlestickChart.defaultColors dims
     pure ()
@@ -301,8 +342,8 @@ def waterfallChartPanel (theme : Theme) : WidgetM Unit :=
     ]
     let data : WaterfallChart.Data := { bars }
     let dims : WaterfallChart.Dimensions := {
-      width := 380, height := 240
-      marginLeft := 50, marginBottom := 45
+      width := wideWidth, height := extraTallHeight
+      marginLeft := largeMarginLeft, marginBottom := largeMarginBottom
     }
     let _ ← waterfallChart data theme WaterfallChart.defaultColors dims
     pure ()
@@ -326,7 +367,7 @@ def gaugeChartPanel (theme : Theme) : WidgetM Unit :=
     }
     let dims : GaugeChart.Dimensions := {
       width := 220, height := 160
-      radius := 70
+      radius := standardRadius
     }
     let _ ← gaugeChart data theme GaugeChart.defaultColors dims
     pure ()
@@ -344,7 +385,7 @@ def funnelChartPanel (theme : Theme) : WidgetM Unit :=
     ]
     let data : FunnelChart.Data := { stages }
     let dims : FunnelChart.Dimensions := {
-      width := 340, height := 220
+      width := largeWidth, height := tallHeight
       marginRight := 110
     }
     let _ ← funnelChart data theme dims
@@ -373,7 +414,7 @@ def treemapChartPanel (theme : Theme) : WidgetM Unit :=
     ]
     let data : TreemapChart.Data := { nodes }
     let dims : TreemapChart.Dimensions := {
-      width := 380, height := 260
+      width := wideWidth, height := 260
       maxDepth := 2
     }
     let _ ← treemapChart data theme dims
@@ -417,7 +458,7 @@ def sankeyDiagramPanel (theme : Theme) : WidgetM Unit :=
     ]
     let data : SankeyDiagram.Data := { nodes, links }
     let dims : SankeyDiagram.Dimensions := {
-      width := 480, height := 280
+      width := extraWideWidth, height := 280
       marginLeft := 10, marginRight := 80
       nodeWidth := 15
     }
