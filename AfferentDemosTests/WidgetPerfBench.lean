@@ -79,7 +79,7 @@ private def avg (sum : Float) (frames : Nat) : Float :=
 
 private structure BenchResult where
   frames : Nat
-  switchCount : Nat
+  targetCount : Nat
   updateMs : Float
   buildMs : Float
   layoutMs : Float
@@ -94,14 +94,14 @@ private def BenchResult.totalMs (r : BenchResult) : Float :=
   r.updateMs + r.buildMs + r.layoutMs + r.hitIndexMs + r.collectMs + r.hitTestMs + r.hoverMs
 
 private def BenchResult.format (label : String) (r : BenchResult) : String :=
-  s!"{label}: frames={r.frames}, switches={r.switchCount}, " ++
+  s!"{label}: frames={r.frames}, targets={r.targetCount}, " ++
   s!"update={fmtMs r.updateMs}ms, build={fmtMs r.buildMs}ms, layout={fmtMs r.layoutMs}ms, " ++
   s!"hitIndex={fmtMs r.hitIndexMs}ms, collect={fmtMs r.collectMs}ms, " ++
   s!"hitTest={fmtMs r.hitTestMs}ms, hover={fmtMs r.hoverMs}ms, total={fmtMs r.totalMs}ms"
 
 private def BenchResult.diff (base next : BenchResult) : BenchResult :=
   { frames := next.frames
-    switchCount := next.switchCount
+    targetCount := next.targetCount
     updateMs := next.updateMs - base.updateMs
     buildMs := next.buildMs - base.buildMs
     layoutMs := next.layoutMs - base.layoutMs
@@ -129,10 +129,10 @@ private def destroyBenchAssets (assets : BenchAssets) : IO Unit := do
   Font.destroy assets.fontCanopy
   Font.destroy assets.fontCanopySmall
 
-private def widgetPerfSwitchRender (theme : Theme) : ReactiveM ComponentRender := do
+private def widgetPerfRender (theme : Theme) (selected : WidgetType) : ReactiveM ComponentRender := do
   let (selectionEvent, fireSelection) ← Reactive.newTriggerEvent (t := Spider) (a := Nat)
-  let switchIndex := (allWidgetTypes.findIdx? (· == .switch)).getD 0
-  let selectedType ← Reactive.holdDyn switchIndex selectionEvent
+  let selectedIndex := (allWidgetTypes.findIdx? (· == selected)).getD 0
+  let selectedType ← Reactive.holdDyn selectedIndex selectionEvent
 
   let (_, render) ← runWidget do
     let rootStyle : BoxStyle := {
@@ -188,11 +188,11 @@ private structure BenchApp where
   inputs : ReactiveInputs
   spiderEnv : Reactive.Host.SpiderEnv
 
-private def initBenchApp (theme : Theme) : IO BenchApp := do
+private def initBenchApp (theme : Theme) (selected : WidgetType) : IO BenchApp := do
   let spiderEnv ← Reactive.Host.SpiderEnv.new Reactive.Host.defaultErrorHandler
   let (render, inputs) ← (do
     let (events, inputs) ← Afferent.Canopy.Reactive.createInputs
-    let render ← ReactiveM.run events (widgetPerfSwitchRender theme)
+    let render ← ReactiveM.run events (widgetPerfRender theme selected)
     pure (render, inputs)
   ).run spiderEnv
   spiderEnv.postBuildTrigger ()
@@ -203,11 +203,11 @@ private structure BenchFrameCache where
   layouts : Trellis.LayoutResult
   hitIndex : HitTestIndex
 
-private def collectSwitchCenters (index : HitTestIndex) : Array (Float × Float) :=
+private def collectCentersByPrefix (index : HitTestIndex) (namePrefix : String) : Array (Float × Float) :=
   index.items.foldl (init := #[]) fun acc item =>
     match item.widget.name? with
     | some name =>
-        if name.startsWith "switch-" then
+        if name.startsWith namePrefix then
           let center := Linalg.AABB2D.center item.screenBounds
           acc.push (center.x, center.y)
         else
@@ -215,12 +215,12 @@ private def collectSwitchCenters (index : HitTestIndex) : Array (Float × Float)
     | none => acc
 
 private def runBench (render : ComponentRender) (inputs : ReactiveInputs)
-    (registry : FontRegistry) (config : BenchConfig) : IO BenchResult := do
+    (registry : FontRegistry) (config : BenchConfig) (targetPrefix : String) : IO BenchResult := do
   let renderCache ← IO.mkRef RenderCache.empty
   let totalFrames := config.warmupFrames + config.sampleFrames
   let mut cache : Option BenchFrameCache := none
   let mut hoverPoints : Array (Float × Float) := #[]
-  let mut switchCount : Nat := 0
+  let mut targetCount : Nat := 0
   let mut accum : BenchAccum := {}
 
   for frameIdx in [0:totalFrames] do
@@ -281,8 +281,8 @@ private def runBench (render : ComponentRender) (inputs : ReactiveInputs)
     cache := some { widget := measureResult.widget, layouts := layoutsScaled, hitIndex := hitIndex }
 
     if hoverPoints.isEmpty then
-      hoverPoints := collectSwitchCenters hitIndex
-      switchCount := hoverPoints.size
+      hoverPoints := collectCentersByPrefix hitIndex targetPrefix
+      targetCount := hoverPoints.size
 
     if frameIdx >= config.warmupFrames then
       accum := accum.add
@@ -297,7 +297,7 @@ private def runBench (render : ComponentRender) (inputs : ReactiveInputs)
   let frames := accum.frames
   pure {
     frames := frames
-    switchCount := switchCount
+    targetCount := targetCount
     updateMs := avg accum.updateMs frames
     buildMs := avg accum.buildMs frames
     layoutMs := avg accum.layoutMs frames
@@ -315,19 +315,19 @@ test "switch pipeline baseline vs hover" := do
   let hoverMetrics ← Afferent.Canopy.Reactive.enableHoverMetrics
   let dynMetrics ← Afferent.Canopy.Reactive.enableDynWidgetMetrics
   let assets ← loadBenchAssets
-  let appBaseline ← initBenchApp assets.theme
-  let appHover ← initBenchApp assets.theme
+  let appBaseline ← initBenchApp assets.theme .switch
+  let appHover ← initBenchApp assets.theme .switch
 
   let baseConfig : BenchConfig := { withHover := false }
   let hoverConfig : BenchConfig := { withHover := true }
 
   HoverMetrics.reset hoverMetrics
   DynWidgetMetrics.reset dynMetrics
-  let baseline ← runBench appBaseline.render appBaseline.inputs assets.registry baseConfig
+  let baseline ← runBench appBaseline.render appBaseline.inputs assets.registry baseConfig "switch-"
 
   HoverMetrics.reset hoverMetrics
   DynWidgetMetrics.reset dynMetrics
-  let hover ← runBench appHover.render appHover.inputs assets.registry hoverConfig
+  let hover ← runBench appHover.render appHover.inputs assets.registry hoverConfig "switch-"
   let delta := BenchResult.diff baseline hover
   let hoverSnap ← HoverMetrics.snapshot hoverMetrics
   let dynSnap ← DynWidgetMetrics.snapshot dynMetrics
@@ -341,11 +341,32 @@ test "switch pipeline baseline vs hover" := do
   IO.println s!"hover update (switch): total={fmtNanosMs hoverSnap.holdSwitchNanos}ms, avg={fmtAvgNanosMs hoverSnap.holdSwitchNanos hoverSnap.holdSwitchCount}ms, count={hoverSnap.holdSwitchCount}"
   IO.println s!"dynWidget rebuild: total={fmtNanosMs dynSnap.rebuildNanos}ms, avg={fmtAvgNanosMs dynSnap.rebuildNanos dynSnap.rebuildCount}ms, count={dynSnap.rebuildCount}"
 
-  ensure (hover.switchCount == 1000)
-    s!"Expected 1000 switch widgets, got {hover.switchCount}"
+  ensure (hover.targetCount == 1000)
+    s!"Expected 1000 switch widgets, got {hover.targetCount}"
 
   Afferent.Canopy.Reactive.disableHoverMetrics
   Afferent.Canopy.Reactive.disableDynWidgetMetrics
+  destroyBenchAssets assets
+
+test "dropdown pipeline baseline vs hover" := do
+  let assets ← loadBenchAssets
+  let appBaseline ← initBenchApp assets.theme .dropdown
+  let appHover ← initBenchApp assets.theme .dropdown
+
+  let baseConfig : BenchConfig := { withHover := false }
+  let hoverConfig : BenchConfig := { withHover := true }
+
+  let baseline ← runBench appBaseline.render appBaseline.inputs assets.registry baseConfig "dropdown-trigger-"
+  let hover ← runBench appHover.render appHover.inputs assets.registry hoverConfig "dropdown-trigger-"
+  let delta := BenchResult.diff baseline hover
+
+  IO.println (BenchResult.format "baseline (dropdown)" baseline)
+  IO.println (BenchResult.format "hover (dropdown)" hover)
+  IO.println (BenchResult.format "delta(hover-baseline) (dropdown)" delta)
+
+  ensure (hover.targetCount == 1000)
+    s!"Expected 1000 dropdown triggers, got {hover.targetCount}"
+
   destroyBenchAssets assets
 
 #generate_tests
