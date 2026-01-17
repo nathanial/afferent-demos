@@ -1,26 +1,26 @@
 /-
   Demo Registry - Demo ids, states, and instances.
 -/
-import Demos.Demo
+import Demos.Core.Demo
 import Demos.Overview.DemoGrid
 import Demos.Overview.Card
-import Demos.Layout
-import Demos.GridPerf
-import Demos.TrianglesPerf
-import Demos.CirclesPerf
-import Demos.SpritesPerf
-import Demos.Grid
+import Demos.Layout.Flexbox
+import Demos.Perf.Grid
+import Demos.Perf.Triangles
+import Demos.Perf.Circles
+import Demos.Perf.Sprites
+import Demos.Layout.CssGrid
 import Demos.Overview.SpinningCubes
-import Demos.Seascape
-import Demos.ShapeGallery
-import Demos.LineCaps
-import Demos.DashedLines
-import Demos.LinesPerf
-import Demos.TextureMatrix
-import Demos.OrbitalInstanced
-import Demos.WorldmapDemo
-import Demos.ReactiveShowcase.App
-import Demos.WidgetPerf.App
+import Demos.Visuals.Seascape
+import Demos.Visuals.ShapeGallery
+import Demos.Visuals.LineCaps
+import Demos.Visuals.DashedLines
+import Demos.Perf.Lines
+import Demos.Visuals.TextureMatrix
+import Demos.Visuals.Orbital
+import Demos.Visuals.Worldmap
+import Demos.Reactive.Showcase.App
+import Demos.Perf.Widget.App
 import Afferent.Canopy.Reactive
 import Reactive.Host.Spider
 import Worldmap

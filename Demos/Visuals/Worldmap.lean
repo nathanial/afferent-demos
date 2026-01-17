@@ -3,7 +3,7 @@
   Handles input, updates tiles, and renders overlay labels.
 -/
 import Afferent
-import Demos.Demo
+import Demos.Core.Demo
 import Worldmap
 
 open Afferent CanvasM

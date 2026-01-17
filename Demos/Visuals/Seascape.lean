@@ -6,7 +6,7 @@
 import Afferent
 import Afferent.Arbor
 import Assimptor
-import Demos.Demo
+import Demos.Core.Demo
 import Trellis
 
 open Afferent Afferent.FFI Afferent.Render Assimptor CanvasM

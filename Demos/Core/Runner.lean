@@ -5,9 +5,9 @@ import Afferent
 import Afferent.Arbor
 import Afferent.Widget
 import Demos.Overview.Text
-import Demos.Demo
-import Demos.DemoRegistry
-import Demos.TabBar
+import Demos.Core.Demo
+import Demos.Core.DemoRegistry
+import Demos.Core.TabBar
 import Std.Internal.Async.Process
 import Std.Data.HashMap
 import Wisp

@@ -8,7 +8,7 @@ import Afferent
 import Afferent.Widget
 import Afferent.Arbor
 import Afferent.Arbor.Style.CSS
-import Demos.Demo
+import Demos.Core.Demo
 import Trellis
 open Tincture (Color)
 open Tincture.Named

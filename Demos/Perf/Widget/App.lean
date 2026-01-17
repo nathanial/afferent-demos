@@ -6,7 +6,7 @@ import Reactive
 import Afferent
 import Afferent.Canopy
 import Afferent.Canopy.Reactive
-import Demos.Demo
+import Demos.Core.Demo
 
 open Reactive Reactive.Host
 open Afferent CanvasM

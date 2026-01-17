@@ -8,7 +8,7 @@ import Afferent
 import Afferent.Arbor
 import Afferent.Canopy
 import Afferent.Canopy.Reactive
-import Demos.WidgetPerf.App
+import Demos.Perf.Widget.App
 import Trellis
 import Linalg.Geometry.AABB2D
 import Linalg.Vec2
