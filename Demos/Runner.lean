@@ -743,9 +743,13 @@ def unifiedDemo : IO Unit := do
               let measureResult ← runWithFonts rs.assets.fontPack.registry
                 (Afferent.Arbor.measureWidget root screenW screenH)
               let layouts := Trellis.layout measureResult.node screenW screenH
-              -- Apply content scale transforms to layouts
-              let layoutsWithScale ← runWithFonts rs.assets.fontPack.registry
-                (Afferent.Arbor.applyContentScale measureResult.widget layouts)
+              -- Apply content scale transforms to layouts only when needed
+              let layoutsWithScale ←
+                if measureResult.hasContentScale then
+                  runWithFonts rs.assets.fontPack.registry
+                    (Afferent.Arbor.applyContentScale measureResult.widget layouts)
+                else
+                  pure layouts
               pure (measureResult.widget, layoutsWithScale)
 
             let envFromLayout := fun (layout : Trellis.ComputedLayout) (t dt : Float) (keyCode : UInt16) (clearKey : IO Unit) =>
