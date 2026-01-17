@@ -63,7 +63,8 @@ def barChartPanel (theme : Theme) : WidgetM Unit :=
     let salesData := #[42.0, 78.0, 56.0, 91.0]
     let labels := #["Q1", "Q2", "Q3", "Q4"]
     let dims : BarChart.Dimensions := { width := standardWidth, height := standardHeight, marginLeft := standardMarginLeft }
-    let _ ← barChart salesData labels theme .primary dims
+    let dataDyn ← Dynamic.pureM salesData
+    let _ ← barChart dataDyn labels theme .primary dims
     pure ()
 
 /-- LineChart panel - demonstrates line chart visualization. -/
@@ -73,7 +74,8 @@ def lineChartPanel (theme : Theme) : WidgetM Unit :=
     let revenueData := #[12.0, 19.0, 15.0, 25.0, 22.0, 30.0]
     let labels := #["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
     let dims : LineChart.Dimensions := { width := standardWidth, height := standardHeight, marginLeft := standardMarginLeft }
-    let _ ← lineChart revenueData labels theme .primary dims
+    let dataDyn ← Dynamic.pureM revenueData
+    let _ ← lineChart dataDyn labels theme .primary dims
     pure ()
 
 /-- AreaChart panel - demonstrates area chart visualization. -/
@@ -83,7 +85,8 @@ def areaChartPanel (theme : Theme) : WidgetM Unit :=
     let trafficData := #[120.0, 180.0, 150.0, 220.0, 190.0, 280.0, 250.0]
     let labels := #["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     let dims : AreaChart.Dimensions := { width := standardWidth, height := standardHeight, marginLeft := standardMarginLeft }
-    let _ ← areaChart trafficData labels theme .primary dims
+    let dataDyn ← Dynamic.pureM trafficData
+    let _ ← areaChart dataDyn labels theme .primary dims
     pure ()
 
 /-- PieChart panel - demonstrates pie chart visualization. -/
@@ -98,7 +101,8 @@ def pieChartPanel (theme : Theme) : WidgetM Unit :=
       { value := 9.0, label := some "Other" }
     ]
     let dims : PieChart.Dimensions := { width := standardWidth, height := mediumHeight, radius := standardRadius, showLabels := false }
-    let _ ← pieChartWithLegend slices theme dims
+    let slicesDyn ← Dynamic.pureM slices
+    let _ ← pieChartWithLegend slicesDyn theme dims
     pure ()
 
 /-- DonutChart panel - demonstrates donut chart visualization. -/
@@ -119,7 +123,8 @@ def donutChartPanel (theme : Theme) : WidgetM Unit :=
       centerLabel := some "Total"
       centerValue := some "$3,500"
     }
-    let _ ← donutChartWithLegend slices theme dims
+    let slicesDyn ← Dynamic.pureM slices
+    let _ ← donutChartWithLegend slicesDyn theme dims
     pure ()
 
 /-- ScatterPlot panel - demonstrates scatter plot visualization. -/
@@ -134,7 +139,8 @@ def scatterPlotPanel (theme : Theme) : WidgetM Unit :=
       { x := 177, y := 74 }, { x := 169, y := 64 }, { x := 183, y := 85 }
     ]
     let dims : ScatterPlot.Dimensions := { width := standardWidth, height := mediumHeight, marginLeft := mediumMarginLeft }
-    let _ ← scatterPlot points theme dims
+    let pointsDyn ← Dynamic.pureM points
+    let _ ← scatterPlot pointsDyn theme dims
     pure ()
 
 /-- HorizontalBarChart panel - demonstrates horizontal bar chart. -/
@@ -144,7 +150,8 @@ def horizontalBarChartPanel (theme : Theme) : WidgetM Unit :=
     let data := #[85.0, 72.0, 58.0, 45.0, 38.0]
     let labels := #["Python", "JavaScript", "Java", "C++", "Go"]
     let dims : HorizontalBarChart.Dimensions := { width := standardWidth, height := standardHeight, marginLeft := extraLargeMarginLeft }
-    let _ ← horizontalBarChart data labels theme .primary dims
+    let dataDyn ← Dynamic.pureM data
+    let _ ← horizontalBarChart dataDyn labels theme .primary dims
     pure ()
 
 /-- BubbleChart panel - demonstrates bubble chart visualization. -/
@@ -170,7 +177,8 @@ def bubbleChartPanel (theme : Theme) : WidgetM Unit :=
       minBubbleRadius := 6, maxBubbleRadius := 28
       showBubbleLabels := false
     }
-    let _ ← bubbleChart points theme dims
+    let pointsDyn ← Dynamic.pureM points
+    let _ ← bubbleChart pointsDyn theme dims
     pure ()
 
 /-- Histogram panel - demonstrates histogram visualization. -/
@@ -189,7 +197,8 @@ def histogramPanel (theme : Theme) : WidgetM Unit :=
       marginLeft := mediumMarginLeft, marginBottom := standardMarginBottom
     }
     let binConfig : Histogram.BinConfig := { binCount := some 8 }
-    let _ ← histogram scores theme .primary dims binConfig
+    let scoresDyn ← Dynamic.pureM scores
+    let _ ← histogram scoresDyn theme .primary dims binConfig
     pure ()
 
 /-- BoxPlot panel - demonstrates box and whisker plot. -/
@@ -206,7 +215,8 @@ def boxPlotPanel (theme : Theme) : WidgetM Unit :=
       marginLeft := mediumMarginLeft, marginBottom := standardMarginBottom
       boxWidth := 50
     }
-    let _ ← boxPlotFromData #[engineering, sales, marketing] labels theme dims
+    let dataDyn ← Dynamic.pureM #[engineering, sales, marketing]
+    let _ ← boxPlotFromData dataDyn labels theme dims
     pure ()
 
 /-- Heatmap panel - demonstrates correlation matrix heatmap. -/
@@ -228,7 +238,8 @@ def heatmapPanel (theme : Theme) : WidgetM Unit :=
       marginBottom := 20, marginRight := 50
       showValues := true
     }
-    let _ ← correlationMatrix values labels theme dims
+    let valuesDyn ← Dynamic.pureM values
+    let _ ← correlationMatrix valuesDyn labels theme dims
     pure ()
 
 /-- StackedBarChart panel - demonstrates stacked bar chart visualization. -/
@@ -246,7 +257,8 @@ def stackedBarChartPanel (theme : Theme) : WidgetM Unit :=
       width := largeWidth, height := tallHeight
       marginLeft := mediumMarginLeft, marginBottom := standardMarginBottom
     }
-    let _ ← stackedBarChart data theme dims
+    let dataDyn ← Dynamic.pureM data
+    let _ ← stackedBarChart dataDyn theme dims
     pure ()
 
 /-- GroupedBarChart panel - demonstrates grouped bar chart visualization. -/
@@ -264,7 +276,8 @@ def groupedBarChartPanel (theme : Theme) : WidgetM Unit :=
       width := largeWidth, height := tallHeight
       marginLeft := mediumMarginLeft, marginBottom := standardMarginBottom
     }
-    let _ ← groupedBarChart data theme dims
+    let dataDyn ← Dynamic.pureM data
+    let _ ← groupedBarChart dataDyn theme dims
     pure ()
 
 /-- StackedAreaChart panel - demonstrates stacked area chart visualization. -/
@@ -282,7 +295,8 @@ def stackedAreaChartPanel (theme : Theme) : WidgetM Unit :=
       width := largeWidth, height := tallHeight
       marginLeft := mediumMarginLeft, marginBottom := standardMarginBottom
     }
-    let _ ← stackedAreaChart' data theme dims
+    let dataDyn ← Dynamic.pureM data
+    let _ ← stackedAreaChart dataDyn theme dims
     pure ()
 
 /-- RadarChart panel - demonstrates radar/spider chart visualization. -/
@@ -299,7 +313,8 @@ def radarChartPanel (theme : Theme) : WidgetM Unit :=
       width := mediumWidth, height := 280
       radius := largeRadius
     }
-    let _ ← radarChart data theme dims
+    let dataDyn ← Dynamic.pureM data
+    let _ ← radarChart dataDyn theme dims
     pure ()
 
 /-- CandlestickChart panel - demonstrates financial OHLC chart. -/
@@ -323,7 +338,8 @@ def candlestickChartPanel (theme : Theme) : WidgetM Unit :=
       width := 360, height := extraTallHeight
       marginLeft := largeMarginLeft, marginBottom := standardMarginBottom
     }
-    let _ ← candlestickChart data theme CandlestickChart.defaultColors dims
+    let dataDyn ← Dynamic.pureM data
+    let _ ← candlestickChart dataDyn theme CandlestickChart.defaultColors dims
     pure ()
 
 /-- WaterfallChart panel - demonstrates cumulative effect chart. -/
@@ -345,7 +361,8 @@ def waterfallChartPanel (theme : Theme) : WidgetM Unit :=
       width := wideWidth, height := extraTallHeight
       marginLeft := largeMarginLeft, marginBottom := largeMarginBottom
     }
-    let _ ← waterfallChart data theme WaterfallChart.defaultColors dims
+    let dataDyn ← Dynamic.pureM data
+    let _ ← waterfallChart dataDyn theme WaterfallChart.defaultColors dims
     pure ()
 
 /-- GaugeChart panel - demonstrates speedometer-style gauge. -/
@@ -369,7 +386,8 @@ def gaugeChartPanel (theme : Theme) : WidgetM Unit :=
       width := 220, height := 160
       radius := standardRadius
     }
-    let _ ← gaugeChart data theme GaugeChart.defaultColors dims
+    let dataDyn ← Dynamic.pureM data
+    let _ ← gaugeChart dataDyn theme GaugeChart.defaultColors dims
     pure ()
 
 /-- FunnelChart panel - demonstrates sales pipeline funnel. -/
@@ -388,7 +406,8 @@ def funnelChartPanel (theme : Theme) : WidgetM Unit :=
       width := largeWidth, height := tallHeight
       marginRight := 110
     }
-    let _ ← funnelChart data theme dims
+    let dataDyn ← Dynamic.pureM data
+    let _ ← funnelChart dataDyn theme dims
     pure ()
 
 /-- TreemapChart panel - demonstrates hierarchical treemap visualization. -/
@@ -417,7 +436,8 @@ def treemapChartPanel (theme : Theme) : WidgetM Unit :=
       width := wideWidth, height := 260
       maxDepth := 2
     }
-    let _ ← treemapChart data theme dims
+    let dataDyn ← Dynamic.pureM data
+    let _ ← treemapChart dataDyn theme dims
     pure ()
 
 /-- SankeyDiagram panel - demonstrates flow diagram visualization. -/
@@ -462,7 +482,8 @@ def sankeyDiagramPanel (theme : Theme) : WidgetM Unit :=
       marginLeft := 10, marginRight := 80
       nodeWidth := 15
     }
-    let _ ← sankeyDiagram data theme dims
+    let dataDyn ← Dynamic.pureM data
+    let _ ← sankeyDiagram dataDyn theme dims
     pure ()
 
 end Demos.ReactiveShowcase

@@ -238,15 +238,18 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
   -- Charts
   | .barChart =>
     let dims : BarChart.Dimensions := { width := 140, height := 80, marginLeft := 25 }
-    let _ ← barChart sampleBarData sampleBarLabels theme .primary dims
+    let dataDyn ← Dynamic.pureM sampleBarData
+    let _ ← barChart dataDyn sampleBarLabels theme .primary dims
     pure ()
   | .lineChart =>
     let dims : LineChart.Dimensions := { width := 140, height := 80, marginLeft := 25 }
-    let _ ← lineChart sampleBarData sampleBarLabels theme .primary dims
+    let dataDyn ← Dynamic.pureM sampleBarData
+    let _ ← lineChart dataDyn sampleBarLabels theme .primary dims
     pure ()
   | .areaChart =>
     let dims : AreaChart.Dimensions := { width := 140, height := 80, marginLeft := 25 }
-    let _ ← areaChart sampleBarData sampleBarLabels theme .primary dims
+    let dataDyn ← Dynamic.pureM sampleBarData
+    let _ ← areaChart dataDyn sampleBarLabels theme .primary dims
     pure ()
   | .pieChart =>
     let slices : Array PieChart.Slice := #[
@@ -255,7 +258,8 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
       { value := 30.0, label := some "C" }
     ]
     let dims : PieChart.Dimensions := { width := 100, height := 80, radius := 30, showLabels := false }
-    let _ ← pieChart slices theme dims
+    let slicesDyn ← Dynamic.pureM slices
+    let _ ← pieChart slicesDyn theme dims
     pure ()
   | .donutChart =>
     let slices : Array DonutChart.Slice := #[
@@ -264,7 +268,8 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
       { value := 30.0, label := some "C" }
     ]
     let dims : DonutChart.Dimensions := { width := 100, height := 80, outerRadius := 30, innerRadius := 18, showLabels := false }
-    let _ ← donutChart slices theme dims
+    let slicesDyn ← Dynamic.pureM slices
+    let _ ← donutChart slicesDyn theme dims
     pure ()
   | .scatterPlot =>
     let points : Array ScatterPlot.DataPoint := #[
@@ -272,33 +277,39 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
       { x := 70, y := 60 }, { x := 90, y := 50 }
     ]
     let dims : ScatterPlot.Dimensions := { width := 140, height := 80, marginLeft := 25 }
-    let _ ← scatterPlot points theme dims
+    let pointsDyn ← Dynamic.pureM points
+    let _ ← scatterPlot pointsDyn theme dims
     pure ()
   | .horizontalBarChart =>
     let dims : HorizontalBarChart.Dimensions := { width := 140, height := 80, marginLeft := 35 }
-    let _ ← horizontalBarChart sampleBarData sampleBarLabels theme .primary dims
+    let dataDyn ← Dynamic.pureM sampleBarData
+    let _ ← horizontalBarChart dataDyn sampleBarLabels theme .primary dims
     pure ()
   | .bubbleChart =>
     let points : Array BubbleChart.DataPoint := #[
       { x := 20, y := 30, size := 5 }, { x := 50, y := 60, size := 8 }, { x := 80, y := 40, size := 6 }
     ]
     let dims : BubbleChart.Dimensions := { width := 140, height := 80, marginLeft := 25, minBubbleRadius := 3, maxBubbleRadius := 12 }
-    let _ ← bubbleChart points theme dims
+    let pointsDyn ← Dynamic.pureM points
+    let _ ← bubbleChart pointsDyn theme dims
     pure ()
   | .histogram =>
     let data : Array Float := #[10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80]
     let dims : Histogram.Dimensions := { width := 140, height := 80, marginLeft := 25 }
-    let _ ← histogram data theme .primary dims {}
+    let dataDyn ← Dynamic.pureM data
+    let _ ← histogram dataDyn theme .primary dims {}
     pure ()
   | .boxPlot =>
     let data := #[#[10.0, 20.0, 30.0, 40.0, 50.0], #[15.0, 25.0, 35.0, 45.0, 55.0]]
     let dims : BoxPlot.Dimensions := { width := 140, height := 80, marginLeft := 25, boxWidth := 25 }
-    let _ ← boxPlotFromData data #["A", "B"] theme dims
+    let dataDyn ← Dynamic.pureM data
+    let _ ← boxPlotFromData dataDyn #["A", "B"] theme dims
     pure ()
   | .heatmap =>
     let values : Array (Array Float) := #[#[1.0, 0.5, 0.2], #[0.5, 1.0, 0.7], #[0.2, 0.7, 1.0]]
     let dims : Heatmap.Dimensions := { width := 100, height := 80, marginLeft := 15, marginTop := 15, showValues := false }
-    let _ ← correlationMatrix values #["A", "B", "C"] theme dims
+    let valuesDyn ← Dynamic.pureM values
+    let _ ← correlationMatrix valuesDyn #["A", "B", "C"] theme dims
     pure ()
   | .stackedBarChart =>
     let data : StackedBarChart.Data := {
@@ -306,7 +317,8 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
       series := #[{ name := "A", values := #[30.0, 40.0] }, { name := "B", values := #[20.0, 30.0] }]
     }
     let dims : StackedBarChart.Dimensions := { width := 140, height := 80, marginLeft := 25 }
-    let _ ← stackedBarChart data theme dims
+    let dataDyn ← Dynamic.pureM data
+    let _ ← stackedBarChart dataDyn theme dims
     pure ()
   | .groupedBarChart =>
     let data : GroupedBarChart.Data := {
@@ -314,7 +326,8 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
       series := #[{ name := "A", values := #[30.0, 40.0] }, { name := "B", values := #[20.0, 30.0] }]
     }
     let dims : GroupedBarChart.Dimensions := { width := 140, height := 80, marginLeft := 25 }
-    let _ ← groupedBarChart data theme dims
+    let dataDyn ← Dynamic.pureM data
+    let _ ← groupedBarChart dataDyn theme dims
     pure ()
   | .stackedAreaChart =>
     let data : StackedAreaChart.Data := {
@@ -322,7 +335,8 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
       series := #[{ name := "X", values := #[10.0, 20.0, 15.0] }, { name := "Y", values := #[20.0, 15.0, 25.0] }]
     }
     let dims : StackedAreaChart.Dimensions := { width := 140, height := 80, marginLeft := 25 }
-    let _ ← stackedAreaChart' data theme dims
+    let dataDyn ← Dynamic.pureM data
+    let _ ← stackedAreaChart dataDyn theme dims
     pure ()
   | .radarChart =>
     let data : RadarChart.Data := {
@@ -330,7 +344,8 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
       series := #[{ name := "X", values := #[80.0, 70.0, 90.0, 60.0, 75.0] }]
     }
     let dims : RadarChart.Dimensions := { width := 120, height := 100, radius := 40 }
-    let _ ← radarChart data theme dims
+    let dataDyn ← Dynamic.pureM data
+    let _ ← radarChart dataDyn theme dims
     pure ()
   | .candlestickChart =>
     let candles : Array CandlestickChart.Candle := #[
@@ -339,7 +354,8 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
       { openPrice := 106.0, highPrice := 110.0, lowPrice := 104.0, closePrice := 105.0, label := some "3" }
     ]
     let dims : CandlestickChart.Dimensions := { width := 140, height := 80, marginLeft := 30 }
-    let _ ← candlestickChart { candles } theme CandlestickChart.defaultColors dims
+    let dataDyn ← Dynamic.pureM ({ candles } : CandlestickChart.Data)
+    let _ ← candlestickChart dataDyn theme CandlestickChart.defaultColors dims
     pure ()
   | .waterfallChart =>
     let bars : Array WaterfallChart.Bar := #[
@@ -349,7 +365,8 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
       { label := "End", value := 110.0, barType := .total }
     ]
     let dims : WaterfallChart.Dimensions := { width := 140, height := 80, marginLeft := 30 }
-    let _ ← waterfallChart { bars } theme WaterfallChart.defaultColors dims
+    let dataDyn ← Dynamic.pureM ({ bars } : WaterfallChart.Data)
+    let _ ← waterfallChart dataDyn theme WaterfallChart.defaultColors dims
     pure ()
   | .gaugeChart =>
     let data : GaugeChart.Data := {
@@ -361,14 +378,16 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
       ]
     }
     let dims : GaugeChart.Dimensions := { width := 100, height := 70, radius := 30 }
-    let _ ← gaugeChart data theme GaugeChart.defaultColors dims
+    let dataDyn ← Dynamic.pureM data
+    let _ ← gaugeChart dataDyn theme GaugeChart.defaultColors dims
     pure ()
   | .funnelChart =>
     let stages : Array FunnelChart.Stage := #[
       { label := "A", value := 100.0 }, { label := "B", value := 60.0 }, { label := "C", value := 30.0 }
     ]
     let dims : FunnelChart.Dimensions := { width := 140, height := 80, marginRight := 45 }
-    let _ ← funnelChart { stages } theme dims
+    let dataDyn ← Dynamic.pureM ({ stages } : FunnelChart.Data)
+    let _ ← funnelChart dataDyn theme dims
     pure ()
   | .treemapChart =>
     let nodes : Array TreemapChart.TreeNode := #[
@@ -376,7 +395,8 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
       { label := "C", value := 20 }, { label := "D", value := 10 }
     ]
     let dims : TreemapChart.Dimensions := { width := 120, height := 80 }
-    let _ ← treemapChart { nodes } theme dims
+    let dataDyn ← Dynamic.pureM ({ nodes } : TreemapChart.Data)
+    let _ ← treemapChart dataDyn theme dims
     pure ()
   | .sankeyDiagram =>
     let dims : SankeyDiagram.Dimensions := {
@@ -387,7 +407,8 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
       showLabels := true
       showValues := false
     }
-    let _ ← sankeyDiagram sampleSankeyData theme dims
+    let dataDyn ← Dynamic.pureM sampleSankeyData
+    let _ ← sankeyDiagram dataDyn theme dims
     pure ()
 
 /-- Render a grid of widgets for a given type. -/
