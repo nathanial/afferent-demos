@@ -601,13 +601,13 @@ def unifiedDemo : IO Unit := do
     let mut c := canvas
     let mut state : AppState := .loading {}
     let mut lastTime := startTime
+    let mut lastWorkEndTime := startTime  -- When we finished all work last frame
     let mut lastPresentMs : Float := 0.0
     while !(← c.shouldClose) do
-      -- Measure beginFrame time (vsync/GPU wait)
-      let tBeginFrame0 ← IO.monoMsNow
+      -- Measure idle/present time: gap between last frame's work ending and this frame starting
+      let frameStartTime ← IO.monoMsNow
+      lastPresentMs := (frameStartTime - lastWorkEndTime).toFloat
       let ok ← c.beginFrame Color.darkGray
-      let tBeginFrame1 ← IO.monoMsNow
-      lastPresentMs := (tBeginFrame1 - tBeginFrame0).toFloat
       if ok then
         let now ← IO.monoMsNow
         let t := (now - startTime).toFloat / 1000.0  -- Elapsed seconds
@@ -678,6 +678,7 @@ def unifiedDemo : IO Unit := do
             | none =>
                 state := .loading ls
             c ← c.endFrame
+            lastWorkEndTime ← IO.monoMsNow
         | .running rs =>
             let mut rs := rs
             let frameNameMap := match rs.frameCache with
@@ -1058,6 +1059,7 @@ def unifiedDemo : IO Unit := do
               }
 
             c ← c.endFrame
+            lastWorkEndTime ← IO.monoMsNow
 
             if rs.framesLeft != 0 then
               let framesLeft := rs.framesLeft - 1
