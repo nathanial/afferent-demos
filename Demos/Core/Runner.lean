@@ -142,6 +142,8 @@ private structure RunningState where
   timeCoalesceMs : Float := 0.0
   timeBatchLoopMs : Float := 0.0
   timeDrawCallsMs : Float := 0.0
+  -- Presentation time (vsync/GPU wait)
+  timePresentMs : Float := 0.0
   -- Canopy demo stats (for debugging memory leaks)
   canopyStats : Option CanopyDemoStats := none
 
@@ -726,7 +728,7 @@ def unifiedDemo : IO Unit := do
                 s!" S:{fmt rs.collectSpecMs}({rs.collectSpecCount})" ++
                 s!" I:{fmt rs.collectInsertMs}({rs.collectInsertCount})"
             let footerLine2 :=
-              s!"Timing: Update {fmt rs.timeUpdateMs}ms, Build {fmt rs.timeBuildMs}ms, Layout {fmt rs.timeLayoutMs}ms, Collect {fmt rs.timeCollectMs}ms, {gpuBreakdown}{collectDetailStr}  |  Cache: {cacheRate}%  |  Mem: {memMb}MB{canopyStatsStr}"
+              s!"Timing: Update {fmt rs.timeUpdateMs}ms, Build {fmt rs.timeBuildMs}ms, Layout {fmt rs.timeLayoutMs}ms, Collect {fmt rs.timeCollectMs}ms, {gpuBreakdown}, Present {fmt rs.timePresentMs}ms{collectDetailStr}  |  Cache: {cacheRate}%  |  Mem: {memMb}MB{canopyStatsStr}"
 
             let buildDemoWidget := fun (tabBar : TabBarResult) (demo : AnyDemo)
                 (envForView : DemoEnv) =>
@@ -1038,7 +1040,11 @@ def unifiedDemo : IO Unit := do
                 majorFaults := usage.majorPageFaults
               }
 
+            -- Timing: Present phase (vsync/GPU wait)
+            let tPresent0 ← IO.monoMsNow
             c ← c.endFrame
+            let tPresent1 ← IO.monoMsNow
+            rs := { rs with timePresentMs := (tPresent1 - tPresent0).toFloat }
 
             if rs.framesLeft != 0 then
               let framesLeft := rs.framesLeft - 1
