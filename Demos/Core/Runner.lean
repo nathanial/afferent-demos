@@ -142,8 +142,6 @@ private structure RunningState where
   timeCoalesceMs : Float := 0.0
   timeBatchLoopMs : Float := 0.0
   timeDrawCallsMs : Float := 0.0
-  -- Presentation time (vsync/GPU wait)
-  timePresentMs : Float := 0.0
   -- Canopy demo stats (for debugging memory leaks)
   canopyStats : Option CanopyDemoStats := none
 
@@ -603,8 +601,13 @@ def unifiedDemo : IO Unit := do
     let mut c := canvas
     let mut state : AppState := .loading {}
     let mut lastTime := startTime
+    let mut lastPresentMs : Float := 0.0
     while !(← c.shouldClose) do
+      -- Measure beginFrame time (vsync/GPU wait)
+      let tBeginFrame0 ← IO.monoMsNow
       let ok ← c.beginFrame Color.darkGray
+      let tBeginFrame1 ← IO.monoMsNow
+      lastPresentMs := (tBeginFrame1 - tBeginFrame0).toFloat
       if ok then
         let now ← IO.monoMsNow
         let t := (now - startTime).toFloat / 1000.0  -- Elapsed seconds
@@ -725,9 +728,9 @@ def unifiedDemo : IO Unit := do
             let footerLine2 :=
               s!"Draw Calls: {totalDrawCalls} (Batched: {rs.batchedCalls}, Avg: {avgBatchStr})  |  {batchBreakdown}"
 
-            -- Line 3: Main timing phases
+            -- Line 3: Main timing phases (Present = time waiting in beginFrame for vsync/GPU)
             let footerLine3 :=
-              s!"Timing: Update {fmt rs.timeUpdateMs}ms, Build {fmt rs.timeBuildMs}ms, Layout {fmt rs.timeLayoutMs}ms, Collect {fmt rs.timeCollectMs}ms, GPU {fmt rs.timeGpuMs}ms, Present {fmt rs.timePresentMs}ms"
+              s!"Timing: Update {fmt rs.timeUpdateMs}ms, Build {fmt rs.timeBuildMs}ms, Layout {fmt rs.timeLayoutMs}ms, Collect {fmt rs.timeCollectMs}ms, GPU {fmt rs.timeGpuMs}ms, Present {fmt lastPresentMs}ms"
 
             -- Line 4: GPU breakdown detail + Collect detail
             let gpuDetail := s!"GPU Detail: Flatten {fmt rs.timeFlattenMs}ms, Coalesce {fmt rs.timeCoalesceMs}ms, BatchLoop {fmt rs.timeBatchLoopMs}ms, DrawCalls {fmt rs.timeDrawCallsMs}ms"
@@ -1054,11 +1057,7 @@ def unifiedDemo : IO Unit := do
                 majorFaults := usage.majorPageFaults
               }
 
-            -- Timing: Present phase (vsync/GPU wait)
-            let tPresent0 ← IO.monoMsNow
             c ← c.endFrame
-            let tPresent1 ← IO.monoMsNow
-            rs := { rs with timePresentMs := (tPresent1 - tPresent0).toFloat }
 
             if rs.framesLeft != 0 then
               let framesLeft := rs.framesLeft - 1
