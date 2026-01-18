@@ -604,12 +604,11 @@ def unifiedDemo : IO Unit := do
     let mut lastWorkEndTime := startTime  -- When we finished all work last frame
     let mut lastPresentMs : Float := 0.0
     while !(← c.shouldClose) do
-      -- Measure idle/present time: gap between last frame's work ending and this frame starting
-      let frameStartTime ← IO.monoMsNow
-      lastPresentMs := (frameStartTime - lastWorkEndTime).toFloat
       let ok ← c.beginFrame Color.darkGray
       if ok then
+        -- Measure idle/present time AFTER beginFrame returns (captures vsync wait)
         let now ← IO.monoMsNow
+        lastPresentMs := (now - lastWorkEndTime).toFloat
         let t := (now - startTime).toFloat / 1000.0  -- Elapsed seconds
         let dt := (now - lastTime).toFloat / 1000.0  -- Delta time
         lastTime := now
