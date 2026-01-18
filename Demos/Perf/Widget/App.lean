@@ -39,6 +39,8 @@ inductive WidgetType
   | stackedBarChart | groupedBarChart | stackedAreaChart
   | radarChart | candlestickChart | waterfallChart
   | gaugeChart | funnelChart | treemapChart | sankeyDiagram
+  -- Mixed
+  | mixed
 deriving BEq, Repr
 
 def WidgetType.name : WidgetType → String
@@ -94,6 +96,29 @@ def WidgetType.name : WidgetType → String
   | .funnelChart => "Funnel"
   | .treemapChart => "Treemap"
   | .sankeyDiagram => "Sankey"
+  | .mixed => "Mixed (All)"
+
+/-- All widget types except mixed (the renderable set for the mixed grid). -/
+def renderableWidgetTypes : Array WidgetType := #[
+  .label, .caption, .spacer, .panel,
+  .button, .checkbox, .switch, .radioGroup,
+  .slider, .stepper, .progressBar, .progressIndeterminate,
+  .dropdown,
+  -- Spinners (standard)
+  .spinnerCircleDots, .spinnerRing, .spinnerBouncingDots,
+  .spinnerBars, .spinnerDualRing,
+  -- Spinners (creative)
+  .spinnerOrbit, .spinnerPulse, .spinnerHelix, .spinnerWave, .spinnerSpiral,
+  .spinnerClock, .spinnerPendulum, .spinnerRipple, .spinnerHeartbeat, .spinnerGears,
+  -- Charts
+  .barChart, .lineChart, .areaChart,
+  .pieChart, .donutChart,
+  .scatterPlot, .horizontalBarChart, .bubbleChart,
+  .histogram, .boxPlot, .heatmap,
+  .stackedBarChart, .groupedBarChart, .stackedAreaChart,
+  .radarChart, .candlestickChart, .waterfallChart,
+  .gaugeChart, .funnelChart, .treemapChart, .sankeyDiagram
+]
 
 def allWidgetTypes : Array WidgetType := #[
   .label, .caption, .spacer, .panel,
@@ -113,7 +138,9 @@ def allWidgetTypes : Array WidgetType := #[
   .histogram, .boxPlot, .heatmap,
   .stackedBarChart, .groupedBarChart, .stackedAreaChart,
   .radarChart, .candlestickChart, .waterfallChart,
-  .gaugeChart, .funnelChart, .treemapChart, .sankeyDiagram
+  .gaugeChart, .funnelChart, .treemapChart, .sankeyDiagram,
+  -- Mixed
+  .mixed
 ]
 
 def widgetTypeNames : Array String := allWidgetTypes.map WidgetType.name
@@ -410,9 +437,12 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
     let dataDyn ← Dynamic.pureM sampleSankeyData
     let _ ← sankeyDiagram dataDyn theme dims
     pure ()
+  | .mixed =>
+    -- Mixed is handled at the grid level, not individual widget level
+    caption' s!"Mixed {index}" theme
 
-/-- Render a grid of widgets for a given type. -/
-def renderWidgetGrid (wtype : WidgetType) (theme : Theme) : WidgetM Unit := do
+/-- Render a mixed grid with 10 instances of each widget type, interleaved. -/
+def renderMixedGrid (theme : Theme) : WidgetM Unit := do
   let gridStyle : BoxStyle := {
     flexItem := some (FlexItem.growing 1)
     width := .percent 1.0
@@ -421,13 +451,39 @@ def renderWidgetGrid (wtype : WidgetType) (theme : Theme) : WidgetM Unit := do
     flexItem := some (FlexItem.growing 1)
     width := .percent 1.0
   }
+  let numTypes := renderableWidgetTypes.size
+  let totalWidgets := numTypes * 10  -- 10 of each type
+  let numCols := 47  -- One of each type per row
+  let numRows := 10  -- 10 instances of each
   column' (gap := 6) (style := gridStyle) do
-    heading3' s!"Grid of {wtype.name} (1000 instances)" theme
-    for row in [0:25] do
+    heading3' s!"Mixed Grid ({numTypes} types × 10 = {totalWidgets} instances)" theme
+    for row in [:numRows] do
       row' (gap := 6) (style := rowStyle) do
-        for col in [0:40] do
-          let index := row * 40 + col
+        for col in [:numCols] do
+          let wtype := renderableWidgetTypes.getD col .label
+          let index := row * numCols + col
           renderWidget wtype theme index
+
+/-- Render a grid of widgets for a given type. -/
+def renderWidgetGrid (wtype : WidgetType) (theme : Theme) : WidgetM Unit := do
+  if wtype == .mixed then
+    renderMixedGrid theme
+  else
+    let gridStyle : BoxStyle := {
+      flexItem := some (FlexItem.growing 1)
+      width := .percent 1.0
+    }
+    let rowStyle : BoxStyle := {
+      flexItem := some (FlexItem.growing 1)
+      width := .percent 1.0
+    }
+    column' (gap := 6) (style := gridStyle) do
+      heading3' s!"Grid of {wtype.name} (1000 instances)" theme
+      for row in [0:25] do
+        row' (gap := 6) (style := rowStyle) do
+          for col in [0:40] do
+            let index := row * 40 + col
+            renderWidget wtype theme index
 
 /-- Application state. -/
 structure AppState where
