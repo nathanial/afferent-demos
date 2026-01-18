@@ -75,7 +75,7 @@ private structure LoadedAssets where
 
 /-- Fixed tabbar height in logical pixels. -/
 def tabBarHeight : Float := ({} : TabBarStyle).height
-def footerBarHeight : Float := 60
+def footerBarHeight : Float := 90
 
 private def tabBarStartId : Nat := 1
 
@@ -464,7 +464,7 @@ private def nextWidgetId (w : Afferent.Arbor.Widget) : Nat :=
   (Afferent.Arbor.Widget.allIds w).foldl (fun acc wid => max acc wid) 0 + 1
 
 private def buildFooterWidget (startId : Nat) (fontId : Afferent.Arbor.FontId)
-    (screenScale : Float) (line1 line2 : String) : Afferent.Arbor.Widget :=
+    (screenScale : Float) (line1 line2 line3 line4 : String) : Afferent.Arbor.Widget :=
   Afferent.Arbor.buildFrom startId do
     let s := fun (v : Float) => v * screenScale
     let outerStyle : Afferent.Arbor.BoxStyle := {
@@ -481,14 +481,20 @@ private def buildFooterWidget (startId : Nat) (fontId : Afferent.Arbor.FontId)
         Afferent.Arbor.text' line1 fontId (Color.gray 0.7) .left none
       ],
       Afferent.Arbor.flexRow { Trellis.FlexContainer.row 0 with alignItems := .center } rowStyle #[
-        Afferent.Arbor.text' line2 fontId (Color.gray 0.6) .left none
+        Afferent.Arbor.text' line2 fontId (Color.gray 0.65) .left none
+      ],
+      Afferent.Arbor.flexRow { Trellis.FlexContainer.row 0 with alignItems := .center } rowStyle #[
+        Afferent.Arbor.text' line3 fontId (Color.gray 0.6) .left none
+      ],
+      Afferent.Arbor.flexRow { Trellis.FlexContainer.row 0 with alignItems := .center } rowStyle #[
+        Afferent.Arbor.text' line4 fontId (Color.gray 0.55) .left none
       ]
     ]
 
 private def buildRootWidget (tabBar : TabBarResult) (content : Afferent.Arbor.Widget)
-    (footerLine1 footerLine2 : String) (fontId : Afferent.Arbor.FontId) (screenScale : Float) : RootBuild :=
+    (footerLine1 footerLine2 footerLine3 footerLine4 : String) (fontId : Afferent.Arbor.FontId) (screenScale : Float) : RootBuild :=
   let footerStartId := nextWidgetId content
-  let footer := buildFooterWidget footerStartId fontId screenScale footerLine1 footerLine2
+  let footer := buildFooterWidget footerStartId fontId screenScale footerLine1 footerLine2 footerLine3 footerLine4
   let root : Afferent.Arbor.Widget :=
     .flex 0 none (Trellis.FlexContainer.column 0)
       { width := .percent 1.0, height := .percent 1.0 }
@@ -701,34 +707,42 @@ def unifiedDemo : IO Unit := do
             let cacheRate := if cacheTotal > 0 then (rs.cacheHits * 100) / cacheTotal else 0
             let totalDrawCalls := rs.batchedCalls + rs.individualCalls
 
-            -- Line 1: Performance, Commands, Draw Calls
-            let totalBatched := rs.rectsBatched + rs.circlesBatched + rs.strokeRectsBatched + rs.linesBatched + rs.textsBatched
-            let avgBatchSize := if rs.batchedCalls > 0 then (totalBatched * 10 / rs.batchedCalls).toFloat / 10.0 else 0.0
-            let avgBatchStr := s!"{(avgBatchSize * 10).toUInt32.toFloat / 10}"
-            let batchBreakdown := s!"R:{rs.rectsBatched} C:{rs.circlesBatched} S:{rs.strokeRectsBatched} L:{rs.linesBatched} T:{rs.textsBatched}"
-            let footerLine1 :=
-              s!"FPS: {rs.displayFps.toUInt32}  |  Commands: {rs.renderCommandCount}  |  Draw Calls: {totalDrawCalls} (Batched: {rs.batchedCalls}, Avg: {avgBatchStr}, {batchBreakdown})  |  Widgets: {rs.widgetCount}"
-
-            -- Line 2: Timing breakdown, memory, and Canopy stats
+            -- Footer lines: split timing data across 4 lines for readability
             let fmt := fun (v : Float) => s!"{(v * 10).toUInt32.toFloat / 10}"  -- 1 decimal place
             let canopyStatsStr := match rs.canopyStats with
               | some stats => s!"  |  Subs: {stats.scopeSubscriptionCount}"
               | none => ""
-            -- GPU breakdown: Flatten, Coalesce, Loop (total), Draw (FFI calls within loop)
-            let gpuBreakdown := s!"GPU {fmt rs.timeGpuMs}ms [F:{fmt rs.timeFlattenMs} C:{fmt rs.timeCoalesceMs} L:{fmt rs.timeBatchLoopMs} D:{fmt rs.timeDrawCallsMs}]"
+
+            -- Line 1: FPS, Commands, Widgets, Memory
+            let footerLine1 :=
+              s!"FPS: {rs.displayFps.toUInt32}  |  Commands: {rs.renderCommandCount}  |  Widgets: {rs.widgetCount}  |  Mem: {memMb}MB  |  Cache: {cacheRate}%{canopyStatsStr}"
+
+            -- Line 2: Draw Calls with batch breakdown
+            let totalBatched := rs.rectsBatched + rs.circlesBatched + rs.strokeRectsBatched + rs.linesBatched + rs.textsBatched
+            let avgBatchSize := if rs.batchedCalls > 0 then (totalBatched * 10 / rs.batchedCalls).toFloat / 10.0 else 0.0
+            let avgBatchStr := s!"{(avgBatchSize * 10).toUInt32.toFloat / 10}"
+            let batchBreakdown := s!"Rects:{rs.rectsBatched} Circles:{rs.circlesBatched} StrokeRects:{rs.strokeRectsBatched} Lines:{rs.linesBatched} Texts:{rs.textsBatched}"
+            let footerLine2 :=
+              s!"Draw Calls: {totalDrawCalls} (Batched: {rs.batchedCalls}, Avg: {avgBatchStr})  |  {batchBreakdown}"
+
+            -- Line 3: Main timing phases
+            let footerLine3 :=
+              s!"Timing: Update {fmt rs.timeUpdateMs}ms, Build {fmt rs.timeBuildMs}ms, Layout {fmt rs.timeLayoutMs}ms, Collect {fmt rs.timeCollectMs}ms, GPU {fmt rs.timeGpuMs}ms, Present {fmt rs.timePresentMs}ms"
+
+            -- Line 4: GPU breakdown detail + Collect detail
+            let gpuDetail := s!"GPU Detail: Flatten {fmt rs.timeFlattenMs}ms, Coalesce {fmt rs.timeCoalesceMs}ms, BatchLoop {fmt rs.timeBatchLoopMs}ms, DrawCalls {fmt rs.timeDrawCallsMs}ms"
             let collectDetailStr :=
               if rs.collectLookupCount == 0 && rs.collectTouchCount == 0 &&
                  rs.collectEmitAllCount == 0 && rs.collectSpecCount == 0 &&
                  rs.collectInsertCount == 0 then
                 ""
               else
-                s!"  |  Collect detail L:{fmt rs.collectLookupMs}({rs.collectLookupCount})" ++
+                s!"  |  Collect: L:{fmt rs.collectLookupMs}({rs.collectLookupCount})" ++
                 s!" T:{fmt rs.collectTouchMs}({rs.collectTouchCount})" ++
                 s!" E:{fmt rs.collectEmitAllMs}({rs.collectEmitAllCount})" ++
                 s!" S:{fmt rs.collectSpecMs}({rs.collectSpecCount})" ++
                 s!" I:{fmt rs.collectInsertMs}({rs.collectInsertCount})"
-            let footerLine2 :=
-              s!"Timing: Update {fmt rs.timeUpdateMs}ms, Build {fmt rs.timeBuildMs}ms, Layout {fmt rs.timeLayoutMs}ms, Collect {fmt rs.timeCollectMs}ms, {gpuBreakdown}, Present {fmt rs.timePresentMs}ms{collectDetailStr}  |  Cache: {cacheRate}%  |  Mem: {memMb}MB{canopyStatsStr}"
+            let footerLine4 := s!"{gpuDetail}{collectDetailStr}"
 
             let buildDemoWidget := fun (tabBar : TabBarResult) (demo : AnyDemo)
                 (envForView : DemoEnv) =>
@@ -739,7 +753,7 @@ def unifiedDemo : IO Unit := do
             let buildRoot := fun (tabBar : TabBarResult) (demo : AnyDemo)
                 (envForView : DemoEnv) =>
               buildRootWidget tabBar (buildDemoWidget tabBar demo envForView)
-                footerLine1 footerLine2 rs.assets.fontPack.smallId s
+                footerLine1 footerLine2 footerLine3 footerLine4 rs.assets.fontPack.smallId s
 
             let measureRoot := fun (root : Afferent.Arbor.Widget) => do
               let measureResult ← runWithFonts rs.assets.fontPack.registry
@@ -796,7 +810,7 @@ def unifiedDemo : IO Unit := do
                   pure (buildRoot rs.tabBar demo envForView)
               | none =>
                   pure (buildRootWidget rs.tabBar (.spacer rs.tabBar.finalId none 0 0)
-                    footerLine1 footerLine2 rs.assets.fontPack.smallId s)
+                    footerLine1 footerLine2 footerLine3 footerLine4 rs.assets.fontPack.smallId s)
             let mut tabSwitched := false
 
             match rs.frameCache with
