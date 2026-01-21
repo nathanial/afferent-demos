@@ -19,6 +19,7 @@ import Demos.Perf.Lines
 import Demos.Visuals.TextureMatrix
 import Demos.Visuals.Orbital
 import Demos.Visuals.Worldmap
+import Demos.Overview.Fonts
 import Demos.Reactive.Showcase.App
 import Demos.Perf.Widget.App
 import Afferent.Canopy.Reactive
@@ -56,6 +57,7 @@ inductive DemoId where
   | linesPerf
   | textureMatrix
   | orbitalInstanced
+  | fontShowcase
   deriving Repr, BEq, Inhabited
 
 structure CirclesState where
@@ -123,6 +125,7 @@ def DemoState : DemoId → Type
   | .linesPerf => Unit
   | .textureMatrix => Unit
   | .orbitalInstanced => Unit
+  | .fontShowcase => Unit
 
 class Demo (id : DemoId) where
   name : String
@@ -557,6 +560,14 @@ instance : Demo .orbitalInstanced where
       env.fontMedium env.orbitalCount env.orbitalParams env.orbitalBuffer)
   step := fun c _ s => pure (c, s)
 
+instance : Demo .fontShowcase where
+  name := "FONT SHOWCASE demo"
+  shortName := "Fonts"
+  init := fun _ => pure ()
+  view := fun env _ =>
+    some (fontShowcaseWidget env.showcaseFonts env.fontMediumId env.screenScale)
+  step := fun c _ s => pure (c, s)
+
 def demoInstance (id : DemoId) : Demo id := by
   cases id <;> infer_instance
 
@@ -660,8 +671,10 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let linesPerfDemo ← mkAnyDemo .linesPerf env
   let textureMatrixDemo ← mkAnyDemo .textureMatrix env
   let orbitalInstancedDemo ← mkAnyDemo .orbitalInstanced env
+  let fontShowcaseDemo ← mkAnyDemo .fontShowcase env
   pure #[demoGrid, gridPerf, trianglesPerf, circlesPerf, spritesPerf, layoutDemo, cssGridDemo,
     reactiveShowcaseDemo, widgetPerfDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
-    lineCapsDemo, dashedLinesDemo, linesPerfDemo, textureMatrixDemo, orbitalInstancedDemo]
+    lineCapsDemo, dashedLinesDemo, linesPerfDemo, textureMatrixDemo, orbitalInstancedDemo,
+    fontShowcaseDemo]
 
 end Demos

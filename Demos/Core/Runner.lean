@@ -27,6 +27,8 @@ private structure FontPack where
   hugeId : Afferent.Arbor.FontId
   canopyId : Afferent.Arbor.FontId
   canopySmallId : Afferent.Arbor.FontId
+  /-- Font showcase fonts keyed by "family-size" (e.g., "monaco-12", "helvetica-36") -/
+  showcaseFonts : Std.HashMap String Afferent.Arbor.FontId
 
 private structure LoadingState where
   fontSmall : Option Font := none
@@ -36,6 +38,10 @@ private structure LoadingState where
   fontCanopy : Option Font := none
   fontCanopySmall : Option Font := none
   layoutFont : Option Font := none
+  /-- Font showcase fonts keyed by "family-size" (e.g., "monaco-12") -/
+  showcaseFonts : Std.HashMap String Font := {}
+  /-- Track which showcase fonts have been loaded -/
+  showcaseFontsLoaded : Nat := 0
   fontPack : Option FontPack := none
   spriteTexture : Option FFI.Texture := none
   lineSegments : Option (Array Float × Nat) := none
@@ -53,6 +59,8 @@ private structure LoadedAssets where
   fontCanopy : Font
   fontCanopySmall : Font
   layoutFont : Font
+  /-- Font showcase fonts keyed by "family-size" (e.g., "monaco-12") -/
+  showcaseFonts : Std.HashMap String Font
   fontPack : FontPack
   spriteTexture : FFI.Texture
   halfSize : Float
@@ -149,7 +157,22 @@ private inductive AppState where
   | loading (state : LoadingState)
   | running (state : RunningState)
 
-private def loadingStepsTotal : Nat := 14
+/-- Showcase font specifications: (key, fontPath, size) -/
+private def showcaseFontSpecs : Array (String × String × Nat) :=
+  let families := #[
+    ("monaco", "/System/Library/Fonts/Monaco.ttf"),
+    ("helvetica", "/System/Library/Fonts/Helvetica.ttc"),
+    ("times", "/System/Library/Fonts/Times.ttc"),
+    ("georgia", "/System/Library/Fonts/Supplemental/Georgia.ttf")
+  ]
+  let sizes := #[12, 18, 24, 36, 48, 72]
+  families.foldl (init := #[]) fun acc (family, path) =>
+    sizes.foldl (init := acc) fun acc' size =>
+      acc'.push (s!"{family}-{size}", path, size)
+
+private def showcaseFontCount : Nat := 24  -- 4 families × 6 sizes
+
+private def loadingStepsTotal : Nat := 14 + showcaseFontCount  -- 38 total
 
 private def loadingStepsDone (s : LoadingState) : Nat :=
   (if s.fontSmall.isSome then 1 else 0) +
@@ -159,6 +182,7 @@ private def loadingStepsDone (s : LoadingState) : Nat :=
   (if s.fontCanopy.isSome then 1 else 0) +
   (if s.fontCanopySmall.isSome then 1 else 0) +
   (if s.layoutFont.isSome then 1 else 0) +
+  s.showcaseFontsLoaded +
   (if s.fontPack.isSome then 1 else 0) +
   (if s.spriteTexture.isSome then 1 else 0) +
   (if s.lineSegments.isSome then 1 else 0) +
@@ -176,6 +200,8 @@ private def loadingStatus (s : LoadingState) : String :=
     "Loading fonts..."
   else if s.layoutFont.isNone then
     "Preparing layout font..."
+  else if s.showcaseFontsLoaded < showcaseFontCount then
+    "Loading showcase fonts..."
   else if s.fontPack.isNone then
     "Registering fonts..."
   else if s.spriteTexture.isNone then
@@ -291,6 +317,16 @@ private def advanceLoading (s0 : LoadingState) (screenScale : Float) (canvas : C
     let layoutFontPx : UInt32 := (max 8.0 (layoutLabelPt * screenScale)).toUInt32
     let layoutFont ← Font.load "/System/Library/Fonts/Monaco.ttf" layoutFontPx
     return { s with layoutFont := some layoutFont }
+  -- Load showcase fonts one at a time into the HashMap
+  if s.showcaseFontsLoaded < showcaseFontCount then
+    let specs := showcaseFontSpecs
+    if h : s.showcaseFontsLoaded < specs.size then
+      let (key, path, size) := specs[s.showcaseFontsLoaded]
+      let font ← Font.load path (size.toFloat * screenScale).toUInt32
+      let newFonts := s.showcaseFonts.insert key font
+      return { s with showcaseFonts := newFonts, showcaseFontsLoaded := s.showcaseFontsLoaded + 1 }
+    else
+      return s
   if s.fontPack.isNone then
     match s.fontSmall, s.fontMedium, s.fontLarge, s.fontHuge, s.fontCanopy, s.fontCanopySmall with
     | some fontSmall, some fontMedium, some fontLarge, some fontHuge, some fontCanopy, some fontCanopySmall =>
@@ -300,7 +336,11 @@ private def advanceLoading (s0 : LoadingState) (screenScale : Float) (canvas : C
         let (reg4, fontHugeId) := reg3.register fontHuge "huge"
         let (reg5, fontCanopyId) := reg4.register fontCanopy "canopy"
         let (reg6, fontCanopySmallId) := reg5.register fontCanopySmall "canopySmall"
-        let registry := reg6.setDefault fontMedium
+        -- Register showcase fonts from the HashMap
+        let (finalReg, showcaseFontIds) := s.showcaseFonts.fold (init := (reg6, ({} : Std.HashMap String Afferent.Arbor.FontId))) fun (reg, ids) key font =>
+          let (newReg, fontId) := reg.register font key
+          (newReg, ids.insert key fontId)
+        let registry := finalReg.setDefault fontMedium
         return { s with fontPack := some {
           registry := registry
           smallId := fontSmallId
@@ -309,6 +349,7 @@ private def advanceLoading (s0 : LoadingState) (screenScale : Float) (canvas : C
           hugeId := fontHugeId
           canopyId := fontCanopyId
           canopySmallId := fontCanopySmallId
+          showcaseFonts := showcaseFontIds
         } }
     | _, _, _, _, _, _ => return s
   if s.spriteTexture.isNone then
@@ -352,6 +393,7 @@ private def toLoadedAssets (s : LoadingState)
         fontCanopy
         fontCanopySmall
         layoutFont
+        showcaseFonts := s.showcaseFonts
         fontPack
         spriteTexture
         halfSize
@@ -382,6 +424,9 @@ private def cleanupLoading (s : LoadingState) : IO Unit := do
   if let some font := s.fontCanopy then font.destroy
   if let some font := s.fontCanopySmall then font.destroy
   if let some font := s.layoutFont then font.destroy
+  -- Cleanup showcase fonts from HashMap
+  for (_, font) in s.showcaseFonts.toList do
+    font.destroy
   if let some tex := s.spriteTexture then FFI.Texture.destroy tex
   if let some buf := s.lineBuffer then FFI.Buffer.destroy buf
   if let some buf := s.orbitalBuffer then FFI.FloatBuffer.destroy buf
@@ -394,6 +439,9 @@ private def cleanupAssets (a : LoadedAssets) : IO Unit := do
   a.fontCanopy.destroy
   a.fontCanopySmall.destroy
   a.layoutFont.destroy
+  -- Cleanup showcase fonts from HashMap
+  for (_, font) in a.showcaseFonts.toList do
+    font.destroy
   FFI.Texture.destroy a.spriteTexture
   FFI.Buffer.destroy a.lineBuffer
   FFI.FloatBuffer.destroy a.orbitalBuffer
@@ -420,6 +468,7 @@ private def mkEnvFromAssets (a : LoadedAssets) (t dt : Float)
   fontHugeId := a.fontPack.hugeId
   fontCanopyId := a.fontPack.canopyId
   fontCanopySmallId := a.fontPack.canopySmallId
+  showcaseFonts := a.fontPack.showcaseFonts
   spriteTexture := a.spriteTexture
   halfSize := a.halfSize
   circleRadius := a.circleRadius

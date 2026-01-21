@@ -5,6 +5,7 @@ import Afferent
 import Afferent.Arbor
 import Init.Data.FloatArray
 import Trellis
+import Std.Data.HashMap
 
 open Afferent
 
@@ -31,6 +32,8 @@ structure DemoEnv where
   fontHugeId : Afferent.Arbor.FontId
   fontCanopyId : Afferent.Arbor.FontId
   fontCanopySmallId : Afferent.Arbor.FontId
+  /-- Font showcase fonts keyed by "family-size" (e.g., "monaco-12", "helvetica-36") -/
+  showcaseFonts : Std.HashMap String Afferent.Arbor.FontId
   spriteTexture : Afferent.FFI.Texture
   halfSize : Float
   circleRadius : Float
