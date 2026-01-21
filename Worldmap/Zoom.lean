@@ -10,11 +10,12 @@
   Extracted from Afferent to Worldmap
 -/
 
-import Worldmap.Viewport
+import Tileset
+import Worldmap.Utils
 
 namespace Worldmap.Zoom
 
-open Worldmap
+open Tileset (MapViewport intToFloat clampZoom clampLatitude wrapLongitude pi)
 
 /-- Convert screen coordinates to fractional tile position -/
 def screenToTile (vp : MapViewport) (sx sy : Float) : (Float × Float) :=

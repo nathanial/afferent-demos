@@ -4,8 +4,11 @@
 -/
 import Worldmap.State
 import Worldmap.Utils
+import Tileset
 
 namespace Worldmap
+
+open Tileset (intToFloat pi)
 
 /-- Format a latitude value with direction (N/S) -/
 def formatLatitude (lat : Float) (decimals : Nat := 5) : String :=
@@ -109,16 +112,26 @@ def getScaleBarInfo (state : MapState) (maxPixels : Float := 150.0) : String × 
 -- ============================================================================
 
 /-- Get tile loading status: (loaded, pending, failed) -/
-def getTileStatus (state : MapState) : Nat × Nat × Nat :=
-  let (gpu, ram, other) := state.cache.stateCounts
-  (ram + gpu, other, 0)  -- other includes pending and failed
+def getTileStatus (state : MapState) : IO (Nat × Nat × Nat) := do
+  let dynamics ← state.tileDynamics.get
+  let (gpuCount, _) ← state.textureCache.stats
+  -- Count states from dynamics
+  let mut loaded := 0
+  let mut pending := 0
+  for (_, dyn) in dynamics.toList do
+    let loadState ← dyn.sample
+    match loadState with
+    | .ready _ => loaded := loaded + 1
+    | .loading => pending := pending + 1
+    | .error _ => pure ()  -- Count errors separately if needed
+  pure (loaded, pending, 0)
 
 /-- Format tile loading status -/
-def formatTileStatus (state : MapState) : String :=
-  let (loaded, pending, _) := getTileStatus state
+def formatTileStatus (state : MapState) : IO String := do
+  let (loaded, pending, _) ← getTileStatus state
   if pending > 0 then
-    s!"Loading: {pending} tiles"
+    pure s!"Loading: {pending} tiles"
   else
-    s!"Tiles: {loaded}"
+    pure s!"Tiles: {loaded}"
 
 end Worldmap

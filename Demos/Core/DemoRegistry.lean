@@ -25,6 +25,7 @@ import Demos.Perf.Widget.App
 import Afferent.Canopy.Reactive
 import Reactive.Host.Spider
 import Worldmap
+import Tileset
 import Std.Data.HashMap
 
 open Afferent
@@ -74,6 +75,8 @@ structure ShapeGalleryState where
 
 structure WorldmapState where
   mapState : Worldmap.MapState
+  tileManager : Tileset.TileManager
+  spiderEnv : Reactive.Host.SpiderEnv
 
 /-- Diagnostic stats for Canopy demos. -/
 structure CanopyDemoStats where
@@ -500,17 +503,36 @@ instance : Demo .worldmap where
   name := "WORLDMAP demo (drag to pan, scroll to zoom)"
   shortName := "Map"
   init := fun env => do
-    let diskConfig : Worldmap.TileDiskCacheConfig := {
-      cacheDir := "./tile_cache"
-      tilesetName := "carto-dark-2x"
-      maxSizeBytes := Worldmap.defaultDiskCacheSizeBytes
+    -- Create SpiderEnv to keep reactive subscriptions alive
+    let spiderEnv ← Reactive.Host.SpiderEnv.new Reactive.Host.defaultErrorHandler
+
+    -- Create MapState using new config structure
+    let config : Worldmap.MapStateConfig := {
+      lat := 37.7749
+      lon := -122.4194
+      zoom := 12
+      width := env.physWidth.toNat
+      height := env.physHeight.toNat
+      provider := Tileset.TileProvider.cartoDarkRetina
     }
-    let mapState ← Worldmap.MapState.init 37.7749 (-122.4194) 12
-      (env.physWidth.toNat : Int) (env.physHeight.toNat : Int) diskConfig
-    pure { mapState := mapState }
+    let mapState ← Worldmap.MapState.init config
+
+    -- Create TileManager in SpiderM context
+    let tileConfig : Tileset.TileManagerConfig := {
+      provider := Tileset.TileProvider.cartoDarkRetina
+      diskCacheDir := "./tile_cache"
+      diskCacheMaxSize := 500 * 1024 * 1024  -- 500 MB
+    }
+    let tileManager ← (Tileset.TileManager.new tileConfig).run spiderEnv
+
+    pure { mapState, tileManager, spiderEnv }
+
   update := fun env s => do
-    let nextState ← updateWorldmapDemo env s.mapState
+    -- Request tiles in SpiderM context using persistent env
+    let mapState ← (requestWorldmapTiles s.mapState s.tileManager).run s.spiderEnv
+    let nextState ← updateWorldmapDemo env mapState s.tileManager
     pure { s with mapState := nextState }
+
   view := fun env s =>
     some (worldmapWidget env.screenScale env.fontMedium env.fontSmall env.windowWidthF env.windowHeightF s.mapState)
   step := fun c _ s => pure (c, s)

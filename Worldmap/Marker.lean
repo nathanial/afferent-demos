@@ -2,10 +2,12 @@
   Marker/Point Layer for Map
   Supports placing markers at geographic coordinates with labels and custom styling.
 -/
-import Worldmap.Viewport
+import Tileset
 import Worldmap.Zoom
 
 namespace Worldmap
+
+open Tileset (MapViewport intToFloat)
 
 /-- Marker color (simple RGBA) -/
 structure MarkerColor where

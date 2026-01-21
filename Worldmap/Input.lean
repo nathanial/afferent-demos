@@ -7,12 +7,14 @@ import Worldmap.State
 import Worldmap.Zoom
 import Worldmap.Utils
 import Worldmap.KeyCode
+import Tileset
 import Afferent.FFI.Window
 
 namespace Worldmap
 
 open Afferent.FFI
 open Worldmap.Zoom (screenToGeo)
+open Tileset (clampZoom clampLatitude intToFloat)
 
 /-- Pan speed in pixels per key press -/
 def keyboardPanSpeed : Float := 100.0
@@ -54,12 +56,6 @@ def updateCursorPositionAt (window : Window) (state : MapState)
   else
     pure state
 
-/-- Velocity smoothing factor (0 = no smoothing, 1 = only use new value) -/
-def velocitySmoothingFactor : Float := 0.8
-
-/-- Velocity decay factor when not dragging -/
-def velocityDecayFactor : Float := 0.9
-
 /-- Handle mouse input for panning (respects map bounds) -/
 def handlePanInput (window : Window) (state : MapState) : IO MapState := do
   let (mouseX, mouseY) ← Window.getMousePos window
@@ -75,31 +71,15 @@ def handlePanInput (window : Window) (state : MapState) : IO MapState := do
       -- Apply global and bounds constraints
       let newLat := state.mapBounds.clampLat (clampLatitude (state.dragStartLat - dLat))
       let newLon := state.mapBounds.clampLon (state.dragStartLon + dLon)
-      -- Calculate velocity from mouse movement (frame delta)
-      let frameDx := mouseX - state.lastMouseX
-      let frameDy := mouseY - state.lastMouseY
-      -- Apply exponential smoothing to velocity
-      let newVelX := velocitySmoothingFactor * frameDx + (1.0 - velocitySmoothingFactor) * state.panVelocityX
-      let newVelY := velocitySmoothingFactor * frameDy + (1.0 - velocitySmoothingFactor) * state.panVelocityY
       pure { state with
         viewport := { state.viewport with centerLat := newLat, centerLon := newLon }
-        panVelocityX := newVelX
-        panVelocityY := newVelY
-        lastMouseX := mouseX
-        lastMouseY := mouseY
       }
     else
-      -- Start dragging - initialize mouse position tracking
-      pure { (state.startDrag mouseX mouseY) with
-        lastMouseX := mouseX
-        lastMouseY := mouseY
-      }
+      -- Start dragging
+      pure (state.startDrag mouseX mouseY)
   else
-    -- Not dragging - decay velocity
-    pure { state.stopDrag with
-      panVelocityX := state.panVelocityX * velocityDecayFactor
-      panVelocityY := state.panVelocityY * velocityDecayFactor
-    }
+    -- Not dragging
+    pure state.stopDrag
 
 def handlePanInputAt (window : Window) (state : MapState)
     (offsetX offsetY : Float) : IO MapState := do
@@ -117,29 +97,15 @@ def handlePanInputAt (window : Window) (state : MapState)
       let (dLon, dLat) := state.viewport.pixelsToDegrees dx dy
       let newLat := state.mapBounds.clampLat (clampLatitude (state.dragStartLat - dLat))
       let newLon := state.mapBounds.clampLon (state.dragStartLon + dLon)
-      let frameDx := mouseX - state.lastMouseX
-      let frameDy := mouseY - state.lastMouseY
-      let newVelX := velocitySmoothingFactor * frameDx + (1.0 - velocitySmoothingFactor) * state.panVelocityX
-      let newVelY := velocitySmoothingFactor * frameDy + (1.0 - velocitySmoothingFactor) * state.panVelocityY
       pure { state with
         viewport := { state.viewport with centerLat := newLat, centerLon := newLon }
-        panVelocityX := newVelX
-        panVelocityY := newVelY
-        lastMouseX := mouseX
-        lastMouseY := mouseY
       }
     else if inside then
-      pure { (state.startDrag mouseX mouseY) with
-        lastMouseX := mouseX
-        lastMouseY := mouseY
-      }
+      pure (state.startDrag mouseX mouseY)
     else
       pure state
   else
-    pure { state.stopDrag with
-      panVelocityX := state.panVelocityX * velocityDecayFactor
-      panVelocityY := state.panVelocityY * velocityDecayFactor
-    }
+    pure state.stopDrag
 
 /-- Handle mouse wheel for zooming at cursor position.
     Starts zoom animation - the geographic point under the cursor stays fixed. -/

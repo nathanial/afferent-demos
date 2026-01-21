@@ -14,6 +14,8 @@ require wisp from "../../network/wisp"
 require cellar from "../../data/cellar"
 -- require reactive from git "https://github.com/nathanial/reactive" @ "v0.0.4"
 require reactive from "../../data/reactive"
+-- require tileset from git "https://github.com/nathanial/tileset" @ "v0.0.1"
+require tileset from "../../data/tileset"
 
 -- Link arguments for Metal/macOS (inherited from Afferent)
 def commonLinkArgs : Array String := #[

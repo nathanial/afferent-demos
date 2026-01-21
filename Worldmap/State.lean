@@ -1,43 +1,47 @@
 /-
   Complete Map State
-  Extracted from Afferent to Worldmap
+  Uses tileset library for tile management and TextureCache for GPU textures
 -/
-import Worldmap.TileCache
-import Worldmap.TileDiskCache
-import Worldmap.TileProvider
-import Worldmap.Viewport
-import Worldmap.Zoom
+import Tileset
+import Worldmap.TextureCache
+import Worldmap.Utils
 import Std.Data.HashMap
 
 namespace Worldmap
 
-open Worldmap (TileDiskCacheConfig TileDiskCacheIndex TileProvider)
-open Worldmap (ZoomAnimationConfig MapBounds)
+open Tileset (TileProvider TileManager TileManagerConfig MapViewport TileCoord TileLoadState)
+open Tileset (MapBounds intToFloat clampZoom clampLatitude intClamp)
+open Worldmap (ZoomAnimationConfig defaultZoomAnimationConfig)
+open Reactive.Host (Dyn SpiderM)
+open Std (HashMap)
 
 /-- Complete map state -/
 structure MapState where
   viewport : MapViewport
-  cache : TileCache
-  resultQueue : IO.Ref (Array FetchResult)  -- Shared queue for async fetch results
-  frameCount : Nat := 0                      -- Abstract time counter for retry scheduling
+  -- GPU texture management
+  textureCache : TextureCache
+  -- Reactive tile dynamics (coord → reactive tile state)
+  tileDynamics : IO.Ref (HashMap TileCoord (Dyn TileLoadState))
+  frameCount : Nat := 0
+  -- Drag state
   isDragging : Bool := false
   dragStartX : Float := 0.0
   dragStartY : Float := 0.0
   dragStartLat : Float := 0.0
   dragStartLon : Float := 0.0
   -- Zoom animation state
-  targetZoom : Int                           -- User's desired zoom level
-  displayZoom : Float                        -- Current animated zoom (fractional)
-  zoomAnchorScreenX : Float := 0.0           -- Screen position to keep fixed
+  targetZoom : Int
+  displayZoom : Float
+  zoomAnchorScreenX : Float := 0.0
   zoomAnchorScreenY : Float := 0.0
-  zoomAnchorLat : Float := 0.0               -- Geographic point to keep fixed
+  zoomAnchorLat : Float := 0.0
   zoomAnchorLon : Float := 0.0
-  isAnimatingZoom : Bool := false            -- Whether animation is in progress
+  isAnimatingZoom : Bool := false
   -- Initial view for Home key reset
   initialLat : Float
   initialLon : Float
   initialZoom : Int
-  -- Cursor position (geographic coordinates under mouse)
+  -- Cursor position
   cursorLat : Float := 0.0
   cursorLon : Float := 0.0
   cursorScreenX : Float := 0.0
@@ -48,66 +52,72 @@ structure MapState where
   zoomAnimationConfig : ZoomAnimationConfig := defaultZoomAnimationConfig
   -- Map bounds constraints
   mapBounds : MapBounds := MapBounds.world
-  -- Disk cache state
-  diskCacheConfig : TileDiskCacheConfig := {}
-  diskCacheIndex : IO.Ref TileDiskCacheIndex
-  -- Active task cancellation flags
-  activeTasks : IO.Ref (Std.HashMap TileCoord (IO.Ref Bool))
-  -- Velocity tracking for predictive prefetching
-  panVelocityX : Float := 0.0     -- smoothed pixels/frame
-  panVelocityY : Float := 0.0
-  lastMouseX : Float := 0.0       -- for delta calculation
-  lastMouseY : Float := 0.0
-  -- Zoom debouncing for request coalescing
-  lastZoomChangeFrame : Nat := 0  -- frame when zoom target changed
-  zoomDebounceFrames : Nat := 6   -- wait ~100ms at 60fps before fetching
+  -- Zoom debouncing
+  lastZoomChangeFrame : Nat := 0
+  zoomDebounceFrames : Nat := 6
+
+/-- Initialization configuration for MapState -/
+structure MapStateConfig where
+  /-- Initial latitude -/
+  lat : Float
+  /-- Initial longitude -/
+  lon : Float
+  /-- Initial zoom level -/
+  zoom : Int
+  /-- Screen width in pixels -/
+  width : Int
+  /-- Screen height in pixels -/
+  height : Int
+  /-- Tile provider -/
+  provider : TileProvider := TileProvider.default
+  /-- Zoom animation configuration -/
+  zoomConfig : ZoomAnimationConfig := defaultZoomAnimationConfig
+  /-- Map bounds -/
+  bounds : MapBounds := MapBounds.world
+  /-- Maximum GPU textures to cache -/
+  maxGpuTextures : Nat := 256
+  deriving Inhabited
 
 namespace MapState
 
 /-- Initialize map state centered on a location -/
-def init (lat lon : Float) (zoom : Int) (width height : Int)
-    (diskConfig : TileDiskCacheConfig := {})
-    (provider : TileProvider := TileProvider.default)
-    (zoomConfig : ZoomAnimationConfig := defaultZoomAnimationConfig)
-    (bounds : MapBounds := MapBounds.world) : IO MapState := do
-  let queue ← IO.mkRef #[]
-  let diskIndex ← IO.mkRef (TileDiskCacheIndex.empty diskConfig)
-  let activeTasks ← IO.mkRef {}
+def init (config : MapStateConfig) : IO MapState := do
+  let tileDynamics ← IO.mkRef {}
+  let textureCache ← TextureCache.new config.maxGpuTextures
   -- Clamp zoom to provider limits and bounds
-  let clampedZoom := bounds.clampZoom (intClamp (clampZoom zoom) provider.minZoom provider.maxZoom)
+  let clampedZoom := config.bounds.clampZoom (intClamp (clampZoom config.zoom) config.provider.minZoom config.provider.maxZoom)
   -- Clamp lat/lon to bounds
-  let clampedLat := bounds.clampLat (clampLatitude lat)
-  let clampedLon := bounds.clampLon lon
+  let clampedLat := config.bounds.clampLat (clampLatitude config.lat)
+  let clampedLon := config.bounds.clampLon config.lon
   pure {
     viewport := {
       centerLat := clampedLat
       centerLon := clampedLon
       zoom := clampedZoom
-      screenWidth := width
-      screenHeight := height
-      tileSize := provider.tileSize
+      screenWidth := config.width
+      screenHeight := config.height
+      tileSize := config.provider.tileSize
     }
-    cache := TileCache.empty
-    resultQueue := queue
+    textureCache
+    tileDynamics
     targetZoom := clampedZoom
     displayZoom := intToFloat clampedZoom
     initialLat := clampedLat
     initialLon := clampedLon
     initialZoom := clampedZoom
-    tileProvider := provider
-    zoomAnimationConfig := zoomConfig
-    mapBounds := bounds
-    diskCacheConfig := diskConfig
-    diskCacheIndex := diskIndex
-    activeTasks := activeTasks
+    tileProvider := config.provider
+    zoomAnimationConfig := config.zoomConfig
+    mapBounds := config.bounds
   }
 
-/-- Change the tile provider (clears cache since tiles are different) -/
-def setProvider (state : MapState) (provider : TileProvider) : MapState :=
+/-- Change the tile provider (clears GPU texture cache since tiles are different) -/
+def setProvider (state : MapState) (provider : TileProvider) : IO MapState := do
   let clampedZoom := state.mapBounds.clampZoom (intClamp state.viewport.zoom provider.minZoom provider.maxZoom)
-  { state with
+  -- Clear GPU textures and dynamics when changing provider
+  state.textureCache.clear
+  state.tileDynamics.set {}
+  pure { state with
     tileProvider := provider
-    cache := TileCache.empty  -- Clear cache since tiles will be different
     viewport := { state.viewport with
       zoom := clampedZoom
       tileSize := provider.tileSize
@@ -190,6 +200,10 @@ def resetToInitial (state : MapState) : MapState :=
     displayZoom := intToFloat state.initialZoom
     isAnimatingZoom := false
   }
+
+/-- Increment frame counter -/
+def tick (state : MapState) : MapState :=
+  { state with frameCount := state.frameCount + 1 }
 
 end MapState
 
