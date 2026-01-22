@@ -600,7 +600,39 @@ def unifiedDemo : IO Unit := do
   IO.println "Cleaning up..."
   match state with
   | .loading ls => cleanupLoading ls
-  | .running rs => cleanupAssets rs.assets
+  | .running rs =>
+      let exitEnv ← do
+        let s := rs.assets.screenScale
+        let (screenW, screenH) ← c.ctx.getCurrentSize
+        let tabBarHeightPx := tabBarHeight * s
+        let footerHeightPx := footerBarHeight * s
+        let contentHeightF := max 1.0 (screenH - tabBarHeightPx - footerHeightPx)
+        let contentRect : Trellis.LayoutRect :=
+          { x := 0, y := tabBarHeightPx, width := screenW, height := contentHeightF }
+        let (layoutOffsetX, layoutOffsetY, layoutScale) :=
+          calcLayout contentRect.width contentRect.height
+        let base := mkEnvFromAssets rs.assets 0.0 0.0 0 (pure ()) c.ctx.window
+        pure {
+          base with
+          windowWidthF := screenW
+          windowHeightF := screenH
+          physWidthF := contentRect.width
+          physHeightF := contentRect.height
+          physWidth := contentRect.width.toUInt32
+          physHeight := contentRect.height.toUInt32
+          contentOffsetX := contentRect.x
+          contentOffsetY := contentRect.y
+          layoutOffsetX := layoutOffsetX
+          layoutOffsetY := layoutOffsetY
+          layoutScale := layoutScale
+        }
+      match rs.demoRefs[rs.displayMode]? with
+      | some demoRef =>
+          let currentDemo ← demoRef.get
+          let _ ← AnyDemo.onExit currentDemo c exitEnv
+          pure ()
+      | none => pure ()
+      cleanupAssets rs.assets
   c.destroy
   Wisp.FFI.globalCleanup
   Wisp.HTTP.Client.shutdown

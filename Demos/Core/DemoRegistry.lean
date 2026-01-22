@@ -536,6 +536,10 @@ instance : Demo .worldmap where
   view := fun env s =>
     some (worldmapWidget env.screenScale env.fontMedium env.fontSmall env.windowWidthF env.windowHeightF s.mapState)
   step := fun c _ s => pure (c, s)
+  onExit := fun _ _ s => do
+    Tileset.TileManager.shutdown s.tileManager
+    s.spiderEnv.currentScope.dispose
+    pure s
 
 instance : Demo .lineCaps where
   name := "LINE CAPS & JOINS demo"
