@@ -11,6 +11,7 @@ import Std.Data.HashMap
 import Std.Data.HashSet
 import Tileset
 import Afferent.FFI.Texture
+import Raster
 
 namespace Worldmap
 
@@ -68,6 +69,21 @@ def getOrUpload (cache : TextureCache) (coord : TileCoord) (pngData : ByteArray)
   | none =>
     -- Upload to GPU
     let texture ← Texture.loadFromMemory pngData
+    let entry : TextureEntry := { texture, lastUsedFrame := frame }
+    cache.texturesRef.modify (·.insert coord entry)
+    pure texture
+
+/-- Upload a decoded RGBA image to GPU and cache the texture.
+    If the texture already exists, just returns it (updating LRU). -/
+def getOrUploadImage (cache : TextureCache) (coord : TileCoord) (img : Raster.Image)
+    (frame : Nat) : IO Texture := do
+  let textures ← cache.texturesRef.get
+  match textures[coord]? with
+  | some entry =>
+    cache.texturesRef.modify (·.insert coord { entry with lastUsedFrame := frame })
+    pure entry.texture
+  | none =>
+    let texture ← Texture.fromImage img
     let entry : TextureEntry := { texture, lastUsedFrame := frame }
     cache.texturesRef.modify (·.insert coord entry)
     pure texture

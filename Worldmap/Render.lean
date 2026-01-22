@@ -122,6 +122,23 @@ def shouldFetchNewTiles (state : MapState) : Bool :=
   else
     true
 
+/-- Upload a limited number of ready tiles to GPU each frame. -/
+def uploadReadyTiles (state : MapState) (maxUploads : Nat := 2) : IO MapState := do
+  let dynamics ← state.tileDynamics.get
+  let visible := state.viewport.visibleTiles
+  let mut uploaded := 0
+  for coord in visible do
+    if uploaded < maxUploads then
+      if !(← state.textureCache.has coord) then
+        if let some dyn := dynamics[coord]? then
+          let loadState ← dyn.sample
+          match loadState with
+          | .ready img =>
+            let _ ← state.textureCache.getOrUploadImage coord img state.frameCount
+            uploaded := uploaded + 1
+          | _ => pure ()
+  pure state
+
 /-- Compute screen position for a tile with fractional zoom support -/
 def tileScreenPosFrac (vp : MapViewport) (tile : TileCoord) (displayZoom : Float) : (Float × Float) :=
   let n := Float.pow 2.0 displayZoom
@@ -137,24 +154,10 @@ def tileScreenPosFrac (vp : MapViewport) (tile : TileCoord) (displayZoom : Float
 
 /-- Try to get a texture for a tile. Returns None if not ready. -/
 def getTileTexture (state : MapState) (coord : TileCoord) : IO (Option Texture) := do
-  let dynamics ← state.tileDynamics.get
-  match dynamics[coord]? with
-  | none => pure none
-  | some dyn =>
-    let loadState ← dyn.sample
-    match loadState with
-    | .ready img =>
-      -- Check if we already have this texture cached
-      if let some tex ← state.textureCache.get? coord state.frameCount then
-        pure (some tex)
-      else
-        -- Need to upload to GPU - encode image to PNG bytes
-        -- Note: This re-encodes the decoded image. For better performance,
-        -- tileset could expose the original PNG bytes.
-        let bytes ← Raster.Image.encode img .png
-        let tex ← state.textureCache.getOrUpload coord bytes state.frameCount
-        pure (some tex)
-    | _ => pure none
+  if let some tex ← state.textureCache.get? coord state.frameCount then
+    pure (some tex)
+  else
+    pure none
 
 /-- Find a loaded fallback texture from parent tiles -/
 def findParentFallback (state : MapState) (coord : TileCoord) (maxLevels : Nat := 3)
@@ -234,6 +237,7 @@ def renderAt (renderer : Renderer) (state : MapState)
 def updateFrame (state : MapState) (mgr : TileManager) : IO MapState := do
   let state := updateZoomAnimation state
   let state := state.tick
+  let state ← uploadReadyTiles state
   let state ← evictDistantTiles state mgr
   mgr.tick
   pure state
