@@ -59,6 +59,11 @@ structure MapState where
   fallbackParentDepth : Nat := 2
   fallbackChildDepth : Nat := 1
   fadeFrames : Nat := 12
+  -- Request scheduling
+  requestGeneration : Nat := 0
+  requestBudget : Nat := 128
+  requestCursor : Nat := 0
+  lastRequestCenter : TileCoord := { x := 0, y := 0, z := 0 }
 
 /-- Initialization configuration for MapState -/
 structure MapStateConfig where
@@ -86,6 +91,8 @@ structure MapStateConfig where
   fallbackChildDepth : Nat := 1
   /-- Frames to cross-fade when higher-detail tiles appear -/
   fadeFrames : Nat := 12
+  /-- Max number of new tile requests to enqueue per frame -/
+  requestBudget : Nat := 128
   deriving Inhabited
 
 namespace MapState
@@ -99,6 +106,7 @@ def init (config : MapStateConfig) : IO MapState := do
   -- Clamp lat/lon to bounds
   let clampedLat := config.bounds.clampLat (clampLatitude config.lat)
   let clampedLon := config.bounds.clampLon config.lon
+  let centerTile := Tileset.latLonToTile { lat := clampedLat, lon := clampedLon } clampedZoom
   pure {
     viewport := {
       centerLat := clampedLat
@@ -121,6 +129,8 @@ def init (config : MapStateConfig) : IO MapState := do
     fallbackParentDepth := config.fallbackParentDepth
     fallbackChildDepth := config.fallbackChildDepth
     fadeFrames := config.fadeFrames
+    requestBudget := config.requestBudget
+    lastRequestCenter := centerTile
   }
 
 /-- Change the tile provider (clears GPU texture cache since tiles are different) -/

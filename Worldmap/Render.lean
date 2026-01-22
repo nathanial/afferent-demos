@@ -81,12 +81,10 @@ private def zoomRange (state : MapState) : (Int × Int) :=
   (state.mapBounds.clampZoom minZoom, state.mapBounds.clampZoom maxZoom)
 
 def requestedZoomRange (state : MapState) : (Int × Int) :=
-  let parentDepth := natToInt state.fallbackParentDepth
-  let minZoom := intClamp (state.viewport.zoom - parentDepth)
+  let zoom := intClamp state.viewport.zoom
     state.tileProvider.minZoom state.tileProvider.maxZoom
-  let maxZoom := intClamp state.viewport.zoom
-    state.tileProvider.minZoom state.tileProvider.maxZoom
-  (state.mapBounds.clampZoom minZoom, state.mapBounds.clampZoom maxZoom)
+  let zoom := state.mapBounds.clampZoom zoom
+  (zoom, zoom)
 
 /-- Zoom priority order: target first, then alternating outward within bounds. -/
 def zoomPriority (target minZoom maxZoom : Int) : List Int :=
@@ -178,12 +176,57 @@ def requestVisibleTiles (state : MapState) (mgr : TileManager) : SpiderM MapStat
   let loadKeepSet := requestTileSet state 3
   SpiderM.liftIO <| mgr.evictDistant loadKeepSet
   let dynamics ← SpiderM.liftIO state.tileDynamics.get
+  let targetZoom := state.viewport.zoom
+  let zoomPenalty : Int := 1000000
+  let centerLat := state.viewport.centerLat
+  let centerLon := state.viewport.centerLon
+  let centerTile := Tileset.latLonToTile { lat := centerLat, lon := centerLon } targetZoom
+  let (generation, cursorStart, state) :=
+    if centerTile != state.lastRequestCenter then
+      let generation := state.requestGeneration + 1
+      let state := { state with
+        requestGeneration := generation
+        requestCursor := 0
+        lastRequestCenter := centerTile
+      }
+      (generation, 0, state)
+    else
+      (state.requestGeneration, state.requestCursor, state)
+
+  let mut entries : Array (TileCoord × Int) := #[]
+  for coord in visibleCoords.toList do
+    let center := Tileset.latLonToTile { lat := centerLat, lon := centerLon } coord.z
+    let dx := (coord.x - center.x).natAbs
+    let dy := (coord.y - center.y).natAbs
+    let dist2 := dx * dx + dy * dy
+    let zoomDelta := (coord.z - targetZoom).natAbs
+    let priority := -((natToInt zoomDelta) * zoomPenalty + (natToInt dist2))
+    entries := entries.push (coord, priority)
+    SpiderM.liftIO <| mgr.updateRequestInfo coord priority generation
 
   -- Request tiles we don't have dynamics for yet
   let mut newDynamics := dynamics
-  for coord in visibleCoords.toList do
-    let dyn ← mgr.requestTile coord
-    newDynamics := newDynamics.insert coord dyn
+  let sorted := entries.qsort (fun a b => a.2 > b.2)
+  let total := sorted.size
+  let budget := Nat.min state.requestBudget total
+  let start := if total == 0 then 0 else cursorStart % total
+  let mut scheduled := 0
+  for i in [:budget] do
+    let idx := (start + i) % total
+    let (coord, priority) := sorted[idx]!
+    let mut shouldRequest := true
+    if let some dyn := dynamics[coord]? then
+      let loadState ← dyn.sample
+      match loadState with
+      | .ready _ => shouldRequest := false
+      | .loading => shouldRequest := true
+      | .error _ => shouldRequest := true
+    if shouldRequest then
+      let dyn ← mgr.requestTileWithPriority coord priority generation
+      newDynamics := newDynamics.insert coord dyn
+      scheduled := scheduled + 1
+  let nextCursor := if total == 0 then 0 else (start + budget) % total
+  let state := { state with requestCursor := nextCursor }
 
   SpiderM.liftIO <| state.tileDynamics.set newDynamics
   pure state
@@ -198,9 +241,9 @@ def evictDistantTiles (state : MapState) (mgr : TileManager) : IO MapState := do
   state.textureCache.evictDistant keepSet
   state.textureCache.evictOldest keepSet
 
-  -- Evict from dynamics map
+  -- Evict from dynamics map. Keep only tiles we are actively requesting.
   let dynamics ← state.tileDynamics.get
-  let toRemove := dynamics.toList.filter fun (coord, _) => !keepSet.contains coord
+  let toRemove := dynamics.toList.filter fun (coord, _) => !loadKeepSet.contains coord
   let dynamics' := toRemove.foldl (fun d (coord, _) => d.erase coord) dynamics
   state.tileDynamics.set dynamics'
 

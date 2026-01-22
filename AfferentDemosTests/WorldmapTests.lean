@@ -65,10 +65,10 @@ private def mkState (zoom : Int) (parentDepth childDepth : Nat) : IO Worldmap.Ma
 
 testSuite "Worldmap"
 
-test "requested zoom range excludes child zoom" := do
+test "requested zoom range uses target zoom only" := do
   let state ← mkState 5 2 3
   let (minZoom, maxZoom) := Worldmap.requestedZoomRange state
-  minZoom ≡ 3
+  minZoom ≡ 5
   maxZoom ≡ 5
 
 test "zoom priority starts at target" := do

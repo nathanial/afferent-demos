@@ -68,15 +68,6 @@ def worldmapWidget (screenScale : Float) (fontMedium fontSmall : Font)
         let (gpuCount, gpuBytes) ← state.textureCache.stats
         let gpuMb := (gpuBytes.toFloat / 1024.0 / 1024.0)
         let dynamics ← state.tileDynamics.get
-        let mut ready := 0
-        let mut pending := 0
-        let mut failed := 0
-        for (_, dyn) in dynamics.toList do
-          let loadState ← dyn.sample
-          match loadState with
-          | .ready _ => ready := ready + 1
-          | .loading => pending := pending + 1
-          | .error _ => failed := failed + 1
         let minZoom := Tileset.intClamp (state.viewport.zoom - Tileset.natToInt state.fallbackParentDepth)
           state.tileProvider.minZoom state.tileProvider.maxZoom
         let maxZoom := Tileset.intClamp (state.viewport.zoom + Tileset.natToInt state.fallbackChildDepth)
@@ -92,9 +83,40 @@ def worldmapWidget (screenScale : Float) (fontMedium fontSmall : Font)
             count := count + (vp.visibleTilesWithBuffer buffer).length
           return count
         let requestedCount := countTilesInRange reqMinZoom reqMaxZoom 1
+        let keepCount := countTilesInRange reqMinZoom reqMaxZoom 3
         let candidateCount := countTilesInRange minZoom maxZoom 1
-        let fallbackCount := candidateCount - requestedCount
         let visibleCount := state.viewport.visibleTiles.length
+        let tileSetInRange := fun (minZ maxZ : Int) (buffer : Int) => Id.run do
+          let minZ := minZ.toNat
+          let maxZ := maxZ.toNat
+          let mut set : Std.HashSet Tileset.TileCoord := {}
+          for z in [minZ:maxZ+1] do
+            let zInt := Tileset.natToInt z
+            let vp := { state.viewport with zoom := zInt }
+            let tiles := vp.visibleTilesWithBuffer buffer
+            for coord in tiles do
+              set := set.insert coord
+          return set
+        let mut ready := 0
+        let mut pending := 0
+        let mut failed := 0
+        let mut missing := 0
+        let requestedSet := tileSetInRange reqMinZoom reqMaxZoom 1
+        for coord in requestedSet.toList do
+          match dynamics[coord]? with
+          | none => missing := missing + 1
+          | some dyn =>
+              let loadState ← dyn.sample
+              match loadState with
+              | .ready _ => ready := ready + 1
+              | .loading => pending := pending + 1
+              | .error _ => failed := failed + 1
+        let textureCoords ← state.textureCache.coordinates
+        let candidateSet := tileSetInRange minZoom maxZoom 1
+        let mut fallbackCached := 0
+        for coord in textureCoords do
+          if candidateSet.contains coord && !requestedSet.contains coord then
+            fallbackCached := fallbackCached + 1
         fillTextXY "Worldmap Debug" left y fontMedium
         y := y + line
         fillTextXY s!"Zoom: {fmt1 state.displayZoom} (tile {state.viewport.zoom})" left y fontSmall
@@ -103,17 +125,29 @@ def worldmapWidget (screenScale : Float) (fontMedium fontSmall : Font)
         y := y + line
         fillTextXY s!"Requested tiles: {requestedCount}" left y fontSmall
         y := y + line
-        fillTextXY s!"Fallback tiles: {fallbackCount}" left y fontSmall
+        fillTextXY s!"Keep tiles (buffer 3): {keepCount}" left y fontSmall
         y := y + line
-        fillTextXY s!"Dynamics: {dynamics.size}" left y fontSmall
+        fillTextXY s!"Candidate tiles: {candidateCount}" left y fontSmall
         y := y + line
-        fillTextXY s!"Ready: {ready}  Pending: {pending}  Failed: {failed}" left y fontSmall
+        fillTextXY s!"Fallback cached: {fallbackCached}" left y fontSmall
         y := y + line
-        fillTextXY s!"GPU tiles: {gpuCount}  (~{fmt1 gpuMb} MB)" left y fontSmall
+        fillTextXY s!"Dynamics tracked: {dynamics.size}" left y fontSmall
+        y := y + line
+        fillTextXY s!"Ready (requested): {ready}" left y fontSmall
+        y := y + line
+        fillTextXY s!"Pending (requested): {pending}" left y fontSmall
+        y := y + line
+        fillTextXY s!"Failed (requested): {failed}" left y fontSmall
+        y := y + line
+        fillTextXY s!"Missing dynamics: {missing}" left y fontSmall
+        y := y + line
+        fillTextXY s!"GPU tiles: {gpuCount}" left y fontSmall
+        y := y + line
+        fillTextXY s!"GPU MB (est): {fmt1 gpuMb}" left y fontSmall
         y := y + line
         fillTextXY s!"Fallback z: {minZoom}..{maxZoom}" left y fontSmall
         y := y + line
-        fillTextXY s!"Fade: {state.fadeFrames} frames" left y fontSmall
+        fillTextXY s!"Fade frames: {state.fadeFrames}" left y fontSmall
       )
     }) (style := sidebarStyle),
     Afferent.Arbor.custom (spec := {
