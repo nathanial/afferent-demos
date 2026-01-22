@@ -514,6 +514,9 @@ instance : Demo .worldmap where
       width := env.physWidth.toNat
       height := env.physHeight.toNat
       provider := Tileset.TileProvider.cartoDarkRetina
+      fallbackParentDepth := 3
+      fallbackChildDepth := 2
+      fadeFrames := 12
     }
     let mapState ← Worldmap.MapState.init config
 

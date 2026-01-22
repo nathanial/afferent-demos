@@ -55,6 +55,10 @@ structure MapState where
   -- Zoom debouncing
   lastZoomChangeFrame : Nat := 0
   zoomDebounceFrames : Nat := 6
+  -- Fallback rendering configuration
+  fallbackParentDepth : Nat := 2
+  fallbackChildDepth : Nat := 1
+  fadeFrames : Nat := 12
 
 /-- Initialization configuration for MapState -/
 structure MapStateConfig where
@@ -76,6 +80,12 @@ structure MapStateConfig where
   bounds : MapBounds := MapBounds.world
   /-- Maximum GPU textures to cache -/
   maxGpuTextures : Nat := 256
+  /-- How many parent zoom levels to keep/render as fallback -/
+  fallbackParentDepth : Nat := 2
+  /-- How many child zoom levels to keep/render as fallback -/
+  fallbackChildDepth : Nat := 1
+  /-- Frames to cross-fade when higher-detail tiles appear -/
+  fadeFrames : Nat := 12
   deriving Inhabited
 
 namespace MapState
@@ -108,6 +118,9 @@ def init (config : MapStateConfig) : IO MapState := do
     tileProvider := config.provider
     zoomAnimationConfig := config.zoomConfig
     mapBounds := config.bounds
+    fallbackParentDepth := config.fallbackParentDepth
+    fallbackChildDepth := config.fallbackChildDepth
+    fadeFrames := config.fadeFrames
   }
 
 /-- Change the tile provider (clears GPU texture cache since tiles are different) -/

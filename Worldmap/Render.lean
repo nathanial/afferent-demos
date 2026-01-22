@@ -15,7 +15,7 @@ import Afferent.FFI.FloatBuffer
 namespace Worldmap
 
 open Tileset (TileCoord TileManager TileLoadState MapViewport)
-open Tileset (intToFloat natToInt clampLatitude clampZoom pi)
+open Tileset (intToFloat natToInt clampLatitude clampZoom intClamp pi)
 open Afferent.FFI (Texture Renderer)
 open Reactive.Host (Dyn SpiderM)
 open Worldmap.Zoom (centerForAnchor)
@@ -71,26 +71,81 @@ def updateZoomAnimation (state : MapState) : MapState :=
           }
       }
 
+private def zoomRange (state : MapState) : (Int × Int) :=
+  let parentDepth := natToInt state.fallbackParentDepth
+  let childDepth := natToInt state.fallbackChildDepth
+  let minZoom := intClamp (state.viewport.zoom - parentDepth)
+    state.tileProvider.minZoom state.tileProvider.maxZoom
+  let maxZoom := intClamp (state.viewport.zoom + childDepth)
+    state.tileProvider.minZoom state.tileProvider.maxZoom
+  (state.mapBounds.clampZoom minZoom, state.mapBounds.clampZoom maxZoom)
+
+private def visibleTilesAtZoom (state : MapState) (zoom : Int) (buffer : Int) : List TileCoord :=
+  let vp := { state.viewport with zoom := zoom }
+  vp.visibleTilesWithBuffer buffer
+
+private def candidateTileSet (state : MapState) (buffer : Int) : HashSet TileCoord :=
+  let (minZoom, maxZoom) := zoomRange state
+  let minZ := minZoom.toNat
+  let maxZ := maxZoom.toNat
+  Id.run do
+    let mut set : HashSet TileCoord := {}
+    for z in [minZ:maxZ+1] do
+      let zInt := natToInt z
+      let tiles := visibleTilesAtZoom state zInt buffer
+      for coord in tiles do
+        set := set.insert coord
+    return set
+
+private def hasParentFallback (state : MapState) (coord : TileCoord) : IO Bool := do
+  let mut c := coord
+  let mut found := false
+  for _ in [:state.fallbackParentDepth] do
+    if !found && c.z > 0 then
+      let parent := c.parentTile
+      if (← state.textureCache.peek? parent).isSome then
+        found := true
+      c := parent
+  pure found
+
+private def hasChildFallback (state : MapState) (coord : TileCoord) : IO Bool := do
+  let mut current : List TileCoord := [coord]
+  let mut found := false
+  for _ in [:state.fallbackChildDepth] do
+    if !found then
+      let mut next : List TileCoord := []
+      for t in current do
+        if t.z < state.tileProvider.maxZoom then
+          for child in t.childTiles.toList do
+            if !found then
+              if (← state.textureCache.peek? child).isSome then
+                found := true
+            next := child :: next
+      current := next
+  pure found
+
+private def shouldFadeTarget (state : MapState) (coord : TileCoord) : IO Bool := do
+  if state.fadeFrames == 0 then
+    pure false
+  else if (← hasParentFallback state coord) then
+    pure true
+  else if (← hasChildFallback state coord) then
+    pure true
+  else
+    pure false
+
 /-- Request tiles for the visible area. Call this once per frame.
     Returns the updated state with any new tile dynamics registered. -/
 def requestVisibleTiles (state : MapState) (mgr : TileManager) : SpiderM MapState := do
-  let visibleCoords := state.viewport.visibleTilesWithBuffer 1
+  let visibleCoords := candidateTileSet state 1
   let dynamics ← SpiderM.liftIO state.tileDynamics.get
 
   -- Request tiles we don't have dynamics for yet
   let mut newDynamics := dynamics
-  for coord in visibleCoords do
+  for coord in visibleCoords.toList do
     unless newDynamics.contains coord do
       let dyn ← mgr.requestTile coord
       newDynamics := newDynamics.insert coord dyn
-
-  -- Also request parent tiles for fallback
-  if state.viewport.zoom > 0 then
-    let parentSet : HashSet TileCoord := visibleCoords.foldl (fun s t => s.insert t.parentTile) {}
-    for parentCoord in parentSet.toList do
-      unless newDynamics.contains parentCoord do
-        let dyn ← mgr.requestTile parentCoord
-        newDynamics := newDynamics.insert parentCoord dyn
 
   SpiderM.liftIO <| state.tileDynamics.set newDynamics
   pure state
@@ -98,7 +153,7 @@ def requestVisibleTiles (state : MapState) (mgr : TileManager) : SpiderM MapStat
 /-- Evict distant tiles from GPU texture cache and dynamics map -/
 def evictDistantTiles (state : MapState) (mgr : TileManager) : IO MapState := do
   let buffer := 3  -- Keep tiles within 3 tiles of viewport
-  let keepSet := state.viewport.visibleTileSet buffer
+  let keepSet := candidateTileSet state buffer
 
   -- Evict from GPU texture cache
   state.textureCache.evictDistant keepSet
@@ -125,18 +180,41 @@ def shouldFetchNewTiles (state : MapState) : Bool :=
 /-- Upload a limited number of ready tiles to GPU each frame. -/
 def uploadReadyTiles (state : MapState) (maxUploads : Nat := 2) : IO MapState := do
   let dynamics ← state.tileDynamics.get
-  let visible := state.viewport.visibleTiles
+  let (minZoom, maxZoom) := zoomRange state
+  let targetZoom := state.viewport.zoom
+  let maxErr :=
+    let errLow := (targetZoom - minZoom).toNat
+    let errHigh := (maxZoom - targetZoom).toNat
+    Nat.max errLow errHigh
   let mut uploaded := 0
-  for coord in visible do
-    if uploaded < maxUploads then
-      if !(← state.textureCache.has coord) then
-        if let some dyn := dynamics[coord]? then
-          let loadState ← dyn.sample
-          match loadState with
-          | .ready img =>
-            let _ ← state.textureCache.getOrUploadImage coord img state.frameCount
-            uploaded := uploaded + 1
-          | _ => pure ()
+  for e in [:maxErr.succ] do
+    let err := maxErr - e
+    let zLow := targetZoom - natToInt err
+    if zLow >= minZoom && zLow <= maxZoom then
+      let visible := visibleTilesAtZoom state zLow 1
+      for coord in visible do
+        if uploaded < maxUploads then
+          if !(← state.textureCache.has coord) then
+            if let some dyn := dynamics[coord]? then
+              let loadState ← dyn.sample
+              match loadState with
+              | .ready img =>
+                let _ ← state.textureCache.getOrUploadImage coord img state.frameCount
+                uploaded := uploaded + 1
+              | _ => pure ()
+    let zHigh := targetZoom + natToInt err
+    if zHigh != zLow && zHigh >= minZoom && zHigh <= maxZoom then
+      let visible := visibleTilesAtZoom state zHigh 1
+      for coord in visible do
+        if uploaded < maxUploads then
+          if !(← state.textureCache.has coord) then
+            if let some dyn := dynamics[coord]? then
+              let loadState ← dyn.sample
+              match loadState with
+              | .ready img =>
+                let _ ← state.textureCache.getOrUploadImage coord img state.frameCount
+                uploaded := uploaded + 1
+              | _ => pure ()
   pure state
 
 /-- Compute screen position for a tile with fractional zoom support -/
@@ -152,69 +230,76 @@ def tileScreenPosFrac (vp : MapViewport) (tile : TileCoord) (displayZoom : Float
   let offsetY := (tileY - centerTileY) * (intToFloat vp.tileSize) + (intToFloat vp.screenHeight) / 2.0
   (offsetX, offsetY)
 
-/-- Try to get a texture for a tile. Returns None if not ready. -/
-def getTileTexture (state : MapState) (coord : TileCoord) : IO (Option Texture) := do
-  if let some tex ← state.textureCache.get? coord state.frameCount then
-    pure (some tex)
-  else
-    pure none
+private def tileRenderSize (vp : MapViewport) (tile : TileCoord) (displayZoom : Float) : Float :=
+  let scale := Float.pow 2.0 (displayZoom - intToFloat tile.z)
+  (intToFloat vp.tileSize) * scale
 
-/-- Find a loaded fallback texture from parent tiles -/
-def findParentFallback (state : MapState) (coord : TileCoord) (maxLevels : Nat := 3)
-    : IO (Option (TileCoord × Texture × Nat)) :=
-  go coord 1 maxLevels
-where
-  go (c : TileCoord) (delta : Nat) (remaining : Nat) : IO (Option (TileCoord × Texture × Nat)) := do
-    match remaining with
-    | 0 => pure none
-    | remaining' + 1 =>
-      if c.z <= 0 then pure none
-      else
-        let parent := c.parentTile
-        match ← getTileTexture state parent with
-        | some tex => pure (some (parent, tex, delta))
-        | none => go parent (delta + 1) remaining'
+private def fadeAlpha (state : MapState) (createdFrame : Nat) : Float :=
+  if state.fadeFrames == 0 then
+    1.0
+  else
+    let age := state.frameCount - createdFrame
+    if age >= state.fadeFrames then
+      1.0
+    else
+      age.toFloat / state.fadeFrames.toFloat
 
 /-- Render all visible tiles with fractional zoom scaling -/
 def renderTilesAt (renderer : Renderer) (state : MapState)
     (offsetX offsetY canvasWidth canvasHeight : Float) : IO Unit := do
-  let visible := state.viewport.visibleTiles
   let spriteBuffer ← Afferent.FFI.FloatBuffer.create 5
-  let drawSprite := fun (texture : Texture) (dstX dstY size : Float) => do
+  let drawSprite := fun (texture : Texture) (dstX dstY size alpha : Float) => do
     let half := size / 2.0
     let cx := dstX + half
     let cy := dstY + half
-    Afferent.FFI.FloatBuffer.setVec5 spriteBuffer 0 cx cy 0.0 half 1.0
+    Afferent.FFI.FloatBuffer.setVec5 spriteBuffer 0 cx cy 0.0 half alpha
     Renderer.drawSpritesInstanceBuffer renderer texture spriteBuffer 1 canvasWidth canvasHeight
 
-  -- Compute scale factor for fractional zoom
-  let tileZoom := state.viewport.zoom
-  let scale := Float.pow 2.0 (state.displayZoom - intToFloat tileZoom)
-  let scaledTileSize := (intToFloat state.viewport.tileSize) * scale
+  let (minZoom, maxZoom) := zoomRange state
+  let targetZoom := state.viewport.zoom
+  let maxErr :=
+    let errLow := (targetZoom - minZoom).toNat
+    let errHigh := (maxZoom - targetZoom).toNat
+    Nat.max errLow errHigh
 
-  -- PASS 1: Render parent tiles as background layer (scaled up 2x)
-  if state.viewport.zoom > 0 then
-    let parentSet : HashSet TileCoord := visible.foldl
-      (fun s t => s.insert t.parentTile) {}
-    let parentTileSize := scaledTileSize * 2.0
-    for parentCoord in parentSet.toList do
-      if let some tex ← getTileTexture state parentCoord then
-        let (px, py) := tileScreenPosFrac state.viewport parentCoord state.displayZoom
-        let dstX := px + offsetX
-        let dstY := py + offsetY
-        drawSprite tex dstX dstY parentTileSize
-
-  -- PASS 2: Render visible tiles on top (higher resolution)
-  for coord in visible do
-    let (x, y) := tileScreenPosFrac state.viewport coord state.displayZoom
-    let dstX := x + offsetX
-    let dstY := y + offsetY
-    if let some tex ← getTileTexture state coord then
-      drawSprite tex dstX dstY scaledTileSize
-    else
-      -- Not loaded - try fallback from parent
-      if let some (_, tex, _) ← findParentFallback state coord then
-        drawSprite tex dstX dstY scaledTileSize
+  for e in [:maxErr.succ] do
+    let err := maxErr - e
+    let zLow := targetZoom - natToInt err
+    if zLow >= minZoom && zLow <= maxZoom then
+      let visible := visibleTilesAtZoom state zLow 1
+      for coord in visible do
+        if let some entry ← state.textureCache.getEntry? coord state.frameCount then
+          let (x, y) := tileScreenPosFrac state.viewport coord state.displayZoom
+          let dstX := x + offsetX
+          let dstY := y + offsetY
+          let size := tileRenderSize state.viewport coord state.displayZoom
+          let alpha ←
+            if zLow == targetZoom then
+              if (← shouldFadeTarget state coord) then
+                pure (fadeAlpha state entry.createdFrame)
+              else
+                pure 1.0
+            else
+              pure 1.0
+          drawSprite entry.texture dstX dstY size alpha
+    let zHigh := targetZoom + natToInt err
+    if zHigh != zLow && zHigh >= minZoom && zHigh <= maxZoom then
+      let visible := visibleTilesAtZoom state zHigh 1
+      for coord in visible do
+        if let some entry ← state.textureCache.getEntry? coord state.frameCount then
+          let (x, y) := tileScreenPosFrac state.viewport coord state.displayZoom
+          let dstX := x + offsetX
+          let dstY := y + offsetY
+          let size := tileRenderSize state.viewport coord state.displayZoom
+          let alpha ←
+            if zHigh == targetZoom then
+              if (← shouldFadeTarget state coord) then
+                pure (fadeAlpha state entry.createdFrame)
+              else
+                pure 1.0
+            else
+              pure 1.0
+          drawSprite entry.texture dstX dstY size alpha
 
   Afferent.FFI.FloatBuffer.destroy spriteBuffer
 

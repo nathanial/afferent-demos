@@ -25,6 +25,8 @@ structure TextureEntry where
   texture : Texture
   /-- Frame when this texture was last used -/
   lastUsedFrame : Nat
+  /-- Frame when this texture was first created/uploaded -/
+  createdFrame : Nat
 
 /-- GPU texture cache for map tiles -/
 structure TextureCache where
@@ -56,6 +58,16 @@ def get? (cache : TextureCache) (coord : TileCoord) (frame : Nat)
     pure (some entry.texture)
   | none => pure none
 
+/-- Get an existing texture entry, updating its LRU timestamp. -/
+def getEntry? (cache : TextureCache) (coord : TileCoord) (frame : Nat)
+    : IO (Option TextureEntry) := do
+  let textures ← cache.texturesRef.get
+  match textures[coord]? with
+  | some entry =>
+    cache.texturesRef.modify (·.insert coord { entry with lastUsedFrame := frame })
+    pure (some entry)
+  | none => pure none
+
 /-- Upload PNG bytes to GPU and cache the texture.
     If the texture already exists, just returns it (updating LRU). -/
 def getOrUpload (cache : TextureCache) (coord : TileCoord) (pngData : ByteArray)
@@ -69,7 +81,7 @@ def getOrUpload (cache : TextureCache) (coord : TileCoord) (pngData : ByteArray)
   | none =>
     -- Upload to GPU
     let texture ← Texture.loadFromMemory pngData
-    let entry : TextureEntry := { texture, lastUsedFrame := frame }
+    let entry : TextureEntry := { texture, lastUsedFrame := frame, createdFrame := frame }
     cache.texturesRef.modify (·.insert coord entry)
     pure texture
 
@@ -84,7 +96,7 @@ def getOrUploadImage (cache : TextureCache) (coord : TileCoord) (img : Raster.Im
     pure entry.texture
   | none =>
     let texture ← Texture.fromImage img
-    let entry : TextureEntry := { texture, lastUsedFrame := frame }
+    let entry : TextureEntry := { texture, lastUsedFrame := frame, createdFrame := frame }
     cache.texturesRef.modify (·.insert coord entry)
     pure texture
 
