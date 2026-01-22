@@ -175,14 +175,15 @@ private def shouldFadeTarget (state : MapState) (coord : TileCoord) : IO Bool :=
     Returns the updated state with any new tile dynamics registered. -/
 def requestVisibleTiles (state : MapState) (mgr : TileManager) : SpiderM MapState := do
   let visibleCoords := requestTileSet state 1
+  let loadKeepSet := requestTileSet state 3
+  SpiderM.liftIO <| mgr.evictDistant loadKeepSet
   let dynamics ← SpiderM.liftIO state.tileDynamics.get
 
   -- Request tiles we don't have dynamics for yet
   let mut newDynamics := dynamics
   for coord in visibleCoords.toList do
-    unless newDynamics.contains coord do
-      let dyn ← mgr.requestTile coord
-      newDynamics := newDynamics.insert coord dyn
+    let dyn ← mgr.requestTile coord
+    newDynamics := newDynamics.insert coord dyn
 
   SpiderM.liftIO <| state.tileDynamics.set newDynamics
   pure state
@@ -191,6 +192,7 @@ def requestVisibleTiles (state : MapState) (mgr : TileManager) : SpiderM MapStat
 def evictDistantTiles (state : MapState) (mgr : TileManager) : IO MapState := do
   let buffer := 3  -- Keep tiles within 3 tiles of viewport
   let keepSet := candidateTileSet state buffer
+  let loadKeepSet := requestTileSet state buffer
 
   -- Evict from GPU texture cache
   state.textureCache.evictDistant keepSet
@@ -203,7 +205,7 @@ def evictDistantTiles (state : MapState) (mgr : TileManager) : IO MapState := do
   state.tileDynamics.set dynamics'
 
   -- Evict from TileManager
-  mgr.evictDistant keepSet
+  mgr.evictDistant loadKeepSet
 
   pure state
 

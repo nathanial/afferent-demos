@@ -40,7 +40,7 @@ def requestWorldmapTiles (state : Worldmap.MapState) (mgr : TileManager) : Spide
 def worldmapWidget (screenScale : Float) (fontMedium fontSmall : Font)
     (windowW windowH : Float) (state : Worldmap.MapState) : Afferent.Arbor.WidgetBuilder := do
   let s := screenScale
-  let sidebarWidth := 260 * s
+  let sidebarWidth := 320 * s
   let sidebarStyle : Afferent.Arbor.BoxStyle := {
     width := .length sidebarWidth
     height := .percent 1.0
@@ -81,12 +81,29 @@ def worldmapWidget (screenScale : Float) (fontMedium fontSmall : Font)
           state.tileProvider.minZoom state.tileProvider.maxZoom
         let maxZoom := Tileset.intClamp (state.viewport.zoom + Tileset.natToInt state.fallbackChildDepth)
           state.tileProvider.minZoom state.tileProvider.maxZoom
+        let (reqMinZoom, reqMaxZoom) := Worldmap.requestedZoomRange state
+        let countTilesInRange := fun (minZ maxZ : Int) (buffer : Int) => Id.run do
+          let minZ := minZ.toNat
+          let maxZ := maxZ.toNat
+          let mut count := 0
+          for z in [minZ:maxZ+1] do
+            let zInt := Tileset.natToInt z
+            let vp := { state.viewport with zoom := zInt }
+            count := count + (vp.visibleTilesWithBuffer buffer).length
+          return count
+        let requestedCount := countTilesInRange reqMinZoom reqMaxZoom 1
+        let candidateCount := countTilesInRange minZoom maxZoom 1
+        let fallbackCount := candidateCount - requestedCount
         let visibleCount := state.viewport.visibleTiles.length
         fillTextXY "Worldmap Debug" left y fontMedium
         y := y + line
         fillTextXY s!"Zoom: {fmt1 state.displayZoom} (tile {state.viewport.zoom})" left y fontSmall
         y := y + line
         fillTextXY s!"Visible tiles: {visibleCount}" left y fontSmall
+        y := y + line
+        fillTextXY s!"Requested tiles: {requestedCount}" left y fontSmall
+        y := y + line
+        fillTextXY s!"Fallback tiles: {fallbackCount}" left y fontSmall
         y := y + line
         fillTextXY s!"Dynamics: {dynamics.size}" left y fontSmall
         y := y + line

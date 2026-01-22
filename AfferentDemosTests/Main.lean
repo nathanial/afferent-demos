@@ -8,6 +8,7 @@ import AfferentDemosTests.StrokeCards
 import AfferentDemosTests.RegistryTests
 import AfferentDemosTests.WidgetPerfBench
 import AfferentDemosTests.WorldmapTests
+import AfferentDemosTests.WorldmapPipelineTests
 
 def main : IO UInt32 := do
   runAllSuites
