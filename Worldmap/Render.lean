@@ -80,12 +80,33 @@ private def zoomRange (state : MapState) : (Int × Int) :=
     state.tileProvider.minZoom state.tileProvider.maxZoom
   (state.mapBounds.clampZoom minZoom, state.mapBounds.clampZoom maxZoom)
 
+private def requestZoomRange (state : MapState) : (Int × Int) :=
+  let parentDepth := natToInt state.fallbackParentDepth
+  let minZoom := intClamp (state.viewport.zoom - parentDepth)
+    state.tileProvider.minZoom state.tileProvider.maxZoom
+  let maxZoom := intClamp state.viewport.zoom
+    state.tileProvider.minZoom state.tileProvider.maxZoom
+  (state.mapBounds.clampZoom minZoom, state.mapBounds.clampZoom maxZoom)
+
 private def visibleTilesAtZoom (state : MapState) (zoom : Int) (buffer : Int) : List TileCoord :=
   let vp := { state.viewport with zoom := zoom }
   vp.visibleTilesWithBuffer buffer
 
 private def candidateTileSet (state : MapState) (buffer : Int) : HashSet TileCoord :=
   let (minZoom, maxZoom) := zoomRange state
+  let minZ := minZoom.toNat
+  let maxZ := maxZoom.toNat
+  Id.run do
+    let mut set : HashSet TileCoord := {}
+    for z in [minZ:maxZ+1] do
+      let zInt := natToInt z
+      let tiles := visibleTilesAtZoom state zInt buffer
+      for coord in tiles do
+        set := set.insert coord
+    return set
+
+private def requestTileSet (state : MapState) (buffer : Int) : HashSet TileCoord :=
+  let (minZoom, maxZoom) := requestZoomRange state
   let minZ := minZoom.toNat
   let maxZ := maxZoom.toNat
   Id.run do
@@ -137,7 +158,7 @@ private def shouldFadeTarget (state : MapState) (coord : TileCoord) : IO Bool :=
 /-- Request tiles for the visible area. Call this once per frame.
     Returns the updated state with any new tile dynamics registered. -/
 def requestVisibleTiles (state : MapState) (mgr : TileManager) : SpiderM MapState := do
-  let visibleCoords := candidateTileSet state 1
+  let visibleCoords := requestTileSet state 1
   let dynamics ← SpiderM.liftIO state.tileDynamics.get
 
   -- Request tiles we don't have dynamics for yet
