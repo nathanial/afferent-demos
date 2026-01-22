@@ -80,13 +80,29 @@ private def zoomRange (state : MapState) : (Int × Int) :=
     state.tileProvider.minZoom state.tileProvider.maxZoom
   (state.mapBounds.clampZoom minZoom, state.mapBounds.clampZoom maxZoom)
 
-private def requestZoomRange (state : MapState) : (Int × Int) :=
+def requestedZoomRange (state : MapState) : (Int × Int) :=
   let parentDepth := natToInt state.fallbackParentDepth
   let minZoom := intClamp (state.viewport.zoom - parentDepth)
     state.tileProvider.minZoom state.tileProvider.maxZoom
   let maxZoom := intClamp state.viewport.zoom
     state.tileProvider.minZoom state.tileProvider.maxZoom
   (state.mapBounds.clampZoom minZoom, state.mapBounds.clampZoom maxZoom)
+
+/-- Zoom priority order: target first, then alternating outward within bounds. -/
+def zoomPriority (target minZoom maxZoom : Int) : List Int :=
+  let minZoom := intClamp minZoom minZoom maxZoom
+  let maxZoom := intClamp maxZoom minZoom maxZoom
+  let maxErr := Nat.max (target - minZoom).toNat (maxZoom - target).toNat
+  Id.run do
+    let mut acc : List Int := []
+    for err in [:maxErr.succ] do
+      let zLow := target - natToInt err
+      if zLow >= minZoom && zLow <= maxZoom then
+        acc := acc ++ [zLow]
+      let zHigh := target + natToInt err
+      if zHigh != zLow && zHigh >= minZoom && zHigh <= maxZoom then
+        acc := acc ++ [zHigh]
+    return acc
 
 private def visibleTilesAtZoom (state : MapState) (zoom : Int) (buffer : Int) : List TileCoord :=
   let vp := { state.viewport with zoom := zoom }
@@ -106,7 +122,7 @@ private def candidateTileSet (state : MapState) (buffer : Int) : HashSet TileCoo
     return set
 
 private def requestTileSet (state : MapState) (buffer : Int) : HashSet TileCoord :=
-  let (minZoom, maxZoom) := requestZoomRange state
+  let (minZoom, maxZoom) := requestedZoomRange state
   let minZ := minZoom.toNat
   let maxZ := maxZoom.toNat
   Id.run do
@@ -203,39 +219,20 @@ def uploadReadyTiles (state : MapState) (maxUploads : Nat := 2) : IO MapState :=
   let dynamics ← state.tileDynamics.get
   let (minZoom, maxZoom) := zoomRange state
   let targetZoom := state.viewport.zoom
-  let maxErr :=
-    let errLow := (targetZoom - minZoom).toNat
-    let errHigh := (maxZoom - targetZoom).toNat
-    Nat.max errLow errHigh
   let mut uploaded := 0
-  for e in [:maxErr.succ] do
-    let err := maxErr - e
-    let zLow := targetZoom - natToInt err
-    if zLow >= minZoom && zLow <= maxZoom then
-      let visible := visibleTilesAtZoom state zLow 1
-      for coord in visible do
-        if uploaded < maxUploads then
-          if !(← state.textureCache.has coord) then
-            if let some dyn := dynamics[coord]? then
-              let loadState ← dyn.sample
-              match loadState with
-              | .ready img =>
-                let _ ← state.textureCache.getOrUploadImage coord img state.frameCount
-                uploaded := uploaded + 1
-              | _ => pure ()
-    let zHigh := targetZoom + natToInt err
-    if zHigh != zLow && zHigh >= minZoom && zHigh <= maxZoom then
-      let visible := visibleTilesAtZoom state zHigh 1
-      for coord in visible do
-        if uploaded < maxUploads then
-          if !(← state.textureCache.has coord) then
-            if let some dyn := dynamics[coord]? then
-              let loadState ← dyn.sample
-              match loadState with
-              | .ready img =>
-                let _ ← state.textureCache.getOrUploadImage coord img state.frameCount
-                uploaded := uploaded + 1
-              | _ => pure ()
+  let zooms := zoomPriority targetZoom minZoom maxZoom
+  for z in zooms do
+    let visible := visibleTilesAtZoom state z 1
+    for coord in visible do
+      if uploaded < maxUploads then
+        if !(← state.textureCache.has coord) then
+          if let some dyn := dynamics[coord]? then
+            let loadState ← dyn.sample
+            match loadState with
+            | .ready img =>
+              let _ ← state.textureCache.getOrUploadImage coord img state.frameCount
+              uploaded := uploaded + 1
+            | _ => pure ()
   pure state
 
 /-- Compute screen position for a tile with fractional zoom support -/
