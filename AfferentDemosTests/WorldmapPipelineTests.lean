@@ -211,6 +211,6 @@ test "canceled requests recover on re-request" := do
     Tileset.TileManager.shutdown mgr
     env.currentScope.dispose
 
-#generate_tests
+
 
 end AfferentDemosTests.WorldmapPipeline

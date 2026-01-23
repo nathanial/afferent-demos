@@ -130,6 +130,6 @@ test "Diagonals card emits line stroke paths" := do
   ensure (widthsNear widths 3.0) "Missing diagonal width 3.0"
   ensure (widthsNear widths 4.0) "Missing diagonal width 4.0"
 
-#generate_tests
+
 
 end AfferentDemosTests.StrokeCards

@@ -12,6 +12,6 @@ testSuite "AfferentDemos"
 test "smoke" := do
   1 ≡ 1
 
-#generate_tests
+
 
 end AfferentDemosTests.Smoke

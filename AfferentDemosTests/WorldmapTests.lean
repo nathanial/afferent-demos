@@ -146,6 +146,6 @@ test "zoom out removes higher zoom requests" := do
   for coord in requested.toList do
     ensure (coord.z <= 4) "zoom-out should not request higher zoom tiles"
 
-#generate_tests
+
 
 end AfferentDemosTests.Worldmap

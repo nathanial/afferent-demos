@@ -89,6 +89,6 @@ test "mixed input and interactive flags" := do
   result.1 ≡ 2
   result.2 ≡ 1
 
-#generate_tests
+
 
 end AfferentDemosTests.Registry

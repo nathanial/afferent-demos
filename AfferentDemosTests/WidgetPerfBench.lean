@@ -414,6 +414,6 @@ test "stepper pipeline baseline vs hover" := do
 
   destroyBenchAssets assets
 
-#generate_tests
+
 
 end AfferentDemosTests.WidgetPerfBench
