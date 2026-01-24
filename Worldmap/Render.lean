@@ -181,17 +181,16 @@ def requestVisibleTiles (state : MapState) (mgr : TileManager) : SpiderM MapStat
   let centerLat := state.viewport.centerLat
   let centerLon := state.viewport.centerLon
   let centerTile := Tileset.latLonToTile { lat := centerLat, lon := centerLon } targetZoom
-  let (generation, cursorStart, state) :=
+  let (cursorStart, state) :=
     if centerTile != state.lastRequestCenter then
-      let generation := state.requestGeneration + 1
       let state := { state with
-        requestGeneration := generation
+        requestGeneration := state.requestGeneration + 1
         requestCursor := 0
         lastRequestCenter := centerTile
       }
-      (generation, 0, state)
+      (0, state)
     else
-      (state.requestGeneration, state.requestCursor, state)
+      (state.requestCursor, state)
 
   let mut entries : Array (TileCoord × Int) := #[]
   for coord in visibleCoords.toList do
@@ -202,7 +201,6 @@ def requestVisibleTiles (state : MapState) (mgr : TileManager) : SpiderM MapStat
     let zoomDelta := (coord.z - targetZoom).natAbs
     let priority := -((natToInt zoomDelta) * zoomPenalty + (natToInt dist2))
     entries := entries.push (coord, priority)
-    SpiderM.liftIO <| mgr.updateRequestInfo coord priority generation
 
   -- Request tiles we don't have dynamics for yet
   let mut newDynamics := dynamics
@@ -222,7 +220,7 @@ def requestVisibleTiles (state : MapState) (mgr : TileManager) : SpiderM MapStat
       | .loading => shouldRequest := true
       | .error _ => shouldRequest := true
     if shouldRequest then
-      let dyn ← mgr.requestTileWithPriority coord priority generation
+      let dyn ← mgr.requestTileWithPriority coord priority
       newDynamics := newDynamics.insert coord dyn
       scheduled := scheduled + 1
   let nextCursor := if total == 0 then 0 else (start + budget) % total
