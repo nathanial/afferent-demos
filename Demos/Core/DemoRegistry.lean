@@ -517,6 +517,7 @@ instance : Demo .worldmap where
       fallbackParentDepth := 3
       fallbackChildDepth := 2
       fadeFrames := 12
+      persistentFallbackZoom := some 1
     }
     let mapState ← Worldmap.MapState.init config
 

@@ -15,7 +15,7 @@ import Afferent.FFI.FloatBuffer
 namespace Worldmap
 
 open Tileset (TileCoord TileManager TileLoadState MapViewport)
-open Tileset (intToFloat natToInt clampLatitude clampZoom intClamp pi)
+open Tileset (intToFloat natToInt clampLatitude clampZoom intClamp intMin pi)
 open Afferent.FFI (Texture Renderer)
 open Reactive.Host (Dyn SpiderM)
 open Worldmap.Zoom (centerForAnchor)
@@ -78,6 +78,9 @@ private def zoomRange (state : MapState) : (Int × Int) :=
     state.tileProvider.minZoom state.tileProvider.maxZoom
   let maxZoom := intClamp (state.viewport.zoom + childDepth)
     state.tileProvider.minZoom state.tileProvider.maxZoom
+  let minZoom := match state.persistentFallbackZoom with
+    | some z => intMin minZoom z
+    | none => minZoom
   (state.mapBounds.clampZoom minZoom, state.mapBounds.clampZoom maxZoom)
 
 def requestedZoomRange (state : MapState) : (Int × Int) :=
@@ -121,6 +124,12 @@ private def candidateTileSet (state : MapState) (buffer : Int) : HashSet TileCoo
       let tiles := visibleTilesAtZoom state zInt buffer
       for coord in tiles do
         set := set.insert coord
+    match state.persistentFallbackZoom with
+    | some z =>
+        let tiles := visibleTilesAtZoom state z buffer
+        for coord in tiles do
+          set := set.insert coord
+    | none => ()
     return set
 
 private def requestTileSet (state : MapState) (buffer : Int) : HashSet TileCoord :=
@@ -134,6 +143,12 @@ private def requestTileSet (state : MapState) (buffer : Int) : HashSet TileCoord
       let tiles := visibleTilesAtZoom state zInt buffer
       for coord in tiles do
         set := set.insert coord
+    match state.persistentFallbackZoom with
+    | some z =>
+        let tiles := visibleTilesAtZoom state z buffer
+        for coord in tiles do
+          set := set.insert coord
+    | none => ()
     return set
 
 private def hasParentFallback (state : MapState) (coord : TileCoord) : IO Bool := do

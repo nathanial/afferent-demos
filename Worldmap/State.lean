@@ -59,6 +59,8 @@ structure MapState where
   fallbackParentDepth : Nat := 2
   fallbackChildDepth : Nat := 1
   fadeFrames : Nat := 12
+  -- Persistent low-zoom fallback
+  persistentFallbackZoom : Option Int := none
   -- Request scheduling
   requestGeneration : Nat := 0
   requestBudget : Nat := 128
@@ -91,6 +93,8 @@ structure MapStateConfig where
   fallbackChildDepth : Nat := 1
   /-- Frames to cross-fade when higher-detail tiles appear -/
   fadeFrames : Nat := 12
+  /-- Lowest zoom level to keep persistently loaded as a fallback. -/
+  persistentFallbackZoom : Option Int := none
   /-- Max number of new tile requests to enqueue per frame -/
   requestBudget : Nat := 128
   deriving Inhabited
@@ -106,6 +110,8 @@ def init (config : MapStateConfig) : IO MapState := do
   -- Clamp lat/lon to bounds
   let clampedLat := config.bounds.clampLat (clampLatitude config.lat)
   let clampedLon := config.bounds.clampLon config.lon
+  let persistentFallbackZoom := config.persistentFallbackZoom.map fun z =>
+    config.bounds.clampZoom (intClamp (clampZoom z) config.provider.minZoom config.provider.maxZoom)
   let centerTile := Tileset.latLonToTile { lat := clampedLat, lon := clampedLon } clampedZoom
   pure {
     viewport := {
@@ -129,6 +135,7 @@ def init (config : MapStateConfig) : IO MapState := do
     fallbackParentDepth := config.fallbackParentDepth
     fallbackChildDepth := config.fallbackChildDepth
     fadeFrames := config.fadeFrames
+    persistentFallbackZoom := persistentFallbackZoom
     requestBudget := config.requestBudget
     lastRequestCenter := centerTile
   }
@@ -136,11 +143,14 @@ def init (config : MapStateConfig) : IO MapState := do
 /-- Change the tile provider (clears GPU texture cache since tiles are different) -/
 def setProvider (state : MapState) (provider : TileProvider) : IO MapState := do
   let clampedZoom := state.mapBounds.clampZoom (intClamp state.viewport.zoom provider.minZoom provider.maxZoom)
+  let persistentFallbackZoom := state.persistentFallbackZoom.map fun z =>
+    state.mapBounds.clampZoom (intClamp (clampZoom z) provider.minZoom provider.maxZoom)
   -- Clear GPU textures and dynamics when changing provider
   state.textureCache.clear
   state.tileDynamics.set {}
   pure { state with
     tileProvider := provider
+    persistentFallbackZoom := persistentFallbackZoom
     viewport := { state.viewport with
       zoom := clampedZoom
       tileSize := provider.tileSize
@@ -158,6 +168,8 @@ def setBounds (state : MapState) (bounds : MapBounds) : MapState :=
   let clampedLat := bounds.clampLat state.viewport.centerLat
   let clampedLon := bounds.clampLon state.viewport.centerLon
   let clampedZoom := bounds.clampZoom state.viewport.zoom
+  let persistentFallbackZoom := state.persistentFallbackZoom.map fun z =>
+    bounds.clampZoom (intClamp (clampZoom z) state.tileProvider.minZoom state.tileProvider.maxZoom)
   { state with
     mapBounds := bounds
     viewport := { state.viewport with
@@ -167,6 +179,7 @@ def setBounds (state : MapState) (bounds : MapBounds) : MapState :=
     }
     targetZoom := clampedZoom
     displayZoom := intToFloat clampedZoom
+    persistentFallbackZoom := persistentFallbackZoom
   }
 
 /-- Update viewport center (respects bounds) -/
