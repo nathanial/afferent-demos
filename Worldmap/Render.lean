@@ -103,7 +103,11 @@ def zoomPriority (target minZoom maxZoom : Int) : List Int :=
     return acc
 
 private def visibleTilesAtZoom (state : MapState) (zoom : Int) (buffer : Int) : List TileCoord :=
-  let vp := { state.viewport with zoom := zoom }
+  -- Match tile coverage to fractional displayZoom to avoid over-requesting tiles.
+  let scale := Float.pow 2.0 (state.displayZoom - intToFloat zoom)
+  let scaledTileSize := (intToFloat state.viewport.tileSize * scale).ceil.toUInt64.toNat
+  let tileSize := natToInt (Nat.max 1 scaledTileSize)
+  let vp := { state.viewport with zoom := zoom, tileSize := tileSize }
   vp.visibleTilesWithBuffer buffer
 
 private def candidateTileSet (state : MapState) (buffer : Int) : HashSet TileCoord :=

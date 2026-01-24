@@ -62,6 +62,51 @@ private def collectScenarioTiles (provider : Tileset.TileProvider)
       set := set.insert coord
   pure set
 
+private def tileTopLeftAtDisplayZoom (vp : Worldmap.MapViewport) (tile : Tileset.TileCoord)
+    (displayZoom : Float) : (Float × Float) :=
+  let n := Float.pow 2.0 displayZoom
+  let centerTileX := (vp.centerLon + 180.0) / 360.0 * n
+  let latRad := vp.centerLat * Tileset.pi / 180.0
+  let centerTileY := (1.0 - Float.log (Float.tan latRad + 1.0 / Float.cos latRad) / Tileset.pi) / 2.0 * n
+  let scale := Float.pow 2.0 (displayZoom - Tileset.intToFloat tile.z)
+  let tileX := Tileset.intToFloat tile.x * scale
+  let tileY := Tileset.intToFloat tile.y * scale
+  let offsetX := (tileX - centerTileX) * (Tileset.intToFloat vp.tileSize) +
+    (Tileset.intToFloat vp.screenWidth) / 2.0
+  let offsetY := (tileY - centerTileY) * (Tileset.intToFloat vp.tileSize) +
+    (Tileset.intToFloat vp.screenHeight) / 2.0
+  (offsetX, offsetY)
+
+private def tileIntersectsViewportAtDisplayZoom (vp : Worldmap.MapViewport) (displayZoom : Float)
+    (buffer : Int) (tile : Tileset.TileCoord) : Bool :=
+  let scale := Float.pow 2.0 (displayZoom - Tileset.intToFloat tile.z)
+  let tileSize := Tileset.intToFloat vp.tileSize * scale
+  let bufferPx := Tileset.intToFloat buffer * tileSize
+  let viewLeft := -bufferPx
+  let viewTop := -bufferPx
+  let viewRight := (Tileset.intToFloat vp.screenWidth) + bufferPx
+  let viewBottom := (Tileset.intToFloat vp.screenHeight) + bufferPx
+  let (x, y) := tileTopLeftAtDisplayZoom vp tile displayZoom
+  let tileRight := x + tileSize
+  let tileBottom := y + tileSize
+  tileRight > viewLeft && x < viewRight && tileBottom > viewTop && y < viewBottom
+
+private def expectedVisibleTilesAtDisplayZoom (state : Worldmap.MapState) (buffer : Int)
+    : HashSet Tileset.TileCoord :=
+  let count := (Tileset.tilesAtZoom state.viewport.zoom).toNat
+  Id.run do
+    let mut set : HashSet Tileset.TileCoord := {}
+    for y in [0:count] do
+      for x in [0:count] do
+        let tile : Tileset.TileCoord := {
+          x := Tileset.natToInt x
+          y := Tileset.natToInt y
+          z := state.viewport.zoom
+        }
+        if tileIntersectsViewportAtDisplayZoom state.viewport state.displayZoom buffer tile then
+          set := set.insert tile
+    return set
+
 private def firstStep (steps : List (Float × Float × Int)) : (Float × Float × Int) :=
   match steps with
   | (lat, lon, zoom) :: _ => (lat, lon, zoom)
@@ -207,6 +252,42 @@ test "canceled requests recover on re-request" := do
         break
       IO.sleep 10
     ensure readyOk "expected canceled tiles to recover when re-requested"
+  finally
+    Tileset.TileManager.shutdown mgr
+    env.currentScope.dispose
+
+test "requestVisibleTiles stays within viewport coverage at fractional zoom" := do
+  let tileSize := 256
+  let provider := makeProvider tileSize
+  let cacheDir ← freshCacheDir
+  let env ← SpiderEnv.new
+  let config : Tileset.TileManagerConfig := {
+    provider := provider
+    diskCacheDir := cacheDir
+    httpTimeout := 50
+    retryConfig := { maxRetries := 0, baseDelay := 1 }
+    workerCount := 1
+  }
+  let mgr ← (Tileset.TileManager.new config).run env
+  let mut state ← buildState 0.0 0.0 3 provider 0 0
+  state := state.updateScreenSize 512 512
+  state := { state with
+    displayZoom := 3.75
+    targetZoom := 4
+    requestBudget := 1000
+  }
+  try
+    state ← (Worldmap.requestVisibleTiles state mgr).run env
+    let dynamics ← state.tileDynamics.get
+    let requested : HashSet Tileset.TileCoord :=
+      dynamics.toList.foldl (fun s (coord, _) => s.insert coord) {}
+    let expected := expectedVisibleTilesAtDisplayZoom state 1
+    for coord in requested.toList do
+      ensure (expected.contains coord)
+        s!"requested tile {coord} outside viewport coverage"
+    for coord in expected.toList do
+      ensure (requested.contains coord)
+        s!"missing requested tile {coord} for viewport coverage"
   finally
     Tileset.TileManager.shutdown mgr
     env.currentScope.dispose
