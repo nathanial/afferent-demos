@@ -22,6 +22,7 @@ import Demos.Visuals.Worldmap
 import Demos.Overview.Fonts
 import Demos.Reactive.Showcase.App
 import Demos.Perf.Widget.App
+import Demos.Chat.App
 import Afferent.Canopy.Reactive
 import Reactive.Host.Spider
 import Worldmap
@@ -59,6 +60,7 @@ inductive DemoId where
   | textureMatrix
   | orbitalInstanced
   | fontShowcase
+  | chatDemo
   deriving Repr, BEq, Inhabited
 
 structure CirclesState where
@@ -109,6 +111,17 @@ structure WidgetPerfDemoState where
   /-- Diagnostic stats (updated each frame). -/
   stats : CanopyDemoStats := {}
 
+/-- State for the Chat demo. -/
+structure ChatDemoState where
+  appState : ChatDemo.AppState
+  /-- The reactive events (for resetting registry each frame). -/
+  events : Afferent.Canopy.Reactive.ReactiveEvents
+  inputs : Afferent.Canopy.Reactive.ReactiveInputs
+  spiderEnv : Reactive.Host.SpiderEnv
+  cachedWidget : Afferent.Arbor.WidgetBuilder
+  /-- Diagnostic stats (updated each frame). -/
+  stats : CanopyDemoStats := {}
+
 /-- Demo state mapping by id. -/
 def DemoState : DemoId → Type
   | .demoGrid => DemoGridState
@@ -129,6 +142,7 @@ def DemoState : DemoId → Type
   | .textureMatrix => Unit
   | .orbitalInstanced => Unit
   | .fontShowcase => Unit
+  | .chatDemo => ChatDemoState
 
 class Demo (id : DemoId) where
   name : String
@@ -461,6 +475,7 @@ def getCanopyStats (d : AnyDemo) : Option CanopyDemoStats :=
   match d with
   | ⟨.reactiveShowcase, state⟩ => some state.stats
   | ⟨.widgetPerf, state⟩ => some state.stats
+  | ⟨.chatDemo, state⟩ => some state.stats
   | _ => none
 
 instance : Demo .seascape where
@@ -598,6 +613,68 @@ instance : Demo .fontShowcase where
     some (fontShowcaseWidget env.showcaseFonts env.fontMediumId env.screenScale)
   step := fun c _ s => pure (c, s)
 
+instance : Demo .chatDemo where
+  name := "CHAT WIDGET demo"
+  shortName := "Chat"
+  init := fun env => do
+    let spiderEnv ← Reactive.Host.SpiderEnv.new Reactive.Host.defaultErrorHandler
+    let (appState, events, inputs) ← (do
+      let (events, inputs) ← Afferent.Canopy.Reactive.createInputs
+      let appState ← Afferent.Canopy.Reactive.ReactiveM.run events (ChatDemo.createApp env)
+      pure (appState, events, inputs)
+    ).run spiderEnv
+    spiderEnv.postBuildTrigger ()
+    let initialWidget ← appState.render
+    pure { appState, events, inputs, spiderEnv, cachedWidget := initialWidget }
+
+  update := fun env state => do
+    state.inputs.fireAnimationFrame env.dt
+    let widget ← state.appState.render
+    let scopeCount ← state.spiderEnv.currentScope.subscriptionCount
+    let stats : CanopyDemoStats := { scopeSubscriptionCount := scopeCount }
+    pure { state with cachedWidget := widget, stats := stats }
+
+  view := fun _env state => some state.cachedWidget
+
+  handleClickWithLayouts := fun _env state _contentId hitPath click layouts widget => do
+    let nameMap ← getFrameNameMap
+    let clickData : Afferent.Canopy.Reactive.ClickData := { click, hitPath, widget, layouts, nameMap }
+    state.inputs.fireClick clickData
+    pure state
+
+  handleHoverWithLayouts := fun _env state _contentId hitPath mouseX mouseY layouts widget => do
+    let nameMap ← getFrameNameMap
+    let hoverData : Afferent.Canopy.Reactive.HoverData := { x := mouseX, y := mouseY, hitPath, widget, layouts, nameMap }
+    state.inputs.fireHover hoverData
+    pure state
+
+  handleKey := fun _env state keyEvent => do
+    let keyData : Afferent.Canopy.Reactive.KeyData := { event := keyEvent, focusedWidget := none }
+    state.inputs.fireKey keyData
+    pure state
+
+  handleScrollWithLayouts := fun _env state hitPath scrollEvt layouts widget => do
+    let nameMap ← getFrameNameMap
+    let scrollData : Afferent.Canopy.Reactive.ScrollData := { scroll := scrollEvt, hitPath, widget, layouts, nameMap }
+    state.inputs.fireScroll scrollData
+    pure state
+
+  handleMouseUpWithLayouts := fun _env state mouseX mouseY hitPath layouts widget => do
+    let nameMap ← getFrameNameMap
+    let mouseUpData : Afferent.Canopy.Reactive.MouseButtonData := {
+      x := mouseX
+      y := mouseY
+      button := 0
+      hitPath
+      widget
+      layouts
+      nameMap
+    }
+    state.inputs.fireMouseUp mouseUpData
+    pure state
+
+  step := fun c _ s => pure (c, s)
+
 def demoInstance (id : DemoId) : Demo id := by
   cases id <;> infer_instance
 
@@ -702,9 +779,10 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let textureMatrixDemo ← mkAnyDemo .textureMatrix env
   let orbitalInstancedDemo ← mkAnyDemo .orbitalInstanced env
   let fontShowcaseDemo ← mkAnyDemo .fontShowcase env
+  let chatDemoDemo ← mkAnyDemo .chatDemo env
   pure #[demoGrid, gridPerf, trianglesPerf, circlesPerf, spritesPerf, layoutDemo, cssGridDemo,
     reactiveShowcaseDemo, widgetPerfDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
     lineCapsDemo, dashedLinesDemo, linesPerfDemo, textureMatrixDemo, orbitalInstancedDemo,
-    fontShowcaseDemo]
+    fontShowcaseDemo, chatDemoDemo]
 
 end Demos

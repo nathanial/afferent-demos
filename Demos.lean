@@ -16,4 +16,5 @@ import Demos.Layout.Flexbox
 import Demos.Visuals.ShapeGallery
 import Demos.Visuals.LineCaps
 import Demos.Visuals.DashedLines
+import Demos.Chat.App
 import Demos.Core.Runner
