@@ -350,7 +350,7 @@ instance : Demo .reactiveShowcase where
 
     -- Run the app setup within the env
     let (appState, events, inputs) ← (do
-      let (events, inputs) ← Afferent.Canopy.Reactive.createInputs
+      let (events, inputs) ← Afferent.Canopy.Reactive.createInputs env.fontRegistry
       let appState ← Afferent.Canopy.Reactive.ReactiveM.run events (ReactiveShowcase.createApp env)
       pure (appState, events, inputs)
     ).run spiderEnv
@@ -429,7 +429,7 @@ instance : Demo .widgetPerf where
   init := fun env => do
     let spiderEnv ← Reactive.Host.SpiderEnv.new Reactive.Host.defaultErrorHandler
     let (appState, events, inputs) ← (do
-      let (events, inputs) ← Afferent.Canopy.Reactive.createInputs
+      let (events, inputs) ← Afferent.Canopy.Reactive.createInputs env.fontRegistry
       let appState ← Afferent.Canopy.Reactive.ReactiveM.run events (WidgetPerf.createApp env)
       pure (appState, events, inputs)
     ).run spiderEnv
@@ -619,7 +619,7 @@ instance : Demo .chatDemo where
   init := fun env => do
     let spiderEnv ← Reactive.Host.SpiderEnv.new Reactive.Host.defaultErrorHandler
     let (appState, events, inputs) ← (do
-      let (events, inputs) ← Afferent.Canopy.Reactive.createInputs
+      let (events, inputs) ← Afferent.Canopy.Reactive.createInputs env.fontRegistry
       let appState ← Afferent.Canopy.Reactive.ReactiveM.run events (ChatDemo.createApp env)
       pure (appState, events, inputs)
     ).run spiderEnv

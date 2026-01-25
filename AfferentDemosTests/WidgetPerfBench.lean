@@ -199,10 +199,10 @@ private structure BenchApp where
   inputs : ReactiveInputs
   spiderEnv : Reactive.Host.SpiderEnv
 
-private def initBenchApp (theme : Theme) (selected : WidgetType) : IO BenchApp := do
+private def initBenchApp (theme : Theme) (selected : WidgetType) (registry : FontRegistry) : IO BenchApp := do
   let spiderEnv ← Reactive.Host.SpiderEnv.new Reactive.Host.defaultErrorHandler
   let (render, inputs) ← (do
-    let (events, inputs) ← Afferent.Canopy.Reactive.createInputs
+    let (events, inputs) ← Afferent.Canopy.Reactive.createInputs registry
     let render ← ReactiveM.run events (widgetPerfRender theme selected)
     pure (render, inputs)
   ).run spiderEnv
@@ -339,8 +339,8 @@ test "switch pipeline baseline vs hover" := do
   let hoverMetrics ← Afferent.Canopy.Reactive.enableHoverMetrics
   let dynMetrics ← Afferent.Canopy.Reactive.enableDynWidgetMetrics
   let assets ← loadBenchAssets
-  let appBaseline ← initBenchApp assets.theme .switch
-  let appHover ← initBenchApp assets.theme .switch
+  let appBaseline ← initBenchApp assets.theme .switch assets.registry
+  let appHover ← initBenchApp assets.theme .switch assets.registry
 
   let baseConfig : BenchConfig := { withHover := false }
   let hoverConfig : BenchConfig := { withHover := true }
@@ -374,8 +374,8 @@ test "switch pipeline baseline vs hover" := do
 
 test "dropdown pipeline baseline vs hover" := do
   let assets ← loadBenchAssets
-  let appBaseline ← initBenchApp assets.theme .dropdown
-  let appHover ← initBenchApp assets.theme .dropdown
+  let appBaseline ← initBenchApp assets.theme .dropdown assets.registry
+  let appHover ← initBenchApp assets.theme .dropdown assets.registry
 
   let baseConfig : BenchConfig := { withHover := false }
   let hoverConfig : BenchConfig := { withHover := true }
@@ -395,8 +395,8 @@ test "dropdown pipeline baseline vs hover" := do
 
 test "stepper pipeline baseline vs hover" := do
   let assets ← loadBenchAssets
-  let appBaseline ← initBenchApp assets.theme .stepper
-  let appHover ← initBenchApp assets.theme .stepper
+  let appBaseline ← initBenchApp assets.theme .stepper assets.registry
+  let appHover ← initBenchApp assets.theme .stepper assets.registry
 
   let baseConfig : BenchConfig := { withHover := false }
   let hoverConfig : BenchConfig := { withHover := true }
