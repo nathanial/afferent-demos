@@ -60,6 +60,7 @@ def inputTabContent (theme : Theme) (font : Font) : WidgetM Unit := do
       textInputsPanel theme font
       textAreaPanel theme font
       datePickerPanel theme
+      timePickerPanel theme
       colorPickerPanel theme
 
 /-- Layout tab: Panels, TabView, Scroll, Separator, Card, SplitPane, Toolbar, Sidebar -/
