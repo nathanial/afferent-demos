@@ -101,4 +101,15 @@ def textAreaPanel (theme : Theme) (font : Afferent.Font) : WidgetM Unit :=
     let _ ← textArea theme "Enter multi-line text..." {} font
     pure ()
 
+/-- Search input panel - demonstrates search input with icon and clear button. -/
+def searchInputPanel (theme : Theme) (font : Afferent.Font) : WidgetM Unit :=
+  titledPanel' "Search Input" .outlined theme do
+    caption' "Type to search, press Enter or click X to clear:" theme
+    let result ← searchInput theme font "Search..." ""
+    let _ ← dynWidget result.text fun text =>
+      if text.isEmpty then
+        caption' "No search query" theme
+      else
+        caption' s!"Searching for: \"{text}\"" theme
+
 end Demos.ReactiveShowcase
