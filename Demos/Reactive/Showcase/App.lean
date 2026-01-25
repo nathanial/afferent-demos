@@ -7,6 +7,7 @@ import Afferent.Canopy
 import Afferent.Canopy.Reactive
 import Demos.Core.Demo
 import Demos.Reactive.Showcase.Panels.Basic
+import Demos.Reactive.Showcase.Panels.Display
 import Demos.Reactive.Showcase.Panels.Input
 import Demos.Reactive.Showcase.Panels.Data
 import Demos.Reactive.Showcase.Panels.Layout
@@ -90,6 +91,12 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           checkboxesPanel theme
           radioButtonsPanel theme
           switchesPanel theme
+
+          -- Display widgets
+          badgePanel theme
+          chipPanel theme
+          avatarPanel theme
+          linkPanel theme
 
           -- Modal trigger panel with open wiring
           let modalClick ← modalTriggerPanel theme
