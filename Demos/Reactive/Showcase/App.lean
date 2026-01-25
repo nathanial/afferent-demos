@@ -57,6 +57,7 @@ def inputTabContent (theme : Theme) (font : Font) : WidgetM Unit := do
       dependentDropdownsPanel theme
     column' (gap := 16) (style := colStyle) do
       searchInputPanel theme font
+      comboBoxPanel theme font
       textInputsPanel theme font
       textAreaPanel theme font
       datePickerPanel theme

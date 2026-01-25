@@ -112,4 +112,31 @@ def searchInputPanel (theme : Theme) (font : Afferent.Font) : WidgetM Unit :=
       else
         caption' s!"Searching for: \"{text}\"" theme
 
+/-- ComboBox panel - demonstrates filterable dropdown with text input. -/
+def comboBoxPanel (theme : Theme) (font : Afferent.Font) : WidgetM Unit :=
+  titledPanel' "ComboBox" .outlined theme do
+    caption' "Type to filter options:" theme
+    row' (gap := 24) (style := {}) do
+      column' (gap := 8) (style := {}) do
+        caption' "Countries:" theme
+        let countries := #[
+          "United States", "United Kingdom", "Canada", "Australia",
+          "Germany", "France", "Japan", "China", "India", "Brazil"
+        ]
+        let result ← comboBox countries theme font "Search countries..."
+        let _ ← dynWidget result.value fun val =>
+          if val.isEmpty then
+            caption' "No selection" theme
+          else
+            caption' s!"Selected: {val}" theme
+      column' (gap := 8) (style := {}) do
+        caption' "With free text:" theme
+        let tags := #["bug", "feature", "docs", "enhancement", "help wanted"]
+        let result2 ← comboBox tags theme font "Add tag..." "" { allowFreeText := true }
+        let _ ← dynWidget result2.value fun val =>
+          if val.isEmpty then
+            caption' "No tag" theme
+          else
+            caption' s!"Tag: {val}" theme
+
 end Demos.ReactiveShowcase
