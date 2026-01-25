@@ -117,6 +117,10 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
         -- Right column
         column' (gap := 16) (style := { flexItem := some (FlexItem.growing 1) }) do
           scrollContainerPanel theme
+          separatorPanel theme
+          cardPanel theme
+          toolbarPanel theme
+          sidebarPanel theme
           tooltipsPanel theme env.fontCanopySmall
           tablePanel theme
           dataGridPanel theme env.fontCanopy
