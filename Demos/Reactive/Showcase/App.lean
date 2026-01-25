@@ -77,7 +77,7 @@ def layoutTabContent (theme : Theme) : WidgetM Unit := do
       toolbarPanel theme
       sidebarPanel theme
 
-/-- Data tab: Table, DataGrid, ListBox, Virtual List, Tree View -/
+/-- Data tab: Table, DataGrid, ListBox, Virtual List, Tree View, Pagination -/
 def dataTabContent (theme : Theme) (font : Font) : WidgetM Unit := do
   column' (gap := 16) (style := {}) do
     tablePanel theme
@@ -85,6 +85,7 @@ def dataTabContent (theme : Theme) (font : Font) : WidgetM Unit := do
     listBoxPanel theme
     virtualListPanel theme
     treeViewPanel theme
+    paginationPanel theme
 
 /-- Feedback tab: Progress, Tooltips, Modal, Toasts, Menus -/
 def feedbackTabContent (theme : Theme) (smallFont : Font)

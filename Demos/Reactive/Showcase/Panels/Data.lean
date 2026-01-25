@@ -134,4 +134,22 @@ def treeViewPanel (theme : Theme) : WidgetM Unit :=
     ) result.onNodeToggle)
     pure ()
 
+/-- Pagination panel - demonstrates page navigation controls. -/
+def paginationPanel (theme : Theme) : WidgetM Unit :=
+  titledPanel' "Pagination" .outlined theme do
+    caption' "Navigate between pages:" theme
+    row' (gap := 16) (style := {}) do
+      column' (gap := 8) (style := {}) do
+        caption' "Standard (20 pages):" theme
+        let result ← pagination 20 theme 0
+        let _ ← dynWidget result.currentPage fun page =>
+          caption' s!"Page {page + 1} of 20" theme
+        pure ()
+      column' (gap := 8) (style := {}) do
+        caption' "Few pages (5):" theme
+        let result2 ← pagination 5 theme 2
+        let _ ← dynWidget result2.currentPage fun page =>
+          caption' s!"Page {page + 1} of 5" theme
+        pure ()
+
 end Demos.ReactiveShowcase
