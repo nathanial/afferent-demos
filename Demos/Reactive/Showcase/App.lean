@@ -24,6 +24,113 @@ open Trellis
 
 namespace Demos.ReactiveShowcase
 
+/-! ## Tab Content Builders -/
+
+/-- Controls tab: Labels, Buttons, Checkboxes, Radio, Switches, Badge, Chip, Avatar, Link -/
+def controlsTabContent (theme : Theme)
+    (fireButtonClick : Unit → IO Unit) : WidgetM Unit := do
+  let colStyle : BoxStyle := { flexItem := some (FlexItem.growing 1) }
+  flexRow' { FlexContainer.row 20 with alignItems := .flexStart } (style := {}) do
+    column' (gap := 16) (style := colStyle) do
+      labelsPanel theme
+      let buttonClicks ← buttonsPanel theme
+      performEvent_ (← Event.mapM (fun _ => fireButtonClick ()) buttonClicks)
+      clickCounterPanel theme
+      checkboxesPanel theme
+      radioButtonsPanel theme
+    column' (gap := 16) (style := colStyle) do
+      switchesPanel theme
+      badgePanel theme
+      chipPanel theme
+      avatarPanel theme
+      linkPanel theme
+
+/-- Input tab: Sliders, Stepper, Dropdowns, Text Inputs, Date/Color Pickers -/
+def inputTabContent (theme : Theme) (font : Font) : WidgetM Unit := do
+  let colStyle : BoxStyle := { flexItem := some (FlexItem.growing 1) }
+  flexRow' { FlexContainer.row 20 with alignItems := .flexStart } (style := {}) do
+    column' (gap := 16) (style := colStyle) do
+      slidersPanel theme
+      rangeSliderPanel theme
+      stepperPanel theme
+      dropdownPanel theme
+      dependentDropdownsPanel theme
+    column' (gap := 16) (style := colStyle) do
+      textInputsPanel theme font
+      textAreaPanel theme font
+      datePickerPanel theme
+      colorPickerPanel theme
+
+/-- Layout tab: Panels, TabView, Scroll, Separator, Card, SplitPane, Toolbar, Sidebar -/
+def layoutTabContent (theme : Theme) : WidgetM Unit := do
+  let colStyle : BoxStyle := { flexItem := some (FlexItem.growing 1) }
+  flexRow' { FlexContainer.row 20 with alignItems := .flexStart } (style := {}) do
+    column' (gap := 16) (style := colStyle) do
+      panelsPanel theme
+      tabViewPanel theme
+      scrollContainerPanel theme
+      separatorPanel theme
+    column' (gap := 16) (style := colStyle) do
+      cardPanel theme
+      splitPanePanel theme
+      toolbarPanel theme
+      sidebarPanel theme
+
+/-- Data tab: Table, DataGrid, ListBox, Virtual List, Tree View -/
+def dataTabContent (theme : Theme) (font : Font) : WidgetM Unit := do
+  column' (gap := 16) (style := {}) do
+    tablePanel theme
+    dataGridPanel theme font
+    listBoxPanel theme
+    virtualListPanel theme
+    treeViewPanel theme
+
+/-- Feedback tab: Progress, Tooltips, Modal, Toasts, Menus -/
+def feedbackTabContent (theme : Theme) (smallFont : Font)
+    (fireModalOpen : Unit → IO Unit)
+    (fireToastInfo fireToastSuccess fireToastWarning fireToastError : Unit → IO Unit)
+    : WidgetM Unit := do
+  let colStyle : BoxStyle := { flexItem := some (FlexItem.growing 1) }
+  flexRow' { FlexContainer.row 20 with alignItems := .flexStart } (style := {}) do
+    column' (gap := 16) (style := colStyle) do
+      progressBarsPanel theme
+      tooltipsPanel theme smallFont
+      let modalClick ← modalTriggerPanel theme
+      performEvent_ (← Event.mapM (fun _ => fireModalOpen ()) modalClick)
+    column' (gap := 16) (style := colStyle) do
+      toastsPanel theme fireToastInfo fireToastSuccess fireToastWarning fireToastError
+      menuPanel theme
+      menuBarPanel theme
+
+/-- Charts tab: All 19 chart panels -/
+def chartsTabContent (theme : Theme) : WidgetM Unit := do
+  let colStyle : BoxStyle := { flexItem := some (FlexItem.growing 1) }
+  flexRow' { FlexContainer.row 20 with alignItems := .flexStart } (style := {}) do
+    column' (gap := 16) (style := colStyle) do
+      barChartPanel theme
+      lineChartPanel theme
+      areaChartPanel theme
+      pieChartPanel theme
+      donutChartPanel theme
+      scatterPlotPanel theme
+      horizontalBarChartPanel theme
+    column' (gap := 16) (style := colStyle) do
+      bubbleChartPanel theme
+      histogramPanel theme
+      boxPlotPanel theme
+      heatmapPanel theme
+      stackedBarChartPanel theme
+      groupedBarChartPanel theme
+    column' (gap := 16) (style := colStyle) do
+      stackedAreaChartPanel theme
+      radarChartPanel theme
+      candlestickChartPanel theme
+      waterfallChartPanel theme
+      gaugeChartPanel theme
+      funnelChartPanel theme
+      treemapChartPanel theme
+      sankeyDiagramPanel theme
+
 /-! ## Main Application -/
 
 /-- Application state returned from createApp. -/
@@ -69,104 +176,23 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           if count > 0 then caption' s!"(Clicks: {count})" theme
           else spacer' 0 0
 
-      -- Three-column layout (fills remaining space)
+      -- Tabbed content layout (fills remaining space)
       let contentStyle : BoxStyle := {
         flexItem := some (FlexItem.growing 1)
         width := .percent 1.0
         height := .percent 1.0
       }
-      flexRow' { FlexContainer.row 20 with alignItems := .flexStart }
-          (style := contentStyle) do
-        -- Left column
-        column' (gap := 16) (style := { flexItem := some (FlexItem.growing 1) }) do
-          labelsPanel theme
-
-          -- Buttons panel with click counter wiring
-          let buttonClicks ← buttonsPanel theme
-          let fireAction ← Event.mapM (fun _ => fireButtonClick ()) buttonClicks
-          performEvent_ fireAction
-
-          clickCounterPanel theme
-
-          checkboxesPanel theme
-          radioButtonsPanel theme
-          switchesPanel theme
-
-          -- Display widgets
-          badgePanel theme
-          chipPanel theme
-          avatarPanel theme
-          linkPanel theme
-
-          -- Modal trigger panel with open wiring
-          let modalClick ← modalTriggerPanel theme
-          let fireAction ← Event.mapM (fun _ => fireModalOpen ()) modalClick
-          performEvent_ fireAction
-
-          toastsPanel theme fireToastInfo fireToastSuccess fireToastWarning fireToastError
-
-          menuPanel theme
-          menuBarPanel theme
-
-        -- Middle column
-        column' (gap := 16) (style := { flexItem := some (FlexItem.growing 1) }) do
-          slidersPanel theme
-          rangeSliderPanel theme
-          stepperPanel theme
-          progressBarsPanel theme
-          dropdownPanel theme
-          dependentDropdownsPanel theme
-          textInputsPanel theme env.fontCanopy
-          textAreaPanel theme env.fontCanopy
-          panelsPanel theme
-          tabViewPanel theme
-
-        -- Right column
-        column' (gap := 16) (style := { flexItem := some (FlexItem.growing 1) }) do
-          scrollContainerPanel theme
-          separatorPanel theme
-          cardPanel theme
-          toolbarPanel theme
-          sidebarPanel theme
-          tooltipsPanel theme env.fontCanopySmall
-          tablePanel theme
-          dataGridPanel theme env.fontCanopy
-          listBoxPanel theme
-          virtualListPanel theme
-          treeViewPanel theme
-
-        -- Fourth column
-        column' (gap := 16) (style := { flexItem := some (FlexItem.growing 1) }) do
-          splitPanePanel theme
-          datePickerPanel theme
-          colorPickerPanel theme
-          barChartPanel theme
-          lineChartPanel theme
-          areaChartPanel theme
-          pieChartPanel theme
-
-        -- Fifth column (Charts continued)
-        column' (gap := 16) (style := { flexItem := some (FlexItem.growing 1) }) do
-          donutChartPanel theme
-          scatterPlotPanel theme
-          horizontalBarChartPanel theme
-          bubbleChartPanel theme
-          histogramPanel theme
-          boxPlotPanel theme
-          heatmapPanel theme
-          stackedBarChartPanel theme
-
-        -- Sixth column (More charts)
-        column' (gap := 16) (style := { flexItem := some (FlexItem.growing 1) }) do
-          groupedBarChartPanel theme
-          stackedAreaChartPanel theme
-          radarChartPanel theme
-          candlestickChartPanel theme
-          waterfallChartPanel theme
-          gaugeChartPanel theme
-          funnelChartPanel theme
-          treemapChartPanel theme
-          sankeyDiagramPanel theme
+      column' (gap := 0) (style := contentStyle) do
+        let tabs : Array TabDef := #[
+          { label := "Controls", content := controlsTabContent theme fireButtonClick },
+          { label := "Input", content := inputTabContent theme env.fontCanopy },
+          { label := "Layout", content := layoutTabContent theme },
+          { label := "Data", content := dataTabContent theme env.fontCanopy },
+          { label := "Feedback", content := feedbackTabContent theme env.fontCanopySmall
+              fireModalOpen fireToastInfo fireToastSuccess fireToastWarning fireToastError },
+          { label := "Charts", content := chartsTabContent theme }
+        ]
+        let _ ← tabView tabs theme 0
 
       -- Modal overlay (renders on top when open)
       let modalResult ← modal "Sample Modal" theme do
