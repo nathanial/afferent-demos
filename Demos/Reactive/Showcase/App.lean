@@ -13,6 +13,7 @@ import Demos.Reactive.Showcase.Panels.Data
 import Demos.Reactive.Showcase.Panels.Layout
 import Demos.Reactive.Showcase.Panels.Overlay
 import Demos.Reactive.Showcase.Panels.Charts
+import Demos.Reactive.Showcase.Panels.Spinners
 import Demos.Reactive.Showcase.Panels.Misc
 
 open Reactive Reactive.Host
@@ -53,11 +54,12 @@ def inputTabContent : WidgetM Unit := do
       rangeSliderPanel
       stepperPanel
       dropdownPanel
-      dependentDropdownsPanel
     column' (gap := 16) (style := colStyle) do
+      dependentDropdownsPanel
       searchInputPanel
       comboBoxPanel
       textInputsPanel
+    column' (gap := 16) (style := colStyle) do
       textAreaPanel
       datePickerPanel
       timePickerPanel
@@ -104,8 +106,8 @@ def feedbackTabContent (fireModalOpen : Unit → IO Unit)
       menuPanel
       menuBarPanel
 
-/-- Charts tab: All 19 chart panels -/
-def chartsTabContent : WidgetM Unit := do
+/-- Charts (Basic) tab: Bar, Line, Area, Pie, Donut, Scatter, Horizontal Bar, Bubble, Histogram, Box Plot, Heatmap -/
+def chartsBasicTabContent : WidgetM Unit := do
   let colStyle : BoxStyle := { flexItem := some (FlexItem.growing 1) }
   flexRow' { FlexContainer.row 20 with alignItems := .flexStart } (style := {}) do
     column' (gap := 16) (style := colStyle) do
@@ -113,25 +115,47 @@ def chartsTabContent : WidgetM Unit := do
       lineChartPanel
       areaChartPanel
       pieChartPanel
+    column' (gap := 16) (style := colStyle) do
       donutChartPanel
       scatterPlotPanel
       horizontalBarChartPanel
-    column' (gap := 16) (style := colStyle) do
       bubbleChartPanel
+    column' (gap := 16) (style := colStyle) do
       histogramPanel
       boxPlotPanel
       heatmapPanel
+
+/-- Charts (Advanced) tab: Stacked/Grouped charts, Radar, Candlestick, Waterfall, Gauge, Funnel, Treemap, Sankey -/
+def chartsAdvancedTabContent : WidgetM Unit := do
+  let colStyle : BoxStyle := { flexItem := some (FlexItem.growing 1) }
+  flexRow' { FlexContainer.row 20 with alignItems := .flexStart } (style := {}) do
+    column' (gap := 16) (style := colStyle) do
       stackedBarChartPanel
       groupedBarChartPanel
-    column' (gap := 16) (style := colStyle) do
       stackedAreaChartPanel
       radarChartPanel
+    column' (gap := 16) (style := colStyle) do
       candlestickChartPanel
       waterfallChartPanel
       gaugeChartPanel
       funnelChartPanel
+    column' (gap := 16) (style := colStyle) do
       treemapChartPanel
       sankeyDiagramPanel
+
+/-- Spinners tab: Loading indicators and animations -/
+def spinnersTabContent : WidgetM Unit := do
+  let colStyle : BoxStyle := { flexItem := some (FlexItem.growing 1) }
+  flexRow' { FlexContainer.row 20 with alignItems := .flexStart } (style := {}) do
+    column' (gap := 16) (style := colStyle) do
+      standardSpinnersPanel
+      creativeSpinnersPanel
+    column' (gap := 16) (style := colStyle) do
+      moreCreativeSpinnersPanel
+      spinnerSizesPanel
+    column' (gap := 16) (style := colStyle) do
+      spinnerColorsPanel
+      spinnerSpeedsPanel
 
 /-! ## Main Application -/
 
@@ -191,7 +215,9 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           { label := "Data", content := dataTabContent },
           { label := "Feedback", content := feedbackTabContent fireModalOpen
               fireToastInfo fireToastSuccess fireToastWarning fireToastError },
-          { label := "Charts", content := chartsTabContent }
+          { label := "Spinners", content := spinnersTabContent },
+          { label := "Charts (Basic)", content := chartsBasicTabContent },
+          { label := "Charts (Advanced)", content := chartsAdvancedTabContent }
         ]
         let _ ← tabView tabs 0
 
