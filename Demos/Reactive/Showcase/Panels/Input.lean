@@ -86,26 +86,26 @@ def dependentDropdownsPanel : WidgetM Unit :=
           pure ()
 
 /-- Text inputs panel - demonstrates single-line text input. -/
-def textInputsPanel (font : Afferent.Font) : WidgetM Unit :=
+def textInputsPanel : WidgetM Unit :=
   titledPanel' "Text Inputs" .outlined do
     caption' "Click to focus, then type:"
-    let _ ← textInput font "Enter text here..." ""
-    let _ ← textInput font "Type something..." "Hello, World!"
-    let _ ← passwordInput font "Enter password..." ""
+    let _ ← textInput "Enter text here..." ""
+    let _ ← textInput "Type something..." "Hello, World!"
+    let _ ← passwordInput "Enter password..." ""
     pure ()
 
 /-- Text area panel - demonstrates multi-line text input. -/
-def textAreaPanel (font : Afferent.Font) : WidgetM Unit :=
+def textAreaPanel : WidgetM Unit :=
   titledPanel' "Text Area" .outlined do
     caption' "Multi-line text with word wrapping:"
-    let _ ← textArea "Enter multi-line text..." {} font
+    let _ ← textArea "Enter multi-line text..." {}
     pure ()
 
 /-- Search input panel - demonstrates search input with icon and clear button. -/
-def searchInputPanel (font : Afferent.Font) : WidgetM Unit :=
+def searchInputPanel : WidgetM Unit :=
   titledPanel' "Search Input" .outlined do
     caption' "Type to search, press Enter or click X to clear:"
-    let result ← searchInput font "Search..." ""
+    let result ← searchInput "Search..." ""
     let _ ← dynWidget result.text fun text =>
       if text.isEmpty then
         caption' "No search query"
@@ -113,7 +113,7 @@ def searchInputPanel (font : Afferent.Font) : WidgetM Unit :=
         caption' s!"Searching for: \"{text}\""
 
 /-- ComboBox panel - demonstrates filterable dropdown with text input. -/
-def comboBoxPanel (font : Afferent.Font) : WidgetM Unit :=
+def comboBoxPanel : WidgetM Unit :=
   titledPanel' "ComboBox" .outlined do
     caption' "Type to filter options:"
     row' (gap := 24) (style := {}) do
@@ -123,7 +123,7 @@ def comboBoxPanel (font : Afferent.Font) : WidgetM Unit :=
           "United States", "United Kingdom", "Canada", "Australia",
           "Germany", "France", "Japan", "China", "India", "Brazil"
         ]
-        let result ← comboBox countries font "Search countries..."
+        let result ← comboBox countries "Search countries..."
         let _ ← dynWidget result.value fun val =>
           if val.isEmpty then
             caption' "No selection"
@@ -132,7 +132,7 @@ def comboBoxPanel (font : Afferent.Font) : WidgetM Unit :=
       column' (gap := 8) (style := {}) do
         caption' "With free text:"
         let tags := #["bug", "feature", "docs", "enhancement", "help wanted"]
-        let result2 ← comboBox tags font "Add tag..." "" { allowFreeText := true }
+        let result2 ← comboBox tags "Add tag..." "" { allowFreeText := true }
         let _ ← dynWidget result2.value fun val =>
           if val.isEmpty then
             caption' "No tag"

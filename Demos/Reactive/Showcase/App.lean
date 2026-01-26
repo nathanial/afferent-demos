@@ -45,7 +45,7 @@ def controlsTabContent (fireButtonClick : Unit → IO Unit) : WidgetM Unit := do
       linkPanel
 
 /-- Input tab: Sliders, Stepper, Dropdowns, Text Inputs, Date/Color Pickers -/
-def inputTabContent (font : Font) : WidgetM Unit := do
+def inputTabContent : WidgetM Unit := do
   let colStyle : BoxStyle := { flexItem := some (FlexItem.growing 1) }
   flexRow' { FlexContainer.row 20 with alignItems := .flexStart } (style := {}) do
     column' (gap := 16) (style := colStyle) do
@@ -55,10 +55,10 @@ def inputTabContent (font : Font) : WidgetM Unit := do
       dropdownPanel
       dependentDropdownsPanel
     column' (gap := 16) (style := colStyle) do
-      searchInputPanel font
-      comboBoxPanel font
-      textInputsPanel font
-      textAreaPanel font
+      searchInputPanel
+      comboBoxPanel
+      textInputsPanel
+      textAreaPanel
       datePickerPanel
       timePickerPanel
       colorPickerPanel
@@ -79,25 +79,24 @@ def layoutTabContent : WidgetM Unit := do
       sidebarPanel
 
 /-- Data tab: Table, DataGrid, ListBox, Virtual List, Tree View, Pagination -/
-def dataTabContent (font : Font) : WidgetM Unit := do
+def dataTabContent : WidgetM Unit := do
   column' (gap := 16) (style := {}) do
     tablePanel
-    dataGridPanel font
+    dataGridPanel
     listBoxPanel
     virtualListPanel
     treeViewPanel
     paginationPanel
 
 /-- Feedback tab: Progress, Tooltips, Modal, Toasts, Menus -/
-def feedbackTabContent (smallFont : Font)
-    (fireModalOpen : Unit → IO Unit)
+def feedbackTabContent (fireModalOpen : Unit → IO Unit)
     (fireToastInfo fireToastSuccess fireToastWarning fireToastError : Unit → IO Unit)
     : WidgetM Unit := do
   let colStyle : BoxStyle := { flexItem := some (FlexItem.growing 1) }
   flexRow' { FlexContainer.row 20 with alignItems := .flexStart } (style := {}) do
     column' (gap := 16) (style := colStyle) do
       progressBarsPanel
-      tooltipsPanel smallFont
+      tooltipsPanel
       let modalClick ← modalTriggerPanel
       performEvent_ (← Event.mapM (fun _ => fireModalOpen ()) modalClick)
     column' (gap := 16) (style := colStyle) do
@@ -187,11 +186,11 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
       column' (gap := 0) (style := contentStyle) do
         let tabs : Array TabDef := #[
           { label := "Controls", content := controlsTabContent fireButtonClick },
-          { label := "Input", content := inputTabContent env.fontCanopy },
+          { label := "Input", content := inputTabContent },
           { label := "Layout", content := layoutTabContent },
-          { label := "Data", content := dataTabContent env.fontCanopy },
-          { label := "Feedback", content := feedbackTabContent env.fontCanopySmall
-              fireModalOpen fireToastInfo fireToastSuccess fireToastWarning fireToastError },
+          { label := "Data", content := dataTabContent },
+          { label := "Feedback", content := feedbackTabContent fireModalOpen
+              fireToastInfo fireToastSuccess fireToastWarning fireToastError },
           { label := "Charts", content := chartsTabContent }
         ]
         let _ ← tabView tabs 0

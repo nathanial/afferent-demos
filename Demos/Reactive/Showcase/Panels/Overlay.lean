@@ -128,24 +128,24 @@ def menuBarPanel : WidgetM Unit :=
     pure ()
 
 /-- Tooltips panel - demonstrates hover tooltips with different positions. -/
-def tooltipsPanel (font : Afferent.Font) : WidgetM Unit :=
+def tooltipsPanel : WidgetM Unit :=
   titledPanel' "Tooltips" .outlined do
     caption' "Hover over buttons to see tooltips:"
     row' (gap := 12) (style := {}) do
       -- Tooltip above
-      let (_, _) ← tooltipTop "Appears above" font (delay := 0.3) do
+      let (_, _) ← tooltipTop "Appears above" (delay := 0.3) do
         let _ ← button "Top" .outline
         pure ()
       -- Tooltip below
-      let (_, _) ← tooltipBottom "Appears below" font (delay := 0.3) do
+      let (_, _) ← tooltipBottom "Appears below" (delay := 0.3) do
         let _ ← button "Bottom" .outline
         pure ()
       -- Tooltip left
-      let (_, _) ← tooltipLeft "Appears left" font (delay := 0.3) do
+      let (_, _) ← tooltipLeft "Appears left" (delay := 0.3) do
         let _ ← button "Left" .outline
         pure ()
       -- Tooltip right
-      let (_, _) ← tooltipRight "Appears right" font (delay := 0.3) do
+      let (_, _) ← tooltipRight "Appears right" (delay := 0.3) do
         let _ ← button "Right" .outline
         pure ()
       pure ()

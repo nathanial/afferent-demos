@@ -357,7 +357,7 @@ instance : Demo .reactiveShowcase where
 
     -- Run the app setup within the env
     let (appState, events, inputs) ← (do
-      let (events, inputs) ← Afferent.Canopy.Reactive.createInputs env.fontRegistry theme
+      let (events, inputs) ← Afferent.Canopy.Reactive.createInputs env.fontRegistry theme (some env.fontCanopy)
       let appState ← Afferent.Canopy.Reactive.ReactiveM.run events (ReactiveShowcase.createApp env)
       pure (appState, events, inputs)
     ).run spiderEnv
@@ -441,7 +441,7 @@ instance : Demo .widgetPerf where
       smallFont := env.fontCanopySmallId
     }
     let (appState, events, inputs) ← (do
-      let (events, inputs) ← Afferent.Canopy.Reactive.createInputs env.fontRegistry theme
+      let (events, inputs) ← Afferent.Canopy.Reactive.createInputs env.fontRegistry theme (some env.fontCanopy)
       let appState ← Afferent.Canopy.Reactive.ReactiveM.run events (WidgetPerf.createApp env)
       pure (appState, events, inputs)
     ).run spiderEnv
@@ -636,7 +636,7 @@ instance : Demo .chatDemo where
       smallFont := env.fontCanopySmallId
     }
     let (appState, events, inputs) ← (do
-      let (events, inputs) ← Afferent.Canopy.Reactive.createInputs env.fontRegistry theme
+      let (events, inputs) ← Afferent.Canopy.Reactive.createInputs env.fontRegistry theme (some env.fontCanopy)
       let appState ← Afferent.Canopy.Reactive.ReactiveM.run events (ChatDemo.createApp env)
       pure (appState, events, inputs)
     ).run spiderEnv

@@ -39,7 +39,7 @@ def tablePanel : WidgetM Unit :=
     pure ()
 
 /-- DataGrid panel - demonstrates editable grid cells. -/
-def dataGridPanel (font : Afferent.Font) : WidgetM Unit :=
+def dataGridPanel : WidgetM Unit :=
   titledPanel' "DataGrid" .outlined do
     caption' "Click a cell to edit, press Enter to commit:"
     let columns : Array DataGridColumn := #[
@@ -53,7 +53,7 @@ def dataGridPanel (font : Afferent.Font) : WidgetM Unit :=
       #["Bananas", "2", "$1.10"],
       #["Grapes", "1", "$3.25"]
     ]
-    let result ← dataGrid columns rows font {}
+    let result ← dataGrid columns rows
     let _ ← performEvent_ (← Event.mapM (fun (r, c, v) => do
       IO.println s!"DataGrid edit: ({r}, {c}) = {v}"
     ) result.onEdit)

@@ -69,7 +69,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
             inputPlaceholder := "Type a message..."
             systemPrompt := some "You are a helpful assistant."
           }
-          let _ ← chatWidget client env.fontCanopy chatConfig
+          let _ ← chatWidget client chatConfig
           pure ()
         | none =>
           -- Show error message if no API key
