@@ -17,22 +17,22 @@ namespace Demos.ReactiveShowcase
 
 /-- Modal trigger panel - button to open the modal dialog.
     Returns the click event for external wiring. -/
-def modalTriggerPanel (theme : Theme) : WidgetM (Reactive.Event Spider Unit) :=
-  titledPanel' "Modal" .outlined theme do
-    caption' "Click button to open modal:" theme
-    button "Open Modal" theme .primary
+def modalTriggerPanel : WidgetM (Reactive.Event Spider Unit) :=
+  titledPanel' "Modal" .outlined do
+    caption' "Click button to open modal:"
+    button "Open Modal" .primary
 
 /-- Toast triggers panel - buttons to show different toast notifications.
     Takes fire functions for each toast type. -/
-def toastsPanel (theme : Theme)
+def toastsPanel
     (fireInfo fireSuccess fireWarning fireError : Unit → IO Unit) : WidgetM Unit :=
-  titledPanel' "Toasts" .outlined theme do
-    caption' "Click to show notifications:" theme
+  titledPanel' "Toasts" .outlined do
+    caption' "Click to show notifications:"
     row' (gap := 8) (style := {}) do
-      let infoClick ← button "Info" theme .primary
-      let successClick ← button "Success" theme .primary
-      let warnClick ← button "Warning" theme .secondary
-      let errorClick ← button "Error" theme .secondary
+      let infoClick ← button "Info" .primary
+      let successClick ← button "Success" .primary
+      let warnClick ← button "Warning" .secondary
+      let errorClick ← button "Error" .secondary
       -- Wire clicks to toast triggers
       let infoAction ← Event.mapM (fun _ => fireInfo ()) infoClick
       let successAction ← Event.mapM (fun _ => fireSuccess ()) successClick
@@ -44,9 +44,9 @@ def toastsPanel (theme : Theme)
       performEvent_ errorAction
 
 /-- Menu panel - demonstrates trigger-based menu with actions and separators. -/
-def menuPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Menu" .outlined theme do
-    caption' "Click button to open menu (hover submenus):" theme
+def menuPanel : WidgetM Unit :=
+  titledPanel' "Menu" .outlined do
+    caption' "Click button to open menu (hover submenus):"
     row' (gap := 16) (style := {}) do
       let items := #[
         MenuItem.action "Cut",
@@ -67,8 +67,8 @@ def menuPanel (theme : Theme) : WidgetM Unit :=
         MenuItem.separator,
         MenuItem.action "Delete" (enabled := false)
       ]
-      let (_, menuResult) ← menu items theme (trigger := do
-        let _ ← button "Actions" theme .primary
+      let (_, menuResult) ← menu items (trigger := do
+        let _ ← button "Actions" .primary
         pure ())
       -- Show when selection happens (path is now an array)
       let _ ← performEvent_ (← Event.mapM (fun path => do
@@ -77,9 +77,9 @@ def menuPanel (theme : Theme) : WidgetM Unit :=
       pure ()
 
 /-- MenuBar panel - demonstrates horizontal menu bar with multiple dropdown menus. -/
-def menuBarPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "MenuBar" .outlined theme do
-    caption' "Click menu triggers, hover to switch while open:" theme
+def menuBarPanel : WidgetM Unit :=
+  titledPanel' "MenuBar" .outlined do
+    caption' "Click menu triggers, hover to switch while open:"
     let fileMenu : MenuBarMenu := {
       label := "File"
       items := #[
@@ -121,32 +121,32 @@ def menuBarPanel (theme : Theme) : WidgetM Unit :=
       ]
       enabled := true
     }
-    let result ← menuBar #[fileMenu, editMenu, viewMenu, helpMenu] theme
+    let result ← menuBar #[fileMenu, editMenu, viewMenu, helpMenu]
     let _ ← performEvent_ (← Event.mapM (fun path => do
       IO.println s!"MenuBar selected: menu {path.menuIndex}, path {path.itemPath.toList}"
     ) result.onSelect)
     pure ()
 
 /-- Tooltips panel - demonstrates hover tooltips with different positions. -/
-def tooltipsPanel (theme : Theme) (font : Afferent.Font) : WidgetM Unit :=
-  titledPanel' "Tooltips" .outlined theme do
-    caption' "Hover over buttons to see tooltips:" theme
+def tooltipsPanel (font : Afferent.Font) : WidgetM Unit :=
+  titledPanel' "Tooltips" .outlined do
+    caption' "Hover over buttons to see tooltips:"
     row' (gap := 12) (style := {}) do
       -- Tooltip above
-      let (_, _) ← tooltipTop "Appears above" theme font (delay := 0.3) do
-        let _ ← button "Top" theme .outline
+      let (_, _) ← tooltipTop "Appears above" font (delay := 0.3) do
+        let _ ← button "Top" .outline
         pure ()
       -- Tooltip below
-      let (_, _) ← tooltipBottom "Appears below" theme font (delay := 0.3) do
-        let _ ← button "Bottom" theme .outline
+      let (_, _) ← tooltipBottom "Appears below" font (delay := 0.3) do
+        let _ ← button "Bottom" .outline
         pure ()
       -- Tooltip left
-      let (_, _) ← tooltipLeft "Appears left" theme font (delay := 0.3) do
-        let _ ← button "Left" theme .outline
+      let (_, _) ← tooltipLeft "Appears left" font (delay := 0.3) do
+        let _ ← button "Left" .outline
         pure ()
       -- Tooltip right
-      let (_, _) ← tooltipRight "Appears right" theme font (delay := 0.3) do
-        let _ ← button "Right" theme .outline
+      let (_, _) ← tooltipRight "Appears right" font (delay := 0.3) do
+        let _ ← button "Right" .outline
         pure ()
       pure ()
 

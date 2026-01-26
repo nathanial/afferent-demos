@@ -16,9 +16,9 @@ open Trellis
 namespace Demos.ReactiveShowcase
 
 /-- Table panel - demonstrates tabular data display with row selection. -/
-def tablePanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Table" .outlined theme do
-    caption' "Click rows to select:" theme
+def tablePanel : WidgetM Unit :=
+  titledPanel' "Table" .outlined do
+    caption' "Click rows to select:"
     let columns : Array TableColumn := #[
       { header := "Name" },
       { header := "Email", width := some 160 },
@@ -32,16 +32,16 @@ def tablePanel (theme : Theme) : WidgetM Unit :=
       #["David", "david@ex.com", "User", "Active"],
       #["Eve", "eve@ex.com", "Moderator", "Active"]
     ]
-    let result ← table columns rows theme
+    let result ← table columns rows
     let _ ← performEvent_ (← Event.mapM (fun rowIdx => do
       IO.println s!"Table row selected: {rowIdx}"
     ) result.onRowSelect)
     pure ()
 
 /-- DataGrid panel - demonstrates editable grid cells. -/
-def dataGridPanel (theme : Theme) (font : Afferent.Font) : WidgetM Unit :=
-  titledPanel' "DataGrid" .outlined theme do
-    caption' "Click a cell to edit, press Enter to commit:" theme
+def dataGridPanel (font : Afferent.Font) : WidgetM Unit :=
+  titledPanel' "DataGrid" .outlined do
+    caption' "Click a cell to edit, press Enter to commit:"
     let columns : Array DataGridColumn := #[
       { header := "Item" },
       { header := "Qty", width := some 60 },
@@ -53,29 +53,30 @@ def dataGridPanel (theme : Theme) (font : Afferent.Font) : WidgetM Unit :=
       #["Bananas", "2", "$1.10"],
       #["Grapes", "1", "$3.25"]
     ]
-    let result ← dataGrid columns rows theme font {}
+    let result ← dataGrid columns rows font {}
     let _ ← performEvent_ (← Event.mapM (fun (r, c, v) => do
       IO.println s!"DataGrid edit: ({r}, {c}) = {v}"
     ) result.onEdit)
     pure ()
 
 /-- ListBox panel - demonstrates scrollable list with selection. -/
-def listBoxPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "ListBox" .outlined theme do
-    caption' "Click items to select:" theme
+def listBoxPanel : WidgetM Unit :=
+  titledPanel' "ListBox" .outlined do
+    caption' "Click items to select:"
     let fruits := #["Apple", "Banana", "Cherry", "Date",
                     "Elderberry", "Fig", "Grape", "Honeydew",
                     "Kiwi", "Lemon", "Mango", "Nectarine"]
-    let result ← listBox fruits theme
+    let result ← listBox fruits
     let _ ← performEvent_ (← Event.mapM (fun itemIdx => do
       IO.println s!"ListBox item selected: {itemIdx}"
     ) result.onSelect)
     pure ()
 
 /-- VirtualList panel - demonstrates efficient rendering of long lists. -/
-def virtualListPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "VirtualList" .outlined theme do
-    caption' "Only visible rows are rendered:" theme
+def virtualListPanel : WidgetM Unit := do
+  let theme ← getThemeW
+  titledPanel' "VirtualList" .outlined do
+    caption' "Only visible rows are rendered:"
     let itemCount := 500
     let config : VirtualListConfig := {
       width := 220
@@ -96,10 +97,10 @@ def virtualListPanel (theme : Theme) : WidgetM Unit :=
       let props : FlexContainer := { FlexContainer.row 0 with alignItems := .center }
       let label ← bodyText s!"Row {idx}" theme
       pure (.flex wid none props rowStyle #[label])
-    ) theme config
+    ) config
 
     let _ ← dynWidget result.visibleRange fun (start, stop) =>
-      caption' s!"Visible indices: [{start}, {stop})" theme
+      caption' s!"Visible indices: [{start}, {stop})"
 
     let _ ← performEvent_ (← Event.mapM (fun idx => do
       IO.println s!"VirtualList item clicked: {idx}"
@@ -107,9 +108,9 @@ def virtualListPanel (theme : Theme) : WidgetM Unit :=
     pure ()
 
 /-- TreeView panel - demonstrates hierarchical tree with expand/collapse. -/
-def treeViewPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "TreeView" .outlined theme do
-    caption' "Click arrows to expand/collapse:" theme
+def treeViewPanel : WidgetM Unit :=
+  titledPanel' "TreeView" .outlined do
+    caption' "Click arrows to expand/collapse:"
     let nodes : Array TreeNode := #[
       .branch "Documents" #[
         .leaf "Resume.pdf",
@@ -125,7 +126,7 @@ def treeViewPanel (theme : Theme) : WidgetM Unit :=
       ],
       .leaf "Notes.txt"
     ]
-    let result ← treeView nodes theme
+    let result ← treeView nodes
     let _ ← performEvent_ (← Event.mapM (fun path => do
       IO.println s!"TreeView node selected: {path}"
     ) result.onNodeSelect)
@@ -135,21 +136,21 @@ def treeViewPanel (theme : Theme) : WidgetM Unit :=
     pure ()
 
 /-- Pagination panel - demonstrates page navigation controls. -/
-def paginationPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Pagination" .outlined theme do
-    caption' "Navigate between pages:" theme
+def paginationPanel : WidgetM Unit :=
+  titledPanel' "Pagination" .outlined do
+    caption' "Navigate between pages:"
     row' (gap := 16) (style := {}) do
       column' (gap := 8) (style := {}) do
-        caption' "Standard (20 pages):" theme
-        let result ← pagination 20 theme 0
+        caption' "Standard (20 pages):"
+        let result ← pagination 20 0
         let _ ← dynWidget result.currentPage fun page =>
-          caption' s!"Page {page + 1} of 20" theme
+          caption' s!"Page {page + 1} of 20"
         pure ()
       column' (gap := 8) (style := {}) do
-        caption' "Few pages (5):" theme
-        let result2 ← pagination 5 theme 2
+        caption' "Few pages (5):"
+        let result2 ← pagination 5 2
         let _ ← dynWidget result2.currentPage fun page =>
-          caption' s!"Page {page + 1} of 5" theme
+          caption' s!"Page {page + 1} of 5"
         pure ()
 
 end Demos.ReactiveShowcase

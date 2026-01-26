@@ -28,7 +28,6 @@ structure AppState where
 /-- Create the chat demo application.
     Sets up the reactive chat widget with Oracle API integration. -/
 def createApp (env : DemoEnv) : ReactiveM AppState := do
-  let theme : Theme := { Theme.dark with font := env.fontCanopyId, smallFont := env.fontCanopySmallId }
   let events ← getEvents
 
   -- Try to get API key from environment
@@ -45,8 +44,8 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
 
     column' (gap := 20) (style := rootStyle) do
       -- Title
-      heading1' "Chat Widget Demo" theme
-      caption' "AI conversation interface with streaming support" theme
+      heading1' "Chat Widget Demo"
+      caption' "AI conversation interface with streaming support"
 
       -- Content area
       let contentStyle : BoxStyle := {
@@ -70,14 +69,14 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
             inputPlaceholder := "Type a message..."
             systemPrompt := some "You are a helpful assistant."
           }
-          let _ ← chatWidget client theme env.fontCanopy chatConfig
+          let _ ← chatWidget client env.fontCanopy chatConfig
           pure ()
         | none =>
           -- Show error message if no API key
           column' (gap := 16) (style := { padding := EdgeInsets.uniform 32 }) do
-            heading2' "API Key Required" theme
-            bodyText' "Set the OPENROUTER_API_KEY environment variable to use this demo." theme
-            caption' "Example: export OPENROUTER_API_KEY=your-key-here" theme
+            heading2' "API Key Required"
+            bodyText' "Set the OPENROUTER_API_KEY environment variable to use this demo."
+            caption' "Example: export OPENROUTER_API_KEY=your-key-here"
 
   -- Set up automatic focus clearing
   events.registry.setupFocusClearing

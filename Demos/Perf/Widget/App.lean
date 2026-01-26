@@ -166,7 +166,7 @@ def sampleSankeyData : SankeyDiagram.Data :=
   { nodes, links }
 
 /-- Render a single widget of the given type, wrapped in a growing cell. -/
-def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Unit := do
+def renderWidget (wtype : WidgetType) (index : Nat) : WidgetM Unit := do
   let cellStyle : BoxStyle := {
     flexItem := some (FlexItem.growing 1)
     width := .percent 1.0
@@ -174,109 +174,109 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
   }
   column' (gap := 0) (style := cellStyle) do match wtype with
   -- Simple
-  | .label => heading3' s!"Label {index}" theme
-  | .caption => caption' s!"Caption {index}" theme
+  | .label => heading3' s!"Label {index}"
+  | .caption => caption' s!"Caption {index}"
   | .spacer => spacer' 80 30
   | .panel =>
-    outlinedPanel' theme 6 do
-      caption' s!"Panel {index}" theme
+    outlinedPanel' 6 do
+      caption' s!"Panel {index}"
 
   -- Controls
   | .button =>
-    let _ ← button s!"Btn {index}" theme .primary
+    let _ ← button s!"Btn {index}" .primary
     pure ()
   | .checkbox =>
-    let _ ← checkbox s!"Chk {index}" theme false
+    let _ ← checkbox s!"Chk {index}" false
     pure ()
   | .switch =>
-    let _ ← switch none theme false
+    let _ ← switch none false
     pure ()
   | .radioGroup =>
     let opts : Array RadioOption := #[{ label := "A", value := "a" }, { label := "B", value := "b" }]
-    let _ ← radioGroup opts theme "a"
+    let _ ← radioGroup opts "a"
     pure ()
   | .slider =>
-    let _ ← slider none theme 0.5
+    let _ ← slider none 0.5
     pure ()
   | .stepper =>
     let config : StepperConfig := { min := 0, max := 10, step := 1, width := 80 }
-    let _ ← stepper theme 5 config
+    let _ ← stepper 5 config
     pure ()
   | .progressBar =>
-    let _ ← progressBar theme 0.65 .primary none false
+    let _ ← progressBar 0.65 .primary none false
     pure ()
   | .progressIndeterminate =>
-    let _ ← progressBarIndeterminate theme .primary none
+    let _ ← progressBarIndeterminate .primary none
     pure ()
   | .dropdown =>
     let opts := #["Apple", "Banana", "Cherry"]
-    let _ ← dropdown opts theme 0
+    let _ ← dropdown opts 0
     pure ()
 
   -- Spinners (standard)
   | .spinnerCircleDots =>
-    let _ ← spinner theme { variant := .circleDots, dims := { size := 50 } }
+    let _ ← spinner { variant := .circleDots, dims := { size := 50 } }
     pure ()
   | .spinnerRing =>
-    let _ ← spinner theme { variant := .ring, dims := { size := 50 } }
+    let _ ← spinner { variant := .ring, dims := { size := 50 } }
     pure ()
   | .spinnerBouncingDots =>
-    let _ ← spinner theme { variant := .bouncingDots, dims := { size := 50 } }
+    let _ ← spinner { variant := .bouncingDots, dims := { size := 50 } }
     pure ()
   | .spinnerBars =>
-    let _ ← spinner theme { variant := .bars, dims := { size := 50 } }
+    let _ ← spinner { variant := .bars, dims := { size := 50 } }
     pure ()
   | .spinnerDualRing =>
-    let _ ← spinner theme { variant := .dualRing, dims := { size := 50 } }
+    let _ ← spinner { variant := .dualRing, dims := { size := 50 } }
     pure ()
 
   -- Spinners (creative)
   | .spinnerOrbit =>
-    let _ ← spinner theme { variant := .orbit, dims := { size := 50 } }
+    let _ ← spinner { variant := .orbit, dims := { size := 50 } }
     pure ()
   | .spinnerPulse =>
-    let _ ← spinner theme { variant := .pulse, dims := { size := 50 } }
+    let _ ← spinner { variant := .pulse, dims := { size := 50 } }
     pure ()
   | .spinnerHelix =>
-    let _ ← spinner theme { variant := .helix, dims := { size := 50 } }
+    let _ ← spinner { variant := .helix, dims := { size := 50 } }
     pure ()
   | .spinnerWave =>
-    let _ ← spinner theme { variant := .wave, dims := { size := 50 } }
+    let _ ← spinner { variant := .wave, dims := { size := 50 } }
     pure ()
   | .spinnerSpiral =>
-    let _ ← spinner theme { variant := .spiral, dims := { size := 50 } }
+    let _ ← spinner { variant := .spiral, dims := { size := 50 } }
     pure ()
   | .spinnerClock =>
-    let _ ← spinner theme { variant := .clock, dims := { size := 50 } }
+    let _ ← spinner { variant := .clock, dims := { size := 50 } }
     pure ()
   | .spinnerPendulum =>
-    let _ ← spinner theme { variant := .pendulum, dims := { size := 50 } }
+    let _ ← spinner { variant := .pendulum, dims := { size := 50 } }
     pure ()
   | .spinnerRipple =>
-    let _ ← spinner theme { variant := .ripple, dims := { size := 50 } }
+    let _ ← spinner { variant := .ripple, dims := { size := 50 } }
     pure ()
   | .spinnerHeartbeat =>
-    let _ ← spinner theme { variant := .heartbeat, dims := { size := 50 } }
+    let _ ← spinner { variant := .heartbeat, dims := { size := 50 } }
     pure ()
   | .spinnerGears =>
-    let _ ← spinner theme { variant := .gears, dims := { size := 50 } }
+    let _ ← spinner { variant := .gears, dims := { size := 50 } }
     pure ()
 
   -- Charts
   | .barChart =>
     let dims : BarChart.Dimensions := { width := 140, height := 80, marginLeft := 25 }
     let dataDyn ← Dynamic.pureM sampleBarData
-    let _ ← barChart dataDyn sampleBarLabels theme .primary dims
+    let _ ← barChart dataDyn sampleBarLabels (dims := dims)
     pure ()
   | .lineChart =>
     let dims : LineChart.Dimensions := { width := 140, height := 80, marginLeft := 25 }
     let dataDyn ← Dynamic.pureM sampleBarData
-    let _ ← lineChart dataDyn sampleBarLabels theme .primary dims
+    let _ ← lineChart dataDyn sampleBarLabels (dims := dims)
     pure ()
   | .areaChart =>
     let dims : AreaChart.Dimensions := { width := 140, height := 80, marginLeft := 25 }
     let dataDyn ← Dynamic.pureM sampleBarData
-    let _ ← areaChart dataDyn sampleBarLabels theme .primary dims
+    let _ ← areaChart dataDyn sampleBarLabels (dims := dims)
     pure ()
   | .pieChart =>
     let slices : Array PieChart.Slice := #[
@@ -286,7 +286,7 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
     ]
     let dims : PieChart.Dimensions := { width := 100, height := 80, radius := 30, showLabels := false }
     let slicesDyn ← Dynamic.pureM slices
-    let _ ← pieChart slicesDyn theme dims
+    let _ ← pieChart slicesDyn dims
     pure ()
   | .donutChart =>
     let slices : Array DonutChart.Slice := #[
@@ -296,7 +296,7 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
     ]
     let dims : DonutChart.Dimensions := { width := 100, height := 80, outerRadius := 30, innerRadius := 18, showLabels := false }
     let slicesDyn ← Dynamic.pureM slices
-    let _ ← donutChart slicesDyn theme dims
+    let _ ← donutChart slicesDyn dims
     pure ()
   | .scatterPlot =>
     let points : Array ScatterPlot.DataPoint := #[
@@ -305,12 +305,12 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
     ]
     let dims : ScatterPlot.Dimensions := { width := 140, height := 80, marginLeft := 25 }
     let pointsDyn ← Dynamic.pureM points
-    let _ ← scatterPlot pointsDyn theme dims
+    let _ ← scatterPlot pointsDyn dims
     pure ()
   | .horizontalBarChart =>
     let dims : HorizontalBarChart.Dimensions := { width := 140, height := 80, marginLeft := 35 }
     let dataDyn ← Dynamic.pureM sampleBarData
-    let _ ← horizontalBarChart dataDyn sampleBarLabels theme .primary dims
+    let _ ← horizontalBarChart dataDyn sampleBarLabels (dims := dims)
     pure ()
   | .bubbleChart =>
     let points : Array BubbleChart.DataPoint := #[
@@ -318,25 +318,25 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
     ]
     let dims : BubbleChart.Dimensions := { width := 140, height := 80, marginLeft := 25, minBubbleRadius := 3, maxBubbleRadius := 12 }
     let pointsDyn ← Dynamic.pureM points
-    let _ ← bubbleChart pointsDyn theme dims
+    let _ ← bubbleChart pointsDyn dims
     pure ()
   | .histogram =>
     let data : Array Float := #[10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80]
     let dims : Histogram.Dimensions := { width := 140, height := 80, marginLeft := 25 }
     let dataDyn ← Dynamic.pureM data
-    let _ ← histogram dataDyn theme .primary dims {}
+    let _ ← histogram dataDyn (dims := dims)
     pure ()
   | .boxPlot =>
     let data := #[#[10.0, 20.0, 30.0, 40.0, 50.0], #[15.0, 25.0, 35.0, 45.0, 55.0]]
     let dims : BoxPlot.Dimensions := { width := 140, height := 80, marginLeft := 25, boxWidth := 25 }
     let dataDyn ← Dynamic.pureM data
-    let _ ← boxPlotFromData dataDyn #["A", "B"] theme dims
+    let _ ← boxPlotFromData dataDyn #["A", "B"] dims
     pure ()
   | .heatmap =>
     let values : Array (Array Float) := #[#[1.0, 0.5, 0.2], #[0.5, 1.0, 0.7], #[0.2, 0.7, 1.0]]
     let dims : Heatmap.Dimensions := { width := 100, height := 80, marginLeft := 15, marginTop := 15, showValues := false }
     let valuesDyn ← Dynamic.pureM values
-    let _ ← correlationMatrix valuesDyn #["A", "B", "C"] theme dims
+    let _ ← correlationMatrix valuesDyn #["A", "B", "C"] dims
     pure ()
   | .stackedBarChart =>
     let data : StackedBarChart.Data := {
@@ -345,7 +345,7 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
     }
     let dims : StackedBarChart.Dimensions := { width := 140, height := 80, marginLeft := 25 }
     let dataDyn ← Dynamic.pureM data
-    let _ ← stackedBarChart dataDyn theme dims
+    let _ ← stackedBarChart dataDyn dims
     pure ()
   | .groupedBarChart =>
     let data : GroupedBarChart.Data := {
@@ -354,7 +354,7 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
     }
     let dims : GroupedBarChart.Dimensions := { width := 140, height := 80, marginLeft := 25 }
     let dataDyn ← Dynamic.pureM data
-    let _ ← groupedBarChart dataDyn theme dims
+    let _ ← groupedBarChart dataDyn dims
     pure ()
   | .stackedAreaChart =>
     let data : StackedAreaChart.Data := {
@@ -363,7 +363,7 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
     }
     let dims : StackedAreaChart.Dimensions := { width := 140, height := 80, marginLeft := 25 }
     let dataDyn ← Dynamic.pureM data
-    let _ ← stackedAreaChart dataDyn theme dims
+    let _ ← stackedAreaChart dataDyn dims
     pure ()
   | .radarChart =>
     let data : RadarChart.Data := {
@@ -372,7 +372,7 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
     }
     let dims : RadarChart.Dimensions := { width := 120, height := 100, radius := 40 }
     let dataDyn ← Dynamic.pureM data
-    let _ ← radarChart dataDyn theme dims
+    let _ ← radarChart dataDyn dims
     pure ()
   | .candlestickChart =>
     let candles : Array CandlestickChart.Candle := #[
@@ -382,7 +382,7 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
     ]
     let dims : CandlestickChart.Dimensions := { width := 140, height := 80, marginLeft := 30 }
     let dataDyn ← Dynamic.pureM ({ candles } : CandlestickChart.Data)
-    let _ ← candlestickChart dataDyn theme CandlestickChart.defaultColors dims
+    let _ ← candlestickChart dataDyn (dims := dims)
     pure ()
   | .waterfallChart =>
     let bars : Array WaterfallChart.Bar := #[
@@ -393,7 +393,7 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
     ]
     let dims : WaterfallChart.Dimensions := { width := 140, height := 80, marginLeft := 30 }
     let dataDyn ← Dynamic.pureM ({ bars } : WaterfallChart.Data)
-    let _ ← waterfallChart dataDyn theme WaterfallChart.defaultColors dims
+    let _ ← waterfallChart dataDyn (dims := dims)
     pure ()
   | .gaugeChart =>
     let data : GaugeChart.Data := {
@@ -406,7 +406,7 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
     }
     let dims : GaugeChart.Dimensions := { width := 100, height := 70, radius := 30 }
     let dataDyn ← Dynamic.pureM data
-    let _ ← gaugeChart dataDyn theme GaugeChart.defaultColors dims
+    let _ ← gaugeChart dataDyn (dims := dims)
     pure ()
   | .funnelChart =>
     let stages : Array FunnelChart.Stage := #[
@@ -414,7 +414,7 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
     ]
     let dims : FunnelChart.Dimensions := { width := 140, height := 80, marginRight := 45 }
     let dataDyn ← Dynamic.pureM ({ stages } : FunnelChart.Data)
-    let _ ← funnelChart dataDyn theme dims
+    let _ ← funnelChart dataDyn dims
     pure ()
   | .treemapChart =>
     let nodes : Array TreemapChart.TreeNode := #[
@@ -423,7 +423,7 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
     ]
     let dims : TreemapChart.Dimensions := { width := 120, height := 80 }
     let dataDyn ← Dynamic.pureM ({ nodes } : TreemapChart.Data)
-    let _ ← treemapChart dataDyn theme dims
+    let _ ← treemapChart dataDyn dims
     pure ()
   | .sankeyDiagram =>
     let dims : SankeyDiagram.Dimensions := {
@@ -435,14 +435,14 @@ def renderWidget (wtype : WidgetType) (theme : Theme) (index : Nat) : WidgetM Un
       showValues := false
     }
     let dataDyn ← Dynamic.pureM sampleSankeyData
-    let _ ← sankeyDiagram dataDyn theme dims
+    let _ ← sankeyDiagram dataDyn dims
     pure ()
   | .mixed =>
     -- Mixed is handled at the grid level, not individual widget level
-    caption' s!"Mixed {index}" theme
+    caption' s!"Mixed {index}"
 
 /-- Render a mixed grid with 10 instances of each widget type, interleaved. -/
-def renderMixedGrid (theme : Theme) : WidgetM Unit := do
+def renderMixedGrid : WidgetM Unit := do
   let gridStyle : BoxStyle := {
     flexItem := some (FlexItem.growing 1)
     width := .percent 1.0
@@ -456,18 +456,18 @@ def renderMixedGrid (theme : Theme) : WidgetM Unit := do
   let numCols := 47  -- One of each type per row
   let numRows := 10  -- 10 instances of each
   column' (gap := 6) (style := gridStyle) do
-    heading3' s!"Mixed Grid ({numTypes} types × 10 = {totalWidgets} instances)" theme
+    heading3' s!"Mixed Grid ({numTypes} types × 10 = {totalWidgets} instances)"
     for row in [:numRows] do
       row' (gap := 6) (style := rowStyle) do
         for col in [:numCols] do
           let wtype := renderableWidgetTypes.getD col .label
           let index := row * numCols + col
-          renderWidget wtype theme index
+          renderWidget wtype index
 
 /-- Render a grid of widgets for a given type. -/
-def renderWidgetGrid (wtype : WidgetType) (theme : Theme) : WidgetM Unit := do
+def renderWidgetGrid (wtype : WidgetType) : WidgetM Unit := do
   if wtype == .mixed then
-    renderMixedGrid theme
+    renderMixedGrid
   else
     let gridStyle : BoxStyle := {
       flexItem := some (FlexItem.growing 1)
@@ -478,12 +478,12 @@ def renderWidgetGrid (wtype : WidgetType) (theme : Theme) : WidgetM Unit := do
       width := .percent 1.0
     }
     column' (gap := 6) (style := gridStyle) do
-      heading3' s!"Grid of {wtype.name} (1000 instances)" theme
+      heading3' s!"Grid of {wtype.name} (1000 instances)"
       for row in [0:25] do
         row' (gap := 6) (style := rowStyle) do
           for col in [0:40] do
             let index := row * 40 + col
-            renderWidget wtype theme index
+            renderWidget wtype index
 
 /-- Application state. -/
 structure AppState where
@@ -491,8 +491,6 @@ structure AppState where
 
 /-- Create the widget performance test application. -/
 def createApp (env : DemoEnv) : ReactiveM AppState := do
-  let theme : Theme := { Theme.dark with font := env.fontCanopyId, smallFont := env.fontCanopySmallId }
-
   -- Pre-create a Dynamic for the selected widget type
   let (selectionEvent, fireSelection) ← Reactive.newTriggerEvent (t := Spider) (a := Nat)
   let selectedType ← Reactive.holdDyn 0 selectionEvent
@@ -507,8 +505,8 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
     }
 
     column' (gap := 16) (style := rootStyle) do
-      heading1' "Widget Performance Test" theme
-      caption' "Select a widget type to render 1000 instances" theme
+      heading1' "Widget Performance Test"
+      caption' "Select a widget type to render 1000 instances"
 
       -- Main content row (fills remaining space)
       let contentRowStyle : BoxStyle := {
@@ -524,9 +522,9 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
           height := .percent 1.0
         }
         column' (gap := 8) (style := leftPanelStyle) do
-          caption' "Widget type:" theme
+          caption' "Widget type:"
 
-          let result ← listBox widgetTypeNames theme { fillHeight := true }
+          let result ← listBox widgetTypeNames {}
 
           -- Wire selection to the external Dynamic
           let selAction ← Event.mapM (fun idx => fireSelection idx) result.onSelect
@@ -534,7 +532,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
 
           -- Show current selection
           let _ ← dynWidget selectedType (fun sel =>
-            caption' s!"Selected: {widgetTypeNames.getD sel "none"}" theme)
+            caption' s!"Selected: {widgetTypeNames.getD sel "none"}")
           pure ()
 
         -- Right panel: Grid of selected widget type (fills remaining space)
@@ -546,7 +544,7 @@ def createApp (env : DemoEnv) : ReactiveM AppState := do
         column' (gap := 0) (style := rightPanelStyle) do
           let _ ← dynWidget selectedType (fun selIdx => do
             let wtype := allWidgetTypes.getD selIdx .label
-            renderWidgetGrid wtype theme)
+            renderWidgetGrid wtype)
           pure ()
 
   pure { render }

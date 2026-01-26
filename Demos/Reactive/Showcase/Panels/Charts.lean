@@ -78,45 +78,45 @@ def smoothPeriodic (min max speed t : Float) : Float :=
   mid + amp * Float.sin (t * speed)
 
 /-- BarChart panel - demonstrates bar chart visualization. -/
-def barChartPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Bar Chart" .outlined theme do
-    caption' "Sales data by quarter:" theme
+def barChartPanel : WidgetM Unit :=
+  titledPanel' "Bar Chart" .outlined do
+    caption' "Sales data by quarter:"
     let baseData := #[42.0, 78.0, 56.0, 91.0]
     let labels := #["Q1", "Q2", "Q3", "Q4"]
     let dims : BarChart.Dimensions := { width := standardWidth, height := standardHeight, marginLeft := standardMarginLeft }
     let elapsedTime ← useElapsedTime
     let dataDyn ← Dynamic.mapM (fun t => oscillateArray baseData 8.0 1.5 t) elapsedTime
-    let _ ← barChart dataDyn labels theme .primary dims
+    let _ ← barChart dataDyn labels .primary dims
     pure ()
 
 /-- LineChart panel - demonstrates line chart visualization. -/
-def lineChartPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Line Chart" .outlined theme do
-    caption' "Monthly revenue trend:" theme
+def lineChartPanel : WidgetM Unit :=
+  titledPanel' "Line Chart" .outlined do
+    caption' "Monthly revenue trend:"
     let baseData := #[12.0, 19.0, 15.0, 25.0, 22.0, 30.0]
     let labels := #["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
     let dims : LineChart.Dimensions := { width := standardWidth, height := standardHeight, marginLeft := standardMarginLeft }
     let elapsedTime ← useElapsedTime
     let dataDyn ← Dynamic.mapM (fun t => oscillateArray baseData 3.0 2.0 t) elapsedTime
-    let _ ← lineChart dataDyn labels theme .primary dims
+    let _ ← lineChart dataDyn labels .primary dims
     pure ()
 
 /-- AreaChart panel - demonstrates area chart visualization. -/
-def areaChartPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Area Chart" .outlined theme do
-    caption' "Website traffic over time:" theme
+def areaChartPanel : WidgetM Unit :=
+  titledPanel' "Area Chart" .outlined do
+    caption' "Website traffic over time:"
     let baseData := #[120.0, 180.0, 150.0, 220.0, 190.0, 280.0, 250.0]
     let labels := #["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     let dims : AreaChart.Dimensions := { width := standardWidth, height := standardHeight, marginLeft := standardMarginLeft }
     let elapsedTime ← useElapsedTime
     let dataDyn ← Dynamic.mapM (fun t => oscillateArray baseData 25.0 1.8 t) elapsedTime
-    let _ ← areaChart dataDyn labels theme .primary dims
+    let _ ← areaChart dataDyn labels .primary dims
     pure ()
 
 /-- PieChart panel - demonstrates pie chart visualization. -/
-def pieChartPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Pie Chart" .outlined theme do
-    caption' "Market share by browser:" theme
+def pieChartPanel : WidgetM Unit :=
+  titledPanel' "Pie Chart" .outlined do
+    caption' "Market share by browser:"
     let baseValues := #[65.0, 19.0, 4.0, 3.0, 9.0]
     let labels := #["Chrome", "Safari", "Firefox", "Edge", "Other"]
     let dims : PieChart.Dimensions := { width := standardWidth, height := mediumHeight, radius := standardRadius, showLabels := false }
@@ -126,13 +126,13 @@ def pieChartPanel (theme : Theme) : WidgetM Unit :=
       let normalized := normalizeToSum animated 100.0
       normalized.zipWith (fun v lbl => ({ value := v, label := some lbl } : PieChart.Slice)) labels
     ) elapsedTime
-    let _ ← pieChartWithLegend slicesDyn theme dims
+    let _ ← pieChartWithLegend slicesDyn dims
     pure ()
 
 /-- DonutChart panel - demonstrates donut chart visualization. -/
-def donutChartPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Donut Chart" .outlined theme do
-    caption' "Expense breakdown:" theme
+def donutChartPanel : WidgetM Unit :=
+  titledPanel' "Donut Chart" .outlined do
+    caption' "Expense breakdown:"
     let baseValues := #[35.0, 20.0, 15.0, 10.0, 20.0]
     let labels := #["Housing", "Food", "Transport", "Utilities", "Other"]
     let dims : DonutChart.Dimensions := {
@@ -148,13 +148,13 @@ def donutChartPanel (theme : Theme) : WidgetM Unit :=
       let normalized := normalizeToSum animated 100.0
       normalized.zipWith (fun v lbl => ({ value := v, label := some lbl } : DonutChart.Slice)) labels
     ) elapsedTime
-    let _ ← donutChartWithLegend slicesDyn theme dims
+    let _ ← donutChartWithLegend slicesDyn dims
     pure ()
 
 /-- ScatterPlot panel - demonstrates scatter plot visualization. -/
-def scatterPlotPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Scatter Plot" .outlined theme do
-    caption' "Height vs Weight correlation:" theme
+def scatterPlotPanel : WidgetM Unit :=
+  titledPanel' "Scatter Plot" .outlined do
+    caption' "Height vs Weight correlation:"
     let basePoints : Array (Float × Float) := #[
       (160, 55), (165, 62), (170, 68), (172, 65), (175, 72), (178, 75),
       (180, 78), (182, 82), (168, 60), (174, 70), (185, 88), (163, 58),
@@ -169,25 +169,25 @@ def scatterPlotPanel (theme : Theme) : WidgetM Unit :=
         let dy := 3.0 * Float.cos (t * 1.5 + phase)
         ({ x := bx + dx, y := by_ + dy } : ScatterPlot.DataPoint)
     ) elapsedTime
-    let _ ← scatterPlot pointsDyn theme dims
+    let _ ← scatterPlot pointsDyn dims
     pure ()
 
 /-- HorizontalBarChart panel - demonstrates horizontal bar chart. -/
-def horizontalBarChartPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Horizontal Bar Chart" .outlined theme do
-    caption' "Programming language popularity:" theme
+def horizontalBarChartPanel : WidgetM Unit :=
+  titledPanel' "Horizontal Bar Chart" .outlined do
+    caption' "Programming language popularity:"
     let baseData := #[85.0, 72.0, 58.0, 45.0, 38.0]
     let labels := #["Python", "JavaScript", "Java", "C++", "Go"]
     let dims : HorizontalBarChart.Dimensions := { width := standardWidth, height := standardHeight, marginLeft := extraLargeMarginLeft }
     let elapsedTime ← useElapsedTime
     let dataDyn ← Dynamic.mapM (fun t => oscillateArray baseData 6.0 1.3 t) elapsedTime
-    let _ ← horizontalBarChart dataDyn labels theme .primary dims
+    let _ ← horizontalBarChart dataDyn labels .primary dims
     pure ()
 
 /-- BubbleChart panel - demonstrates bubble chart visualization. -/
-def bubbleChartPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Bubble Chart" .outlined theme do
-    caption' "Country stats (GDP vs Population):" theme
+def bubbleChartPanel : WidgetM Unit :=
+  titledPanel' "Bubble Chart" .outlined do
+    caption' "Country stats (GDP vs Population):"
     -- GDP (x, trillions), Population (y, hundreds of millions), Size = land area
     let basePoints : Array (Float × Float × Float × String) := #[
       (25.5, 3.3, 9.8, "USA"), (17.9, 14.1, 9.6, "China"), (4.2, 1.3, 0.4, "Japan"),
@@ -210,13 +210,13 @@ def bubbleChartPanel (theme : Theme) : WidgetM Unit :=
         let dy := 0.2 * Float.cos (t * 1.2 + phase)
         ({ x := bx + dx, y := by_ + dy, size := sizePulse, label := some lbl } : BubbleChart.DataPoint)
     ) elapsedTime
-    let _ ← bubbleChart pointsDyn theme dims
+    let _ ← bubbleChart pointsDyn dims
     pure ()
 
 /-- Histogram panel - demonstrates histogram visualization. -/
-def histogramPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Histogram" .outlined theme do
-    caption' "Test score distribution:" theme
+def histogramPanel : WidgetM Unit :=
+  titledPanel' "Histogram" .outlined do
+    caption' "Test score distribution:"
     -- Simulated test scores (roughly normal distribution)
     let baseScores : Array Float := #[
       62, 65, 67, 68, 70, 71, 72, 73, 74, 74,
@@ -235,13 +235,13 @@ def histogramPanel (theme : Theme) : WidgetM Unit :=
       let shift := 5.0 * Float.sin (t * 0.8)
       baseScores.map (· + shift)
     ) elapsedTime
-    let _ ← histogram scoresDyn theme .primary dims binConfig
+    let _ ← histogram scoresDyn .primary dims binConfig
     pure ()
 
 /-- BoxPlot panel - demonstrates box and whisker plot. -/
-def boxPlotPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Box Plot" .outlined theme do
-    caption' "Salary distribution by department:" theme
+def boxPlotPanel : WidgetM Unit :=
+  titledPanel' "Box Plot" .outlined do
+    caption' "Salary distribution by department:"
     -- Simulated salary data for different departments (in thousands)
     let baseEngineering : Array Float := #[65, 72, 78, 82, 85, 88, 90, 92, 95, 98, 102, 105, 110, 115, 145]
     let baseSales : Array Float := #[45, 52, 55, 58, 60, 62, 65, 68, 70, 72, 75, 78, 82, 95]
@@ -259,13 +259,13 @@ def boxPlotPanel (theme : Theme) : WidgetM Unit :=
       let shift2 := 5.0 * Float.sin (t * 1.0 + 2.0)
       #[baseEngineering.map (· + shift0), baseSales.map (· + shift1), baseMarketing.map (· + shift2)]
     ) elapsedTime
-    let _ ← boxPlotFromData dataDyn labels theme dims
+    let _ ← boxPlotFromData dataDyn labels dims
     pure ()
 
 /-- Heatmap panel - demonstrates correlation matrix heatmap. -/
-def heatmapPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Heatmap" .outlined theme do
-    caption' "Feature correlation matrix:" theme
+def heatmapPanel : WidgetM Unit :=
+  titledPanel' "Heatmap" .outlined do
+    caption' "Feature correlation matrix:"
     -- Simulated correlation matrix (base values)
     let baseValues : Array (Array Float) := #[
       #[ 1.0,  0.8,  0.3, -0.2, -0.5],
@@ -292,13 +292,13 @@ def heatmapPanel (theme : Theme) : WidgetM Unit :=
             let pulse := 0.15 * Float.sin (t * 1.5 + phase)
             min 1.0 (max (-1.0) (v + pulse))
     ) elapsedTime
-    let _ ← correlationMatrix valuesDyn labels theme dims
+    let _ ← correlationMatrix valuesDyn labels dims
     pure ()
 
 /-- StackedBarChart panel - demonstrates stacked bar chart visualization. -/
-def stackedBarChartPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Stacked Bar Chart" .outlined theme do
-    caption' "Quarterly revenue by product line:" theme
+def stackedBarChartPanel : WidgetM Unit :=
+  titledPanel' "Stacked Bar Chart" .outlined do
+    caption' "Quarterly revenue by product line:"
     let categories := #["Q1", "Q2", "Q3", "Q4"]
     let baseHardware := #[42.0, 48.0, 55.0, 61.0]
     let baseSoftware := #[28.0, 35.0, 42.0, 50.0]
@@ -316,13 +316,13 @@ def stackedBarChartPanel (theme : Theme) : WidgetM Unit :=
       ]
       ({ categories, series } : StackedBarChart.Data)
     ) elapsedTime
-    let _ ← stackedBarChart dataDyn theme dims
+    let _ ← stackedBarChart dataDyn dims
     pure ()
 
 /-- GroupedBarChart panel - demonstrates grouped bar chart visualization. -/
-def groupedBarChartPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Grouped Bar Chart" .outlined theme do
-    caption' "Monthly sales by region:" theme
+def groupedBarChartPanel : WidgetM Unit :=
+  titledPanel' "Grouped Bar Chart" .outlined do
+    caption' "Monthly sales by region:"
     let categories := #["Jan", "Feb", "Mar", "Apr"]
     let baseNorth := #[85.0, 92.0, 78.0, 95.0]
     let baseSouth := #[65.0, 70.0, 82.0, 75.0]
@@ -340,13 +340,13 @@ def groupedBarChartPanel (theme : Theme) : WidgetM Unit :=
       ]
       ({ categories, series } : GroupedBarChart.Data)
     ) elapsedTime
-    let _ ← groupedBarChart dataDyn theme dims
+    let _ ← groupedBarChart dataDyn dims
     pure ()
 
 /-- StackedAreaChart panel - demonstrates stacked area chart visualization. -/
-def stackedAreaChartPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Stacked Area Chart" .outlined theme do
-    caption' "Website traffic sources over time:" theme
+def stackedAreaChartPanel : WidgetM Unit :=
+  titledPanel' "Stacked Area Chart" .outlined do
+    caption' "Website traffic sources over time:"
     let labels := #["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     let baseDirect := #[120.0, 132.0, 101.0, 134.0, 90.0, 230.0, 210.0]
     let baseSearch := #[220.0, 182.0, 191.0, 234.0, 290.0, 330.0, 310.0]
@@ -364,13 +364,13 @@ def stackedAreaChartPanel (theme : Theme) : WidgetM Unit :=
       ]
       ({ labels, series } : StackedAreaChart.Data)
     ) elapsedTime
-    let _ ← stackedAreaChart dataDyn theme dims
+    let _ ← stackedAreaChart dataDyn dims
     pure ()
 
 /-- RadarChart panel - demonstrates radar/spider chart visualization. -/
-def radarChartPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Radar Chart" .outlined theme do
-    caption' "Product comparison (features):" theme
+def radarChartPanel : WidgetM Unit :=
+  titledPanel' "Radar Chart" .outlined do
+    caption' "Product comparison (features):"
     let axisLabels := #["Speed", "Reliability", "Comfort", "Safety", "Efficiency", "Price"]
     let baseProductA := #[85.0, 90.0, 70.0, 95.0, 80.0, 60.0]
     let baseProductB := #[70.0, 75.0, 90.0, 80.0, 85.0, 90.0]
@@ -386,13 +386,13 @@ def radarChartPanel (theme : Theme) : WidgetM Unit :=
       ]
       ({ axisLabels, series } : RadarChart.Data)
     ) elapsedTime
-    let _ ← radarChart dataDyn theme dims
+    let _ ← radarChart dataDyn dims
     pure ()
 
 /-- CandlestickChart panel - demonstrates financial OHLC chart. -/
-def candlestickChartPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Candlestick Chart" .outlined theme do
-    caption' "Stock price movement (OHLC):" theme
+def candlestickChartPanel : WidgetM Unit :=
+  titledPanel' "Candlestick Chart" .outlined do
+    caption' "Stock price movement (OHLC):"
     -- Base OHLC data: (open, high, low, close, label)
     let baseCandles : Array (Float × Float × Float × Float × String) := #[
       (100.0, 105.0, 98.0, 103.0, "Mon"), (103.0, 108.0, 101.0, 106.0, "Tue"),
@@ -414,13 +414,13 @@ def candlestickChartPanel (theme : Theme) : WidgetM Unit :=
            closePrice := c + shift, label := some lbl } : CandlestickChart.Candle)
       ({ candles } : CandlestickChart.Data)
     ) elapsedTime
-    let _ ← candlestickChart dataDyn theme CandlestickChart.defaultColors dims
+    let _ ← candlestickChart dataDyn CandlestickChart.defaultColors dims
     pure ()
 
 /-- WaterfallChart panel - demonstrates cumulative effect chart. -/
-def waterfallChartPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Waterfall Chart" .outlined theme do
-    caption' "Profit breakdown analysis:" theme
+def waterfallChartPanel : WidgetM Unit :=
+  titledPanel' "Waterfall Chart" .outlined do
+    caption' "Profit breakdown analysis:"
     -- Base data: (label, baseValue, barType)
     let baseBars : Array (String × Float × WaterfallChart.BarType) := #[
       ("Revenue", 500.0, .initial), ("COGS", -180.0, .decrease),
@@ -442,13 +442,13 @@ def waterfallChartPanel (theme : Theme) : WidgetM Unit :=
         ({ label := lbl, value := v + fluctuation, barType := bt } : WaterfallChart.Bar)
       ({ bars } : WaterfallChart.Data)
     ) elapsedTime
-    let _ ← waterfallChart dataDyn theme WaterfallChart.defaultColors dims
+    let _ ← waterfallChart dataDyn WaterfallChart.defaultColors dims
     pure ()
 
 /-- GaugeChart panel - demonstrates speedometer-style gauge. -/
-def gaugeChartPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Gauge Chart" .outlined theme do
-    caption' "CPU usage indicator:" theme
+def gaugeChartPanel : WidgetM Unit :=
+  titledPanel' "Gauge Chart" .outlined do
+    caption' "CPU usage indicator:"
     let segments : Array GaugeChart.Segment := #[
       { startFrac := 0.0, endFrac := 0.6, color := Color.rgba 0.20 0.69 0.35 1.0 },   -- Green
       { startFrac := 0.6, endFrac := 0.8, color := Color.rgba 0.95 0.75 0.10 1.0 },   -- Yellow
@@ -464,13 +464,13 @@ def gaugeChartPanel (theme : Theme) : WidgetM Unit :=
       ({ value := cpuValue, minValue := 0.0, maxValue := 100.0,
          label := some "CPU Usage", unit := some "%", segments } : GaugeChart.Data)
     ) elapsedTime
-    let _ ← gaugeChart dataDyn theme GaugeChart.defaultColors dims
+    let _ ← gaugeChart dataDyn GaugeChart.defaultColors dims
     pure ()
 
 /-- FunnelChart panel - demonstrates sales pipeline funnel. -/
-def funnelChartPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Funnel Chart" .outlined theme do
-    caption' "Sales conversion funnel:" theme
+def funnelChartPanel : WidgetM Unit :=
+  titledPanel' "Funnel Chart" .outlined do
+    caption' "Sales conversion funnel:"
     let baseStages : Array (String × Float) := #[
       ("Visitors", 10000.0), ("Leads", 5200.0), ("Prospects", 2800.0),
       ("Negotiations", 1400.0), ("Sales", 680.0)
@@ -487,13 +487,13 @@ def funnelChartPanel (theme : Theme) : WidgetM Unit :=
         ({ label := lbl, value := v + fluctuation } : FunnelChart.Stage)
       ({ stages } : FunnelChart.Data)
     ) elapsedTime
-    let _ ← funnelChart dataDyn theme dims
+    let _ ← funnelChart dataDyn dims
     pure ()
 
 /-- TreemapChart panel - demonstrates hierarchical treemap visualization. -/
-def treemapChartPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Treemap Chart" .outlined theme do
-    caption' "Disk usage by category:" theme
+def treemapChartPanel : WidgetM Unit :=
+  titledPanel' "Treemap Chart" .outlined do
+    caption' "Disk usage by category:"
     let dims : TreemapChart.Dimensions := {
       width := wideWidth, height := 260
       maxDepth := 2
@@ -522,13 +522,13 @@ def treemapChartPanel (theme : Theme) : WidgetM Unit :=
       ]
       ({ nodes } : TreemapChart.Data)
     ) elapsedTime
-    let _ ← treemapChart dataDyn theme dims
+    let _ ← treemapChart dataDyn dims
     pure ()
 
 /-- SankeyDiagram panel - demonstrates flow diagram visualization. -/
-def sankeyDiagramPanel (theme : Theme) : WidgetM Unit :=
-  titledPanel' "Sankey Diagram" .outlined theme do
-    caption' "Energy flow from sources to uses:" theme
+def sankeyDiagramPanel : WidgetM Unit :=
+  titledPanel' "Sankey Diagram" .outlined do
+    caption' "Energy flow from sources to uses:"
     let nodes : Array SankeyDiagram.Node := #[
       -- Sources (column 0)
       { id := "coal", label := "Coal", column := 0 },
@@ -567,7 +567,7 @@ def sankeyDiagramPanel (theme : Theme) : WidgetM Unit :=
         ({ source := src, target := tgt, value := v + fluctuation } : SankeyDiagram.Link)
       ({ nodes, links } : SankeyDiagram.Data)
     ) elapsedTime
-    let _ ← sankeyDiagram dataDyn theme dims
+    let _ ← sankeyDiagram dataDyn dims
     pure ()
 
 end Demos.ReactiveShowcase
