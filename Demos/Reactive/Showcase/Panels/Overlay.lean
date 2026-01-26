@@ -150,4 +150,50 @@ def tooltipsPanel : WidgetM Unit :=
         pure ()
       pure ()
 
+/-- Popover panel - demonstrates click-triggered floating content panels. -/
+def popoverPanel : WidgetM Unit :=
+  titledPanel' "Popover" .outlined do
+    caption' "Click buttons to show popovers:"
+    row' (gap := 16) (style := {}) do
+      -- Basic popover below
+      let (_, _) ← popoverBottom
+        (button "Info" .primary)
+        (do
+          column' (gap := 8) (style := { minWidth := some 180 }) do
+            heading3' "Information"
+            bodyText' "This popover appears below."
+            caption' "Click outside to dismiss."
+        )
+      pure ()
+
+      -- Popover with actions
+      let (_, _) ← popover { position := .bottomStart } (do
+        button "Actions" .secondary
+      ) (do
+        column' (gap := 4) (style := { minWidth := some 140 }) do
+          let _ ← button "Edit" .ghost
+          let _ ← button "Duplicate" .ghost
+          let _ ← button "Delete" .ghost
+          pure ()
+      )
+      pure ()
+
+      -- Popover positioned above
+      let (_, _) ← popoverTop
+        (button "Top" .outline)
+        (do
+          column' (gap := 4) (style := {}) do
+            caption' "Popover above anchor"
+        )
+      pure ()
+
+      -- Popover positioned to the right
+      let (_, _) ← popoverRight
+        (button "Right" .outline)
+        (do
+          column' (gap := 4) (style := {}) do
+            caption' "Popover to the right"
+        )
+      pure ()
+
 end Demos.ReactiveShowcase

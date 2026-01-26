@@ -90,7 +90,7 @@ def dataTabContent : WidgetM Unit := do
     treeViewPanel
     paginationPanel
 
-/-- Feedback tab: Progress, Tooltips, Modal, Toasts, Menus -/
+/-- Feedback tab: Progress, Tooltips, Popover, Modal, Toasts, Menus -/
 def feedbackTabContent (fireModalOpen : Unit → IO Unit)
     (fireToastInfo fireToastSuccess fireToastWarning fireToastError : Unit → IO Unit)
     : WidgetM Unit := do
@@ -99,6 +99,7 @@ def feedbackTabContent (fireModalOpen : Unit → IO Unit)
     column' (gap := 16) (style := colStyle) do
       progressBarsPanel
       tooltipsPanel
+      popoverPanel
       let modalClick ← modalTriggerPanel
       performEvent_ (← Event.mapM (fun _ => fireModalOpen ()) modalClick)
     column' (gap := 16) (style := colStyle) do
