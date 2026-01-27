@@ -22,13 +22,13 @@ structure ShapeEntry where
 deriving Inhabited
 
 /-- Helper to create a simple shape entry from a path function -/
-def simpleShape (name : String) (pathFn : Point → Float → Path) : ShapeEntry :=
+def simpleShape (name : String) (pathFn : Point → Float → Afferent.Path) : ShapeEntry :=
   ⟨name, fun c s => do
     fillPath (pathFn c s)
     strokePath (pathFn c s)⟩
 
 /-- Helper to create a transformed shape entry -/
-def transformedShape (name : String) (pathFn : Point → Float → Path)
+def transformedShape (name : String) (pathFn : Point → Float → Afferent.Path)
     (rotation : Float) (scaleX scaleY : Float) : ShapeEntry :=
   ⟨name, fun c s => do
     saved do
@@ -44,40 +44,40 @@ def shapeGalleryShapes : Array ShapeEntry := #[
   -- ═══════════════════════════════════════════════════════════════════
   -- BASIC SHAPES (untransformed)
   -- ═══════════════════════════════════════════════════════════════════
-  simpleShape "Circle" (fun c s => Path.circle c (80 * s)),
-  simpleShape "Ellipse" (fun c s => Path.ellipse c (100 * s) (60 * s)),
-  simpleShape "Rectangle" (fun c s => Path.rectangleXYWH (c.x - 80 * s) (c.y - 50 * s) (160 * s) (100 * s)),
-  simpleShape "Rounded Rectangle" (fun c s => Path.roundedRect (Rect.mk' (c.x - 80 * s) (c.y - 50 * s) (160 * s) (100 * s)) (20 * s)),
+  simpleShape "Circle" (fun c s => Afferent.Path.circle c (80 * s)),
+  simpleShape "Ellipse" (fun c s => Afferent.Path.ellipse c (100 * s) (60 * s)),
+  simpleShape "Rectangle" (fun c s => Afferent.Path.rectangleXYWH (c.x - 80 * s) (c.y - 50 * s) (160 * s) (100 * s)),
+  simpleShape "Rounded Rectangle" (fun c s => Afferent.Path.roundedRect (Rect.mk' (c.x - 80 * s) (c.y - 50 * s) (160 * s) (100 * s)) (20 * s)),
 
   -- ═══════════════════════════════════════════════════════════════════
   -- CURVED SHAPES (untransformed)
   -- ═══════════════════════════════════════════════════════════════════
-  simpleShape "Heart" (fun c s => Path.heart c (100 * s)),
-  simpleShape "Semicircle" (fun c s => Path.semicircle c (80 * s)),
-  simpleShape "Pie (90 degrees)" (fun c s => Path.pie c (80 * s) 0 (Float.pi / 2)),
-  simpleShape "Pie (270 degrees)" (fun c s => Path.pie c (80 * s) 0 (Float.pi * 1.5)),
-  simpleShape "Arc (270 degrees)" (fun c s => Path.arcPath c (80 * s) 0 (Float.pi * 1.5) false |>.closePath),
+  simpleShape "Heart" (fun c s => Afferent.Path.heart c (100 * s)),
+  simpleShape "Semicircle" (fun c s => Afferent.Path.semicircle c (80 * s)),
+  simpleShape "Pie (90 degrees)" (fun c s => Afferent.Path.pie c (80 * s) 0 (Float.pi / 2)),
+  simpleShape "Pie (270 degrees)" (fun c s => Afferent.Path.pie c (80 * s) 0 (Float.pi * 1.5)),
+  simpleShape "Arc (270 degrees)" (fun c s => Afferent.Path.arcPath c (80 * s) 0 (Float.pi * 1.5) false |>.closePath),
 
   -- ═══════════════════════════════════════════════════════════════════
   -- POLYGONS (untransformed)
   -- ═══════════════════════════════════════════════════════════════════
-  simpleShape "Equilateral Triangle" (fun c s => Path.equilateralTriangle c (80 * s)),
-  simpleShape "Pentagon" (fun c s => Path.polygon c (80 * s) 5),
-  simpleShape "Hexagon" (fun c s => Path.hexagon c (80 * s)),
-  simpleShape "Octagon" (fun c s => Path.octagon c (80 * s)),
+  simpleShape "Equilateral Triangle" (fun c s => Afferent.Path.equilateralTriangle c (80 * s)),
+  simpleShape "Pentagon" (fun c s => Afferent.Path.polygon c (80 * s) 5),
+  simpleShape "Hexagon" (fun c s => Afferent.Path.hexagon c (80 * s)),
+  simpleShape "Octagon" (fun c s => Afferent.Path.octagon c (80 * s)),
 
   -- ═══════════════════════════════════════════════════════════════════
   -- STARS (untransformed)
   -- ═══════════════════════════════════════════════════════════════════
-  simpleShape "Star (5-pointed)" (fun c s => Path.star c (80 * s) (35 * s) 5),
-  simpleShape "Star (8-pointed)" (fun c s => Path.star c (80 * s) (50 * s) 8),
-  simpleShape "Star (12-pointed)" (fun c s => Path.star c (80 * s) (60 * s) 12),
+  simpleShape "Star (5-pointed)" (fun c s => Afferent.Path.star c (80 * s) (35 * s) 5),
+  simpleShape "Star (8-pointed)" (fun c s => Afferent.Path.star c (80 * s) (50 * s) 8),
+  simpleShape "Star (12-pointed)" (fun c s => Afferent.Path.star c (80 * s) (60 * s) 12),
 
   -- ═══════════════════════════════════════════════════════════════════
   -- NON-CONVEX SHAPES (untransformed)
   -- ═══════════════════════════════════════════════════════════════════
   simpleShape "L-Shape (non-convex)" (fun c s =>
-    Path.empty
+    Afferent.Path.empty
       |>.moveTo (Point.mk' (c.x - 60 * s) (c.y - 60 * s))
       |>.lineTo (Point.mk' (c.x + 60 * s) (c.y - 60 * s))
       |>.lineTo (Point.mk' (c.x + 60 * s) (c.y - 20 * s))
@@ -86,7 +86,7 @@ def shapeGalleryShapes : Array ShapeEntry := #[
       |>.lineTo (Point.mk' (c.x - 60 * s) (c.y + 60 * s))
       |>.closePath),
   simpleShape "Arrow (non-convex)" (fun c s =>
-    Path.empty
+    Afferent.Path.empty
       |>.moveTo (Point.mk' c.x (c.y - 80 * s))
       |>.lineTo (Point.mk' (c.x + 60 * s) c.y)
       |>.lineTo (Point.mk' (c.x + 25 * s) c.y)
@@ -96,7 +96,7 @@ def shapeGalleryShapes : Array ShapeEntry := #[
       |>.lineTo (Point.mk' (c.x - 60 * s) c.y)
       |>.closePath),
   simpleShape "Chevron (non-convex)" (fun c s =>
-    Path.empty
+    Afferent.Path.empty
       |>.moveTo (Point.mk' (c.x - 60 * s) (c.y - 40 * s))
       |>.lineTo (Point.mk' c.x (c.y + 20 * s))
       |>.lineTo (Point.mk' (c.x + 60 * s) (c.y - 40 * s))
@@ -108,11 +108,11 @@ def shapeGalleryShapes : Array ShapeEntry := #[
   -- ═══════════════════════════════════════════════════════════════════
   -- ROTATED SHAPES (45 degrees)
   -- ═══════════════════════════════════════════════════════════════════
-  transformedShape "Heart (rotated 45°)" (fun c s => Path.heart c (100 * s)) (Float.pi / 4) 1.0 1.0,
-  transformedShape "Star (rotated 45°)" (fun c s => Path.star c (80 * s) (35 * s) 5) (Float.pi / 4) 1.0 1.0,
-  transformedShape "Pie 270° (rotated 45°)" (fun c s => Path.pie c (80 * s) 0 (Float.pi * 1.5)) (Float.pi / 4) 1.0 1.0,
+  transformedShape "Heart (rotated 45°)" (fun c s => Afferent.Path.heart c (100 * s)) (Float.pi / 4) 1.0 1.0,
+  transformedShape "Star (rotated 45°)" (fun c s => Afferent.Path.star c (80 * s) (35 * s) 5) (Float.pi / 4) 1.0 1.0,
+  transformedShape "Pie 270° (rotated 45°)" (fun c s => Afferent.Path.pie c (80 * s) 0 (Float.pi * 1.5)) (Float.pi / 4) 1.0 1.0,
   transformedShape "Arrow (rotated 45°)" (fun c s =>
-    Path.empty
+    Afferent.Path.empty
       |>.moveTo (Point.mk' c.x (c.y - 80 * s))
       |>.lineTo (Point.mk' (c.x + 60 * s) c.y)
       |>.lineTo (Point.mk' (c.x + 25 * s) c.y)
@@ -125,20 +125,20 @@ def shapeGalleryShapes : Array ShapeEntry := #[
   -- ═══════════════════════════════════════════════════════════════════
   -- NON-UNIFORM SCALED SHAPES
   -- ═══════════════════════════════════════════════════════════════════
-  transformedShape "Circle (scaled 1.5x × 0.75x)" (fun c s => Path.circle c (80 * s)) 0.0 1.5 0.75,
-  transformedShape "Heart (scaled 1.5x × 0.75x)" (fun c s => Path.heart c (100 * s)) 0.0 1.5 0.75,
-  transformedShape "Star (scaled 0.5x × 1.5x)" (fun c s => Path.star c (80 * s) (35 * s) 5) 0.0 0.5 1.5,
-  transformedShape "Hexagon (scaled 1.5x × 0.5x)" (fun c s => Path.hexagon c (80 * s)) 0.0 1.5 0.5,
+  transformedShape "Circle (scaled 1.5x × 0.75x)" (fun c s => Afferent.Path.circle c (80 * s)) 0.0 1.5 0.75,
+  transformedShape "Heart (scaled 1.5x × 0.75x)" (fun c s => Afferent.Path.heart c (100 * s)) 0.0 1.5 0.75,
+  transformedShape "Star (scaled 0.5x × 1.5x)" (fun c s => Afferent.Path.star c (80 * s) (35 * s) 5) 0.0 0.5 1.5,
+  transformedShape "Hexagon (scaled 1.5x × 0.5x)" (fun c s => Afferent.Path.hexagon c (80 * s)) 0.0 1.5 0.5,
 
   -- ═══════════════════════════════════════════════════════════════════
   -- ROTATED + SCALED (combined transforms)
   -- ═══════════════════════════════════════════════════════════════════
-  transformedShape "Heart (45° + scale 1.5×0.75)" (fun c s => Path.heart c (100 * s)) (Float.pi / 4) 1.5 0.75,
-  transformedShape "Star (30° + scale 1.2×0.8)" (fun c s => Path.star c (80 * s) (35 * s) 5) (Float.pi / 6) 1.2 0.8,
-  transformedShape "Pie 270° (60° + scale 0.8×1.3)" (fun c s => Path.pie c (80 * s) 0 (Float.pi * 1.5)) (Float.pi / 3) 0.8 1.3,
-  transformedShape "Arc 270° (45° + scale 1.5×0.75)" (fun c s => Path.arcPath c (80 * s) 0 (Float.pi * 1.5) false |>.closePath) (Float.pi / 4) 1.5 0.75,
+  transformedShape "Heart (45° + scale 1.5×0.75)" (fun c s => Afferent.Path.heart c (100 * s)) (Float.pi / 4) 1.5 0.75,
+  transformedShape "Star (30° + scale 1.2×0.8)" (fun c s => Afferent.Path.star c (80 * s) (35 * s) 5) (Float.pi / 6) 1.2 0.8,
+  transformedShape "Pie 270° (60° + scale 0.8×1.3)" (fun c s => Afferent.Path.pie c (80 * s) 0 (Float.pi * 1.5)) (Float.pi / 3) 0.8 1.3,
+  transformedShape "Arc 270° (45° + scale 1.5×0.75)" (fun c s => Afferent.Path.arcPath c (80 * s) 0 (Float.pi * 1.5) false |>.closePath) (Float.pi / 4) 1.5 0.75,
   transformedShape "L-Shape (45° + scale 1.3×0.7)" (fun c s =>
-    Path.empty
+    Afferent.Path.empty
       |>.moveTo (Point.mk' (c.x - 60 * s) (c.y - 60 * s))
       |>.lineTo (Point.mk' (c.x + 60 * s) (c.y - 60 * s))
       |>.lineTo (Point.mk' (c.x + 60 * s) (c.y - 20 * s))
@@ -150,9 +150,9 @@ def shapeGalleryShapes : Array ShapeEntry := #[
   -- ═══════════════════════════════════════════════════════════════════
   -- EXTREME TRANSFORMS (stress tests)
   -- ═══════════════════════════════════════════════════════════════════
-  transformedShape "Circle (very flat 2x × 0.3x)" (fun c s => Path.circle c (80 * s)) 0.0 2.0 0.3,
-  transformedShape "Heart (very tall 0.4x × 2x)" (fun c s => Path.heart c (80 * s)) 0.0 0.4 2.0,
-  transformedShape "Star (90° + scale 2x × 0.5x)" (fun c s => Path.star c (80 * s) (35 * s) 5) (Float.pi / 2) 2.0 0.5
+  transformedShape "Circle (very flat 2x × 0.3x)" (fun c s => Afferent.Path.circle c (80 * s)) 0.0 2.0 0.3,
+  transformedShape "Heart (very tall 0.4x × 2x)" (fun c s => Afferent.Path.heart c (80 * s)) 0.0 0.4 2.0,
+  transformedShape "Star (90° + scale 2x × 0.5x)" (fun c s => Afferent.Path.star c (80 * s) (35 * s) 5) (Float.pi / 2) 2.0 0.5
 ]
 
 /-- Get the total number of shapes in the gallery -/

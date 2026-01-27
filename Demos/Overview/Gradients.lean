@@ -19,7 +19,7 @@ private def linearRect (r : Rect) (start finish : Afferent.Point) (stops : Array
   #[.fillRectStyle r style cornerRadius]
 
 /-- Fill a shape path with a gradient style. -/
-private def fillPathStyle (path : Path) (style : Afferent.FillStyle) : RenderCommands :=
+private def fillPathStyle (path : Afferent.Path) (style : Afferent.FillStyle) : RenderCommands :=
   #[.fillPathStyle path style]
 
 /-- Linear gradient horizontal. -/
@@ -45,7 +45,7 @@ private def radialCircle (colors : Array Color) : Rect → RenderCommands := fun
   let center := Afferent.Point.mk' (r.origin.x + r.size.width / 2) (r.origin.y + r.size.height / 2)
   let radius := minSide r * 0.45
   let style := Afferent.FillStyle.radialGradient center radius (Afferent.GradientStop.distribute colors)
-  fillPathStyle (Path.circle ⟨center.x, center.y⟩ radius) style
+  fillPathStyle (Afferent.Path.circle ⟨center.x, center.y⟩ radius) style
 
 /-- Radial gradient ellipse. -/
 private def radialEllipse (colors : Array Color) : Rect → RenderCommands := fun r =>
@@ -53,7 +53,7 @@ private def radialEllipse (colors : Array Color) : Rect → RenderCommands := fu
   let rx := r.size.width * 0.45
   let ry := r.size.height * 0.32
   let style := Afferent.FillStyle.radialGradient center (min rx ry) (Afferent.GradientStop.distribute colors)
-  fillPathStyle (Path.ellipse ⟨center.x, center.y⟩ rx ry) style
+  fillPathStyle (Afferent.Path.ellipse ⟨center.x, center.y⟩ rx ry) style
 
 /-- Gradient cards rendered as widgets. -/
 def gradientsWidget (labelFont : FontId) : WidgetBuilder := do
@@ -148,7 +148,7 @@ def gradientsWidget (labelFont : FontId) : WidgetBuilder := do
       let center := Afferent.Point.mk' (r.origin.x + r.size.width / 2) (r.origin.y + r.size.height / 2)
       let radius := minSide r * 0.45
       let style := Afferent.FillStyle.radialGradient center radius spotlight
-      fillPathStyle (Path.circle ⟨center.x, center.y⟩ radius) style
+      fillPathStyle (Afferent.Path.circle ⟨center.x, center.y⟩ radius) style
   ), (
     "Radial Green", radialCircle #[
       Afferent.Color.hsva 0.333 0.5 1.0 1.0, Afferent.Color.green, Afferent.Color.hsva 0.333 1.0 0.3 1.0
@@ -170,14 +170,14 @@ def gradientsWidget (labelFont : FontId) : WidgetBuilder := do
       let finish := Afferent.Point.mk' (r.origin.x + r.size.width) (r.origin.y + r.size.height)
       let style := Afferent.FillStyle.linearGradient start finish
         (Afferent.GradientStop.distribute #[Afferent.Color.yellow, Afferent.Color.orange, Afferent.Color.red])
-      fillPathStyle (Path.star ⟨center.x, center.y⟩ radius (radius * 0.5) 5) style
+      fillPathStyle (Afferent.Path.star ⟨center.x, center.y⟩ radius (radius * 0.5) 5) style
   ), (
     "Heart", fun r =>
       let center := Afferent.Point.mk' (r.origin.x + r.size.width / 2) (r.origin.y + r.size.height / 2)
       let radius := minSide r * 0.45
       let style := Afferent.FillStyle.radialGradient center radius
         (Afferent.GradientStop.distribute #[Afferent.Color.hsva 0.0 0.5 1.0 1.0, Afferent.Color.red, Afferent.Color.hsva 0.0 1.0 0.5 1.0])
-      fillPathStyle (Path.heart ⟨center.x, center.y⟩ radius) style
+      fillPathStyle (Afferent.Path.heart ⟨center.x, center.y⟩ radius) style
   ), (
     "Stripes", fun r =>
       let start := Afferent.Point.mk' r.origin.x (r.origin.y + r.size.height / 2)

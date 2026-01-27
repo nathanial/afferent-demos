@@ -76,13 +76,13 @@ private def strokeRectWidths (cmds : RenderCommands) : Array Float :=
     | .strokeRect _ _ w _ => acc.push w
     | _ => acc) #[]
 
-private def strokePathWidths (cmds : RenderCommands) : Array (Afferent.Arbor.Path × Float) :=
+private def strokePathWidths (cmds : RenderCommands) : Array (Afferent.Path × Float) :=
   cmds.foldl (fun acc cmd =>
     match cmd with
     | .strokePath path _ w => acc.push (path, w)
     | _ => acc) #[]
 
-private def bezierCount (path : Afferent.Arbor.Path) : Nat :=
+private def bezierCount (path : Afferent.Path) : Nat :=
   path.commands.foldl (fun acc cmd =>
     match cmd with
     | .bezierCurveTo .. => acc + 1

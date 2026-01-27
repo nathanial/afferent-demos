@@ -66,7 +66,7 @@ def renderLineCapsM (font : Font) : CanvasM Unit := do
 
   -- Create a corner path
   let cornerPath := fun (x y : Float) =>
-    Path.empty |>.moveTo ⟨x, y + 50⟩ |>.lineTo ⟨x + 50, y⟩ |>.lineTo ⟨x + 100, y + 50⟩
+    Afferent.Path.empty |>.moveTo ⟨x, y + 50⟩ |>.lineTo ⟨x + 50, y⟩ |>.lineTo ⟨x + 100, y + 50⟩
 
   let joinX1 := 100.0
   let joinX2 := 250.0

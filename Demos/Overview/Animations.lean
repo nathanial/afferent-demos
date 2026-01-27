@@ -6,9 +6,11 @@ import Afferent.Widget
 import Afferent.Arbor
 import Demos.Overview.Card
 import Trellis
+import Linalg.Core
 
 open Afferent.Arbor
 open Trellis (EdgeInsets)
+open Linalg
 
 namespace Demos
 
@@ -18,7 +20,7 @@ private def spinningStarsCommands (r : Rect) (t : Float) : RenderCommands := Id.
   let baseRadius := minSide r * 0.18
   let mut cmds : RenderCommands := #[.pushTranslate center.x center.y]
   for i in [:5] do
-    let angle := t * 2.0 + i.toFloat * (Path.twoPi / 5.0)
+    let angle := t * 2.0 + i.toFloat * (Float.twoPi / 5.0)
     let dist := minSide r * 0.25 + minSide r * 0.06 * Float.sin (t * 3.0 + i.toFloat)
     let x := dist * Float.cos angle
     let y := dist * Float.sin angle
@@ -26,7 +28,7 @@ private def spinningStarsCommands (r : Rect) (t : Float) : RenderCommands := Id.
     cmds := cmds ++ #[
       .pushTranslate x y,
       .pushRotate (t * 3.0 + i.toFloat),
-      .fillPath (Path.star ⟨0, 0⟩ baseRadius (baseRadius * 0.5) 5) (Afferent.Color.hsv hue 1.0 1.0),
+      .fillPath (Afferent.Path.star ⟨0, 0⟩ baseRadius (baseRadius * 0.5) 5) (Afferent.Color.hsv hue 1.0 1.0),
       .popTransform,
       .popTransform
     ]
@@ -39,13 +41,13 @@ private def pulsingCirclesCommands (r : Rect) (t : Float) : RenderCommands := Id
   let orbit := minSide r * 0.28
   let mut cmds : RenderCommands := #[]
   for i in [:10] do
-    let angle := i.toFloat * (Path.twoPi / 10.0)
+    let angle := i.toFloat * (Float.twoPi / 10.0)
     let pulse := 0.5 + 0.5 * Float.sin (t * 4.0 + i.toFloat * 0.5)
     let radius := minSide r * 0.08 + minSide r * 0.08 * pulse
     let x := center.x + orbit * Float.cos (angle + t)
     let y := center.y + orbit * Float.sin (angle + t)
     let hue := (i.toFloat / 10.0 + t * 0.3) - (i.toFloat / 10.0 + t * 0.3).floor
-    cmds := cmds.push (.fillPath (Path.circle ⟨x, y⟩ radius) (Afferent.Color.hsv hue 1.0 1.0))
+    cmds := cmds.push (.fillPath (Afferent.Path.circle ⟨x, y⟩ radius) (Afferent.Color.hsv hue 1.0 1.0))
   return cmds
 
 /-- Wiggling line path. -/
@@ -55,7 +57,7 @@ private def wigglingLineCommands (r : Rect) (t : Float) : RenderCommands := Id.r
   let y0 := r.origin.y + r.size.height * 0.5
   let amp := r.size.height * 0.25
   let steps := 16
-  let mut path := Path.empty.moveTo ⟨x0, y0⟩
+  let mut path := Afferent.Path.empty.moveTo ⟨x0, y0⟩
   for i in [:steps] do
     let x := x0 + (x1 - x0) * (i.toFloat / steps.toFloat)
     let y := y0 + amp * Float.sin (t * 6.0 + x * 0.05)
@@ -74,7 +76,7 @@ private def morphingPolygonCommands (r : Rect) (t : Float) : RenderCommands :=
   #[
     .pushTranslate center.x center.y,
     .pushRotate (t * 1.5),
-    .fillPath (Path.polygon ⟨0, 0⟩ radius sides) (Afferent.Color.hsv hue 0.8 0.9),
+    .fillPath (Afferent.Path.polygon ⟨0, 0⟩ radius sides) (Afferent.Color.hsv hue 0.8 0.9),
     .popTransform,
     .popTransform
   ]
@@ -95,7 +97,7 @@ private def orbitingHeartsCommands (r : Rect) (t : Float) : RenderCommands := Id
     cmds := cmds ++ #[
       .pushTranslate x y,
       .pushScale (0.25 + 0.1 * Float.sin (t * 3.0)) (0.25 + 0.1 * Float.sin (t * 3.0)),
-      .fillPath (Path.heart ⟨0, 0⟩ (minSide r * 0.6)) (Afferent.Color.rgba color.r color.g color.b alpha),
+      .fillPath (Afferent.Path.heart ⟨0, 0⟩ (minSide r * 0.6)) (Afferent.Color.rgba color.r color.g color.b alpha),
       .popTransform,
       .popTransform
     ]

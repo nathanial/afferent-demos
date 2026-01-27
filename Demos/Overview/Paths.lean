@@ -7,9 +7,11 @@ import Afferent.Arbor
 import Afferent.Widget
 import Trellis
 import Demos.Overview.Card
+import Linalg.Core
 
 open Afferent.Arbor
 open Trellis (EdgeInsets)
+open Linalg
 
 namespace Demos
 
@@ -17,23 +19,23 @@ structure PathsCardDef where
   label : String
   commands : Rect → RenderCommands
 
-private def pathsCommands (path : Path) (color : Color) : RenderCommands :=
+private def pathsCommands (path : Afferent.Path) (color : Color) : RenderCommands :=
   #[RenderCommand.fillPath path color]
 
-private def pathsCommandsStroke (path : Path) (fillColor strokeColor : Color) (lineWidth : Float)
+private def pathsCommandsStroke (path : Afferent.Path) (fillColor strokeColor : Color) (lineWidth : Float)
     : RenderCommands :=
   #[RenderCommand.fillPath path fillColor, RenderCommand.strokePath path strokeColor lineWidth]
 
 private def pathsBaseRect (r : Rect) : Rect :=
   insetRect r (minSide r * 0.12)
 
-private def pathsConcaveArrowPath (r : Rect) : Path :=
+private def pathsConcaveArrowPath (r : Rect) : Afferent.Path :=
   let b := pathsBaseRect r
   let x := b.origin.x
   let y := b.origin.y
   let w := b.size.width
   let h := b.size.height
-  Path.empty
+  Afferent.Path.empty
     |>.moveTo ⟨x + w * 0.5, y⟩
     |>.lineTo ⟨x + w, y + h * 0.4⟩
     |>.lineTo ⟨x + w * 0.65, y + h * 0.4⟩
@@ -43,13 +45,13 @@ private def pathsConcaveArrowPath (r : Rect) : Path :=
     |>.lineTo ⟨x, y + h * 0.4⟩
     |>.closePath
 
-private def pathsLShapePath (r : Rect) : Path :=
+private def pathsLShapePath (r : Rect) : Afferent.Path :=
   let b := pathsBaseRect r
   let x := b.origin.x
   let y := b.origin.y
   let w := b.size.width
   let h := b.size.height
-  Path.empty
+  Afferent.Path.empty
     |>.moveTo ⟨x, y⟩
     |>.lineTo ⟨x + w, y⟩
     |>.lineTo ⟨x + w, y + h * 0.32⟩
@@ -58,25 +60,25 @@ private def pathsLShapePath (r : Rect) : Path :=
     |>.lineTo ⟨x, y + h⟩
     |>.closePath
 
-private def pathsConcaveStarPath (r : Rect) : Path := Id.run do
+private def pathsConcaveStarPath (r : Rect) : Afferent.Path := Id.run do
   let b := pathsBaseRect r
   let center := rectCenter b
   let outerR := minSide b * 0.48
   let innerR := outerR * 0.45
-  let mut star := Path.empty.moveTo ⟨center.x, center.y - outerR⟩
+  let mut star := Afferent.Path.empty.moveTo ⟨center.x, center.y - outerR⟩
   for i in [1:10] do
-    let angle := Path.pi / 5.0 * i.toFloat - Path.halfPi
+    let angle := Float.pi / 5.0 * i.toFloat - Float.halfPi
     let radius := if i % 2 == 0 then outerR else innerR
     star := star.lineTo ⟨center.x + radius * Float.cos angle, center.y + radius * Float.sin angle⟩
   return star.closePath
 
-private def pathsChevronPath (r : Rect) : Path :=
+private def pathsChevronPath (r : Rect) : Afferent.Path :=
   let b := pathsBaseRect r
   let x := b.origin.x
   let y := b.origin.y
   let w := b.size.width
   let h := b.size.height
-  Path.empty
+  Afferent.Path.empty
     |>.moveTo ⟨x, y + h * 0.2⟩
     |>.lineTo ⟨x + w * 0.5, y + h * 0.8⟩
     |>.lineTo ⟨x + w, y + h * 0.2⟩
@@ -85,14 +87,14 @@ private def pathsChevronPath (r : Rect) : Path :=
     |>.lineTo ⟨x, y + h * 0.45⟩
     |>.closePath
 
-private def pathsRoundedRectPath (r : Rect) : Path :=
+private def pathsRoundedRectPath (r : Rect) : Afferent.Path :=
   let b := pathsBaseRect r
   let cr := min b.size.width b.size.height * 0.18
   let x := b.origin.x
   let y := b.origin.y
   let w := b.size.width
   let h := b.size.height
-  Path.empty
+  Afferent.Path.empty
     |>.moveTo ⟨x + cr, y⟩
     |>.lineTo ⟨x + w - cr, y⟩
     |>.arcTo ⟨x + w, y⟩ ⟨x + w, y + cr⟩ cr
@@ -104,7 +106,7 @@ private def pathsRoundedRectPath (r : Rect) : Path :=
     |>.arcTo ⟨x, y⟩ ⟨x + cr, y⟩ cr
     |>.closePath
 
-private def pathsRoundedTrianglePath (r : Rect) : Path :=
+private def pathsRoundedTrianglePath (r : Rect) : Afferent.Path :=
   let b := pathsBaseRect r
   let cx := b.origin.x + b.size.width / 2
   let topY := b.origin.y
@@ -116,21 +118,21 @@ private def pathsRoundedTrianglePath (r : Rect) : Path :=
   let p3 := Point.mk' rightX bottomY
   let triR := minSide b * 0.12
   let mid12 := Point.mk' ((p1.x + p2.x) / 2) ((p1.y + p2.y) / 2)
-  Path.empty
+  Afferent.Path.empty
     |>.moveTo mid12
     |>.arcTo p1 p3 triR
     |>.arcTo p3 p2 triR
     |>.arcTo p2 p1 triR
     |>.closePath
 
-private def pathsPillTabPath (r : Rect) : Path :=
+private def pathsPillTabPath (r : Rect) : Afferent.Path :=
   let b := pathsBaseRect r
   let tabH := b.size.height * 0.35
   let tabW := b.size.width * 0.75
   let x := b.origin.x + (b.size.width - tabW) / 2
   let y := b.origin.y + (b.size.height - tabH) / 2
   let tabR := tabH / 2
-  Path.empty
+  Afferent.Path.empty
     |>.moveTo ⟨x + tabR, y⟩
     |>.lineTo ⟨x + tabW - tabR, y⟩
     |>.arcTo ⟨x + tabW, y⟩ ⟨x + tabW, y + tabH / 2⟩ tabR
@@ -140,13 +142,13 @@ private def pathsPillTabPath (r : Rect) : Path :=
     |>.arcTo ⟨x, y⟩ ⟨x + tabR, y⟩ tabR
     |>.closePath
 
-private def pathsCirclePath (r : Rect) : Path :=
-  Path.circle (rectCenter r) (minSide r * 0.38)
+private def pathsCirclePath (r : Rect) : Afferent.Path :=
+  Afferent.Path.circle (rectCenter r) (minSide r * 0.38)
 
 private def pathsScaledCircleCommands (r : Rect) (sx sy : Float) (color : Color) : RenderCommands :=
   let center := rectCenter r
   let radius := minSide r * 0.28
-  let path := Path.circle ⟨0, 0⟩ radius
+  let path := Afferent.Path.circle ⟨0, 0⟩ radius
   #[RenderCommand.pushTranslate center.x center.y,
     RenderCommand.pushScale sx sy,
     RenderCommand.fillPath path color,
@@ -156,9 +158,9 @@ private def pathsScaledCircleCommands (r : Rect) (sx sy : Float) (color : Color)
 private def pathsRotatedPieCommands (r : Rect) : RenderCommands :=
   let center := rectCenter r
   let radius := minSide r * 0.38
-  let path := Path.pie ⟨0, 0⟩ radius 0 Path.halfPi
+  let path := Afferent.Path.pie ⟨0, 0⟩ radius 0 Float.halfPi
   #[RenderCommand.pushTranslate center.x center.y,
-    RenderCommand.pushRotate (Path.pi / 6),
+    RenderCommand.pushRotate (Float.pi / 6),
     RenderCommand.fillPath path (Afferent.Color.orange),
     RenderCommand.popTransform,
     RenderCommand.popTransform]
@@ -166,10 +168,10 @@ private def pathsRotatedPieCommands (r : Rect) : RenderCommands :=
 private def pathsTransformedArcCommands (r : Rect) : RenderCommands :=
   let center := rectCenter r
   let radius := minSide r * 0.34
-  let path := Path.arcPath ⟨0, 0⟩ radius 0 (Path.pi * 1.5)
+  let path := Afferent.Path.arcPath ⟨0, 0⟩ radius 0 (Float.pi * 1.5)
   let lineWidth := max 1.0 (radius * 0.12)
   #[RenderCommand.pushTranslate center.x center.y,
-    RenderCommand.pushRotate (Path.pi / 4),
+    RenderCommand.pushRotate (Float.pi / 4),
     RenderCommand.pushScale 1.5 0.75,
     RenderCommand.fillPath path Afferent.Color.cyan,
     RenderCommand.strokePath path Afferent.Color.white lineWidth,

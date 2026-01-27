@@ -6,9 +6,11 @@ import Afferent.Widget
 import Afferent.Arbor
 import Demos.Overview.Card
 import Trellis
+import Linalg.Core
 
 open Afferent.Arbor
 open Trellis (EdgeInsets)
+open Linalg
 
 namespace Demos
 
@@ -22,7 +24,7 @@ private def referenceCommands (r : Rect) (color : Color) : RenderCommands :=
   let radius := minSide r * 0.18
   #[
     .fillRect rect color,
-    .fillPath (Path.circle center radius) color
+    .fillPath (Afferent.Path.circle center radius) color
   ]
 
 /-- Translation example. -/
@@ -45,7 +47,7 @@ private def scaleCommands (r : Rect) : RenderCommands :=
     .pushTranslate center.x center.y,
     .pushScale 1.3 1.3,
     .fillRect (Rect.mk' (-rectW / 2) (-rectH / 2) rectW rectH) Afferent.Color.green,
-    .fillPath (Path.circle ⟨rectW * 0.6, 0⟩ circleR) Afferent.Color.green,
+    .fillPath (Afferent.Path.circle ⟨rectW * 0.6, 0⟩ circleR) Afferent.Color.green,
     .popTransform,
     .popTransform
   ]
@@ -57,7 +59,7 @@ private def rotateFanCommands (r : Rect) : RenderCommands := Id.run do
   let rectH := r.size.height * 0.1
   let mut cmds : RenderCommands := #[.pushTranslate center.x center.y]
   for i in [:8] do
-    let angle := i.toFloat * (Path.pi / 4.0)
+    let angle := i.toFloat * (Float.pi / 4.0)
     let color := Afferent.Color.rgba
       (0.5 + 0.5 * Float.cos angle)
       (0.5 + 0.5 * Float.sin angle)
@@ -89,7 +91,7 @@ private def scaledCircleCommands (r : Rect) : RenderCommands := Id.run do
     cmds := cmds ++ #[
       .pushTranslate x center.y,
       .pushScale s s,
-      .fillPath (Path.circle ⟨0, 0⟩ baseRadius) color,
+      .fillPath (Afferent.Path.circle ⟨0, 0⟩ baseRadius) color,
       .popTransform,
       .popTransform
     ]
@@ -101,9 +103,9 @@ private def combinedCommands (r : Rect) : RenderCommands :=
   let radius := minSide r * 0.35
   #[
     .pushTranslate center.x center.y,
-    .pushRotate (Path.pi / 6.0),
+    .pushRotate (Float.pi / 6.0),
     .pushScale 1.2 0.8,
-    .fillPath (Path.star ⟨0, 0⟩ radius (radius * 0.5) 5) Afferent.Color.yellow,
+    .fillPath (Afferent.Path.star ⟨0, 0⟩ radius (radius * 0.5) 5) Afferent.Color.yellow,
     .popTransform,
     .popTransform,
     .popTransform
@@ -115,11 +117,11 @@ private def nestedCommands (r : Rect) : RenderCommands :=
   let radius := minSide r * 0.35
   #[
     .pushTranslate center.x center.y,
-    .fillPath (Path.circle ⟨0, 0⟩ radius) Afferent.Color.blue,
+    .fillPath (Afferent.Path.circle ⟨0, 0⟩ radius) Afferent.Color.blue,
     .pushScale 0.6 0.6,
-    .fillPath (Path.circle ⟨0, 0⟩ radius) Afferent.Color.cyan,
+    .fillPath (Afferent.Path.circle ⟨0, 0⟩ radius) Afferent.Color.cyan,
     .pushScale 0.5 0.5,
-    .fillPath (Path.circle ⟨0, 0⟩ radius) Afferent.Color.white,
+    .fillPath (Afferent.Path.circle ⟨0, 0⟩ radius) Afferent.Color.white,
     .popTransform,
     .popTransform,
     .popTransform
@@ -146,7 +148,7 @@ private def orbitCommands (r : Rect) : RenderCommands := Id.run do
   let size := minSide r * 0.12
   let mut cmds : RenderCommands := #[.pushTranslate center.x center.y]
   for i in [:6] do
-    let angle := i.toFloat * (Path.twoPi / 6.0)
+    let angle := i.toFloat * (Float.twoPi / 6.0)
     let color := Afferent.Color.rgba
       (if i % 2 == 0 then 1.0 else 0.5)
       (if i % 3 == 0 then 1.0 else 0.3)
@@ -169,7 +171,7 @@ private def skewCommands (r : Rect) : RenderCommands :=
   let rectH := r.size.height * 0.3
   #[
     .pushTranslate center.x center.y,
-    .pushRotate (Path.pi / 12.0),
+    .pushRotate (Float.pi / 12.0),
     .pushScale 1.5 0.7,
     .fillRect (Rect.mk' (-rectW / 2) (-rectH / 2) rectW rectH) Afferent.Color.magenta,
     .popTransform,
@@ -183,12 +185,12 @@ private def heartCommands (r : Rect) : RenderCommands :=
   let radius := minSide r * 0.35
   #[
     .pushTranslate (center.x - radius * 0.6) center.y,
-    .fillPath (Path.heart ⟨0, 0⟩ radius) Afferent.Color.red,
+    .fillPath (Afferent.Path.heart ⟨0, 0⟩ radius) Afferent.Color.red,
     .popTransform,
     .pushTranslate (center.x + radius * 0.6) center.y,
-    .pushRotate (Path.pi / 8.0),
+    .pushRotate (Float.pi / 8.0),
     .pushScale 0.7 0.7,
-    .fillPath (Path.heart ⟨0, 0⟩ radius) Afferent.Color.magenta,
+    .fillPath (Afferent.Path.heart ⟨0, 0⟩ radius) Afferent.Color.magenta,
     .popTransform,
     .popTransform,
     .popTransform

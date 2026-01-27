@@ -59,7 +59,7 @@ def textWidget (fonts : DemoFonts) : WidgetBuilder := do
         let center := rectCenter r
         let radius := minSide r * 0.3
         #[
-          .fillPath (Path.circle center radius) Afferent.Color.red,
+          .fillPath (Afferent.Path.circle center radius) Afferent.Color.red,
           .fillTextBlock "Labels" (Rect.mk' (center.x - radius) (center.y - 10) (radius * 2) 20)
             fonts.small Afferent.Color.white .center .middle
         ] }
