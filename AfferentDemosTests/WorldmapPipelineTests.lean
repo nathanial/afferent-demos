@@ -177,7 +177,7 @@ test "rapid pan/zoom eventually uploads target tiles" (timeout := 20000) := do
     provider := provider
     diskCacheDir := cacheDir
     httpTimeout := 500
-    retryConfig := { maxRetries := 0, baseDelay := 1 }
+    retryConfig := { maxRetries := 0, baseDelayMs := 1 }
     workerCount := 2
   }
   let mgr ← (Tileset.TileManager.new config).run env
@@ -228,7 +228,7 @@ test "canceled requests recover on re-request" := do
     provider := provider
     diskCacheDir := cacheDir
     httpTimeout := 500
-    retryConfig := { maxRetries := 0, baseDelay := 1 }
+    retryConfig := { maxRetries := 0, baseDelayMs := 1 }
     workerCount := 1
   }
   let mgr ← (Tileset.TileManager.new config).run env
@@ -265,7 +265,7 @@ test "requestVisibleTiles stays within viewport coverage at fractional zoom" := 
     provider := provider
     diskCacheDir := cacheDir
     httpTimeout := 50
-    retryConfig := { maxRetries := 0, baseDelay := 1 }
+    retryConfig := { maxRetries := 0, baseDelayMs := 1 }
     workerCount := 1
   }
   let mgr ← (Tileset.TileManager.new config).run env

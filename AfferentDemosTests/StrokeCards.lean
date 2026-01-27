@@ -41,31 +41,37 @@ private def findCustomChild (w : Widget) : Option Widget :=
 
 private def collectCardCommands (label : String) : IO RenderCommands := do
   let widget := Afferent.Arbor.build (Demos.strokesWidget FontId.default)
-  let measureResult ← Afferent.runWithFonts FontRegistry.empty
-    (Afferent.Arbor.measureWidget widget 1000 800)
-  let layouts := Trellis.layout measureResult.node 1000 800
-  let nodes := collectNodes measureResult.widget none
-  match findTextNode nodes label with
-  | none =>
-      throw (IO.userError s!"Missing label widget: {label}")
-  | some textNode =>
-      match textNode.parent with
-      | none => throw (IO.userError s!"Label has no parent: {label}")
-      | some parentId =>
-          match findWidgetById nodes parentId with
-          | none => throw (IO.userError s!"Missing parent widget for label: {label}")
-          | some parentWidget =>
-              match findCustomChild parentWidget with
-              | none => throw (IO.userError s!"Missing custom child for label: {label}")
-              | some customWidget =>
-                  match customWidget with
-                  | .custom _ _ _ spec =>
-                      match layouts.get customWidget.id with
-                      | none => throw (IO.userError s!"Missing layout for label: {label}")
-                      | some computed =>
-                          pure (spec.collect computed)
-                  | _ =>
-                      throw (IO.userError s!"Expected custom widget for label: {label}")
+  let font ← Font.load "/System/Library/Fonts/Helvetica.ttc" 14
+  let (reg, _) := FontRegistry.empty.register font "default"
+  let reg := reg.setDefault font
+  try
+    let measureResult ← Afferent.runWithFonts reg
+      (Afferent.Arbor.measureWidget widget 1000 800)
+    let layouts := Trellis.layout measureResult.node 1000 800
+    let nodes := collectNodes measureResult.widget none
+    match findTextNode nodes label with
+    | none =>
+        throw (IO.userError s!"Missing label widget: {label}")
+    | some textNode =>
+        match textNode.parent with
+        | none => throw (IO.userError s!"Label has no parent: {label}")
+        | some parentId =>
+            match findWidgetById nodes parentId with
+            | none => throw (IO.userError s!"Missing parent widget for label: {label}")
+            | some parentWidget =>
+                match findCustomChild parentWidget with
+                | none => throw (IO.userError s!"Missing custom child for label: {label}")
+                | some customWidget =>
+                    match customWidget with
+                    | .custom _ _ _ spec =>
+                        match layouts.get customWidget.id with
+                        | none => throw (IO.userError s!"Missing layout for label: {label}")
+                        | some computed =>
+                            pure (spec.collect computed)
+                    | _ =>
+                        throw (IO.userError s!"Expected custom widget for label: {label}")
+  finally
+    Font.destroy font
 
 private def widthsNear (widths : Array Float) (target : Float) : Bool :=
   widths.any (fun w => Float.abs (w - target) < 0.001)

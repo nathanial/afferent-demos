@@ -140,7 +140,7 @@ private def destroyBenchAssets (assets : BenchAssets) : IO Unit := do
   Font.destroy assets.fontCanopy
   Font.destroy assets.fontCanopySmall
 
-private def widgetPerfRender (theme : Theme) (selected : WidgetType) : ReactiveM ComponentRender := do
+private def widgetPerfRender (selected : WidgetType) : ReactiveM ComponentRender := do
   let (selectionEvent, fireSelection) ← Reactive.newTriggerEvent (t := Spider) (a := Nat)
   let selectedIndex := (allWidgetTypes.findIdx? (· == selected)).getD 0
   let selectedType ← Reactive.holdDyn selectedIndex selectionEvent
@@ -155,8 +155,8 @@ private def widgetPerfRender (theme : Theme) (selected : WidgetType) : ReactiveM
     }
 
     column' (gap := 16) (style := rootStyle) do
-      heading1' "Widget Performance Test" theme
-      caption' "Select a widget type to render 1000 instances" theme
+      heading1' "Widget Performance Test"
+      caption' "Select a widget type to render 1000 instances"
 
       let contentRowStyle : BoxStyle := {
         flexItem := some (FlexItem.growing 1)
@@ -170,15 +170,15 @@ private def widgetPerfRender (theme : Theme) (selected : WidgetType) : ReactiveM
           height := .percent 1.0
         }
         column' (gap := 8) (style := leftPanelStyle) do
-          caption' "Widget type:" theme
+          caption' "Widget type:"
 
-          let result ← listBox widgetTypeNames theme { fillHeight := true }
+          let result ← listBox widgetTypeNames { fillHeight := true }
 
           let selAction ← Event.mapM (fun idx => fireSelection idx) result.onSelect
           performEvent_ selAction
 
           let _ ← dynWidget selectedType (fun sel =>
-            caption' s!"Selected: {widgetTypeNames.getD sel "none"}" theme)
+            caption' s!"Selected: {widgetTypeNames.getD sel "none"}")
           pure ()
 
         let rightPanelStyle : BoxStyle := {
@@ -189,7 +189,7 @@ private def widgetPerfRender (theme : Theme) (selected : WidgetType) : ReactiveM
         column' (gap := 0) (style := rightPanelStyle) do
           let _ ← dynWidget selectedType (fun selIdx => do
             let wtype := allWidgetTypes.getD selIdx .label
-            renderWidgetGrid wtype theme)
+            renderWidgetGrid wtype)
           pure ()
 
   pure render
@@ -199,11 +199,12 @@ private structure BenchApp where
   inputs : ReactiveInputs
   spiderEnv : Reactive.Host.SpiderEnv
 
-private def initBenchApp (theme : Theme) (selected : WidgetType) (registry : FontRegistry) : IO BenchApp := do
+private def initBenchApp (assets : BenchAssets) (selected : WidgetType) : IO BenchApp := do
   let spiderEnv ← Reactive.Host.SpiderEnv.new Reactive.Host.defaultErrorHandler
   let (render, inputs) ← (do
-    let (events, inputs) ← Afferent.Canopy.Reactive.createInputs registry
-    let render ← ReactiveM.run events (widgetPerfRender theme selected)
+    let (events, inputs) ← Afferent.Canopy.Reactive.createInputs
+      assets.registry assets.theme (some assets.fontCanopy)
+    let render ← ReactiveM.run events (widgetPerfRender selected)
     pure (render, inputs)
   ).run spiderEnv
   spiderEnv.postBuildTrigger ()
@@ -339,8 +340,8 @@ test "switch pipeline baseline vs hover" := do
   let hoverMetrics ← Afferent.Canopy.Reactive.enableHoverMetrics
   let dynMetrics ← Afferent.Canopy.Reactive.enableDynWidgetMetrics
   let assets ← loadBenchAssets
-  let appBaseline ← initBenchApp assets.theme .switch assets.registry
-  let appHover ← initBenchApp assets.theme .switch assets.registry
+  let appBaseline ← initBenchApp assets .switch
+  let appHover ← initBenchApp assets .switch
 
   let baseConfig : BenchConfig := { withHover := false }
   let hoverConfig : BenchConfig := { withHover := true }
@@ -374,8 +375,8 @@ test "switch pipeline baseline vs hover" := do
 
 test "dropdown pipeline baseline vs hover" := do
   let assets ← loadBenchAssets
-  let appBaseline ← initBenchApp assets.theme .dropdown assets.registry
-  let appHover ← initBenchApp assets.theme .dropdown assets.registry
+  let appBaseline ← initBenchApp assets .dropdown
+  let appHover ← initBenchApp assets .dropdown
 
   let baseConfig : BenchConfig := { withHover := false }
   let hoverConfig : BenchConfig := { withHover := true }
@@ -395,8 +396,8 @@ test "dropdown pipeline baseline vs hover" := do
 
 test "stepper pipeline baseline vs hover" := do
   let assets ← loadBenchAssets
-  let appBaseline ← initBenchApp assets.theme .stepper assets.registry
-  let appHover ← initBenchApp assets.theme .stepper assets.registry
+  let appBaseline ← initBenchApp assets .stepper
+  let appHover ← initBenchApp assets .stepper
 
   let baseConfig : BenchConfig := { withHover := false }
   let hoverConfig : BenchConfig := { withHover := true }
