@@ -29,6 +29,10 @@ import Demos.Linalg.VectorArithmetic
 import Demos.Linalg.VectorProjection
 import Demos.Linalg.VectorField
 import Demos.Linalg.CrossProduct3D
+import Demos.Linalg.Matrix2DTransform
+import Demos.Linalg.Matrix3DTransform
+import Demos.Linalg.ProjectionExplorer
+import Demos.Linalg.MatrixDecomposition
 import Afferent.Canopy.Reactive
 import Reactive.Host.Spider
 import Worldmap
@@ -72,6 +76,10 @@ inductive DemoId where
   | vectorProjection
   | vectorField
   | crossProduct3D
+  | matrix2DTransform
+  | matrix3DTransform
+  | projectionExplorer
+  | matrixDecomposition
   deriving Repr, BEq, Inhabited
 
 structure CirclesState where
@@ -159,6 +167,10 @@ def DemoState : DemoId → Type
   | .vectorProjection => Linalg.VectorProjectionState
   | .vectorField => Linalg.VectorFieldState
   | .crossProduct3D => Linalg.CrossProduct3DState
+  | .matrix2DTransform => Linalg.Matrix2DTransformState
+  | .matrix3DTransform => Linalg.Matrix3DTransformState
+  | .projectionExplorer => Linalg.ProjectionExplorerState
+  | .matrixDecomposition => Linalg.MatrixDecompositionState
 
 class Demo (id : DemoId) where
   name : String
@@ -911,6 +923,252 @@ instance : Demo .crossProduct3D where
     pure { state with dragging := .none }
   step := fun c _ s => pure (c, s)
 
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Linalg Matrix Demos
+-- ═══════════════════════════════════════════════════════════════════════════
+
+instance : Demo .matrix2DTransform where
+  name := "2D MATRIX TRANSFORM (1-9 for presets)"
+  shortName := "Mat2D"
+  init := fun _ => pure Linalg.matrix2DTransformInitialState
+  update := fun env s => do
+    let mut state := s
+    -- Handle keyboard: 1-9 for presets
+    if env.keyCode == FFI.Key.num1 then
+      env.clearKey
+      state := { state with preset := .identity, matrix := Linalg.presetToMatrix .identity }
+    else if env.keyCode == FFI.Key.num2 then
+      env.clearKey
+      state := { state with preset := .rotation45, matrix := Linalg.presetToMatrix .rotation45 }
+    else if env.keyCode == FFI.Key.num3 then
+      env.clearKey
+      state := { state with preset := .rotation90, matrix := Linalg.presetToMatrix .rotation90 }
+    else if env.keyCode == FFI.Key.num4 then
+      env.clearKey
+      state := { state with preset := .scale2x, matrix := Linalg.presetToMatrix .scale2x }
+    else if env.keyCode == FFI.Key.num5 then
+      env.clearKey
+      state := { state with preset := .scaleNonUniform, matrix := Linalg.presetToMatrix .scaleNonUniform }
+    else if env.keyCode == FFI.Key.num6 then
+      env.clearKey
+      state := { state with preset := .shearX, matrix := Linalg.presetToMatrix .shearX }
+    else if env.keyCode == FFI.Key.num7 then
+      env.clearKey
+      state := { state with preset := .shearY, matrix := Linalg.presetToMatrix .shearY }
+    else if env.keyCode == FFI.Key.num8 then
+      env.clearKey
+      state := { state with preset := .reflectX, matrix := Linalg.presetToMatrix .reflectX }
+    else if env.keyCode == FFI.Key.num9 then
+      env.clearKey
+      state := { state with preset := .reflectY, matrix := Linalg.presetToMatrix .reflectY }
+    -- G to toggle grid
+    else if env.keyCode == FFI.Key.g then
+      env.clearKey
+      state := { state with showGrid := !state.showGrid }
+    -- V to toggle basis vectors
+    else if env.keyCode == FFI.Key.v then
+      env.clearKey
+      state := { state with showBasisVectors := !state.showBasisVectors }
+    -- S to cycle shapes
+    else if env.keyCode == FFI.Key.s then
+      env.clearKey
+      let newShape := match state.shape with
+        | .square => .triangle
+        | .triangle => .arrow
+        | .arrow => .square
+      state := { state with shape := newShape }
+    -- Space to toggle animation
+    else if env.keyCode == FFI.Key.space then
+      env.clearKey
+      state := { state with animating := !state.animating }
+    -- Update animation
+    if state.animating then
+      let newT := state.animT + env.dt * 0.5
+      state := { state with animT := if newT >= 1.0 then 0.0 else newT }
+    pure state
+  view := fun env s => some (Linalg.matrix2DTransformWidget env s)
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .matrix3DTransform where
+  name := "3D TRANSFORM CHAIN (reorder transforms)"
+  shortName := "Mat3D"
+  init := fun _ => pure Linalg.matrix3DTransformInitialState
+  update := fun env s => do
+    let mut state := s
+    -- 1-8 to select transform
+    if env.keyCode == FFI.Key.num1 then
+      env.clearKey
+      state := { state with selectedIndex := some 0 }
+    else if env.keyCode == FFI.Key.num2 then
+      env.clearKey
+      state := { state with selectedIndex := some 1 }
+    else if env.keyCode == FFI.Key.num3 then
+      env.clearKey
+      state := { state with selectedIndex := some 2 }
+    -- Up arrow to move selected transform up
+    else if env.keyCode == FFI.Key.up then
+      env.clearKey
+      if let some idx := state.selectedIndex then
+        if idx > 0 then
+          let mut arr := state.transforms
+          let temp := arr.getD idx (.rotateX 0)
+          arr := arr.set! idx (arr.getD (idx - 1) (.rotateX 0))
+          arr := arr.set! (idx - 1) temp
+          state := { state with transforms := arr, selectedIndex := some (idx - 1) }
+    -- Down arrow to move selected transform down
+    else if env.keyCode == FFI.Key.down then
+      env.clearKey
+      if let some idx := state.selectedIndex then
+        if idx + 1 < state.transforms.size then
+          let mut arr := state.transforms
+          let temp := arr.getD idx (.rotateX 0)
+          arr := arr.set! idx (arr.getD (idx + 1) (.rotateX 0))
+          arr := arr.set! (idx + 1) temp
+          state := { state with transforms := arr, selectedIndex := some (idx + 1) }
+    -- A to toggle axes
+    else if env.keyCode == FFI.Key.a then
+      env.clearKey
+      state := { state with showAxes := !state.showAxes }
+    -- I to toggle intermediate steps
+    else if env.keyCode == FFI.Key.i then
+      env.clearKey
+      state := { state with showIntermediateSteps := !state.showIntermediateSteps }
+    -- R to reset camera
+    else if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := { state with cameraYaw := 0.5, cameraPitch := 0.3 }
+    pure state
+  view := fun env s => some (Linalg.matrix3DTransformWidget env s)
+  handleClickWithLayouts := fun _env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 then return state
+    pure { state with dragging := true, lastMouseX := click.x, lastMouseY := click.y }
+  handleHoverWithLayouts := fun _env state _contentId _hitPath mouseX mouseY _layouts _widget => do
+    if state.dragging then
+      let dx := mouseX - state.lastMouseX
+      let dy := mouseY - state.lastMouseY
+      let newYaw := state.cameraYaw + dx * 0.01
+      let rawPitch := state.cameraPitch + dy * 0.01
+      let newPitch := if rawPitch < -1.5 then -1.5 else if rawPitch > 1.5 then 1.5 else rawPitch
+      pure { state with cameraYaw := newYaw, cameraPitch := newPitch, lastMouseX := mouseX, lastMouseY := mouseY }
+    else
+      pure state
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ => do
+    pure { state with dragging := false }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .projectionExplorer where
+  name := "PROJECTION MATRIX EXPLORER"
+  shortName := "Proj"
+  init := fun _ => pure Linalg.projectionExplorerInitialState
+  update := fun env s => do
+    let mut state := s
+    -- Tab to switch projection type
+    if env.keyCode == FFI.Key.tab then
+      env.clearKey
+      state := { state with projType := match state.projType with
+        | .perspective => .orthographic
+        | .orthographic => .perspective
+      }
+    -- F to adjust far plane
+    else if env.keyCode == FFI.Key.f then
+      env.clearKey
+      let newFar := state.far + 0.5
+      state := { state with far := if newFar > 10.0 then 10.0 else newFar }
+    -- N to adjust near plane
+    else if env.keyCode == FFI.Key.n then
+      env.clearKey
+      let newNear := state.near + 0.1
+      let maxNear := state.far - 0.5
+      let clampedNear := if newNear > maxNear then maxNear else newNear
+      state := { state with near := if clampedNear < 0.1 then 0.1 else clampedNear }
+    -- + to increase FOV/size
+    else if env.keyCode == 24 then  -- = (plus)
+      env.clearKey
+      match state.projType with
+      | .perspective =>
+          let newFov := state.fov + 0.1
+          let maxFov := 2.513  -- ~80% of pi
+          state := { state with fov := if newFov > maxFov then maxFov else newFov }
+      | .orthographic =>
+          let newSize := state.orthoSize + 0.2
+          state := { state with orthoSize := if newSize > 5.0 then 5.0 else newSize }
+    -- - to decrease FOV/size
+    else if env.keyCode == 27 then  -- -
+      env.clearKey
+      match state.projType with
+      | .perspective =>
+          let newFov := state.fov - 0.1
+          state := { state with fov := if newFov < 0.3 then 0.3 else newFov }
+      | .orthographic =>
+          let newSize := state.orthoSize - 0.2
+          state := { state with orthoSize := if newSize < 0.5 then 0.5 else newSize }
+    -- C to toggle clip space view
+    else if env.keyCode == FFI.Key.c then
+      env.clearKey
+      state := { state with showClipSpace := !state.showClipSpace }
+    -- O to toggle test objects
+    else if env.keyCode == FFI.Key.o then
+      env.clearKey
+      state := { state with showTestObjects := !state.showTestObjects }
+    pure state
+  view := fun env s => some (Linalg.projectionExplorerWidget env s)
+  handleClickWithLayouts := fun _env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 then return state
+    pure { state with dragging := true, lastMouseX := click.x, lastMouseY := click.y }
+  handleHoverWithLayouts := fun _env state _contentId _hitPath mouseX mouseY _layouts _widget => do
+    if state.dragging then
+      let dx := mouseX - state.lastMouseX
+      let dy := mouseY - state.lastMouseY
+      let newYaw := state.cameraYaw + dx * 0.01
+      let rawPitch := state.cameraPitch + dy * 0.01
+      let newPitch := if rawPitch < -1.5 then -1.5 else if rawPitch > 1.5 then 1.5 else rawPitch
+      pure { state with cameraYaw := newYaw, cameraPitch := newPitch, lastMouseX := mouseX, lastMouseY := mouseY }
+    else
+      pure state
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ => do
+    pure { state with dragging := false }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .matrixDecomposition where
+  name := "MATRIX DECOMPOSITION"
+  shortName := "Decomp"
+  init := fun _ => pure Linalg.matrixDecompositionInitialState
+  update := fun env s => do
+    let mut state := s
+    -- 1-6 for presets
+    let presetKey := if env.keyCode == FFI.Key.num1 then some 0
+                     else if env.keyCode == FFI.Key.num2 then some 1
+                     else if env.keyCode == FFI.Key.num3 then some 2
+                     else if env.keyCode == FFI.Key.num4 then some 3
+                     else if env.keyCode == FFI.Key.num5 then some 4
+                     else if env.keyCode == FFI.Key.num6 then some 5
+                     else none
+    if let some i := presetKey then
+      if i < Linalg.decompositionPresets.size then
+        env.clearKey
+        let (_, m) := Linalg.decompositionPresets.getD i ("", Linalg.Mat2.identity)
+        state := { state with
+          matrix := m
+          decomp := Linalg.decomposeMatrix2D m
+          presetIndex := i
+        }
+    -- Tab to cycle decomposition steps
+    if env.keyCode == FFI.Key.tab then
+      env.clearKey
+      state := { state with currentStep := match state.currentStep with
+        | .original => .afterRotation1
+        | .afterRotation1 => .afterScale
+        | .afterScale => .afterRotation2
+        | .afterRotation2 => .original
+      }
+    -- C to toggle components
+    else if env.keyCode == FFI.Key.c then
+      env.clearKey
+      state := { state with showComponents := !state.showComponents }
+    pure state
+  view := fun env s => some (Linalg.matrixDecompositionWidget env s)
+  step := fun c _ s => pure (c, s)
+
 def demoInstance (id : DemoId) : Demo id := by
   cases id <;> infer_instance
 
@@ -1016,17 +1274,24 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let orbitalInstancedDemo ← mkAnyDemo .orbitalInstanced env
   let fontShowcaseDemo ← mkAnyDemo .fontShowcase env
   let chatDemoDemo ← mkAnyDemo .chatDemo env
-  -- Linalg demos
+  -- Linalg vector demos
   let vectorInterpDemo ← mkAnyDemo .vectorInterpolation env
   let vectorArithDemo ← mkAnyDemo .vectorArithmetic env
   let vectorProjDemo ← mkAnyDemo .vectorProjection env
   let vectorFieldDemo ← mkAnyDemo .vectorField env
   let crossProduct3DDemo ← mkAnyDemo .crossProduct3D env
+  -- Linalg matrix demos
+  let matrix2DDemo ← mkAnyDemo .matrix2DTransform env
+  let matrix3DDemo ← mkAnyDemo .matrix3DTransform env
+  let projExplorerDemo ← mkAnyDemo .projectionExplorer env
+  let matrixDecompDemo ← mkAnyDemo .matrixDecomposition env
   pure #[demoGrid, gridPerf, trianglesPerf, circlesPerf, spritesPerf, layoutDemo, cssGridDemo,
     reactiveShowcaseDemo, widgetPerfDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
     lineCapsDemo, dashedLinesDemo, linesPerfDemo, textureMatrixDemo, orbitalInstancedDemo,
     fontShowcaseDemo, chatDemoDemo,
     -- Linalg vector demos
-    vectorInterpDemo, vectorArithDemo, vectorProjDemo, vectorFieldDemo, crossProduct3DDemo]
+    vectorInterpDemo, vectorArithDemo, vectorProjDemo, vectorFieldDemo, crossProduct3DDemo,
+    -- Linalg matrix demos
+    matrix2DDemo, matrix3DDemo, projExplorerDemo, matrixDecompDemo]
 
 end Demos

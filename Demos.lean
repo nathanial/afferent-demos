@@ -23,4 +23,8 @@ import Demos.Linalg.VectorArithmetic
 import Demos.Linalg.VectorProjection
 import Demos.Linalg.VectorField
 import Demos.Linalg.CrossProduct3D
+import Demos.Linalg.Matrix2DTransform
+import Demos.Linalg.Matrix3DTransform
+import Demos.Linalg.ProjectionExplorer
+import Demos.Linalg.MatrixDecomposition
 import Demos.Core.Runner
