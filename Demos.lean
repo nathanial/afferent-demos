@@ -40,4 +40,7 @@ import Demos.Linalg.CatmullRomSplineEditor
 import Demos.Linalg.BSplineCurveDemo
 import Demos.Linalg.ArcLengthParameterization
 import Demos.Linalg.BezierPatchSurface
+import Demos.Linalg.EasingFunctionGallery
+import Demos.Linalg.SmoothDampFollower
+import Demos.Linalg.SpringAnimationPlayground
 import Demos.Core.Runner

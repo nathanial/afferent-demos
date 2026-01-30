@@ -31,6 +31,15 @@ structure TabBarStyle where
   cornerRadius : Float := 4
 deriving Repr, Inhabited
 
+/-- Number of tab rows in the tab bar. -/
+def tabBarRows : Nat := 2
+
+/-- Total tab bar height in logical pixels. -/
+def tabBarTotalHeight (style : TabBarStyle := {}) : Float :=
+  let rows := tabBarRows
+  if rows <= 1 then style.height
+  else style.height * rows.toFloat + style.tabGap * (rows - 1).toFloat
+
 /-- Result of building a tabbar. -/
 structure TabBarResult where
   widget : Widget
@@ -63,32 +72,54 @@ def buildTabBar (tabs : Array TabConfig) (fontId : FontId)
 
   -- Build all tabs and collect their IDs
   -- Each tab uses 2 IDs: one for the center container, one for the text
-  -- So tab at index i has clickable ID at: startId + 1 + (i * 2)
-  -- The row itself takes the startId
+  -- So tab at index i has clickable ID at: startId + 3 + (i * 2)
+  -- The tabbar uses 3 IDs for containers: root, row1, row2
   let rowId := startId
+  let row1Id := rowId + 1
+  let row2Id := rowId + 2
+  let tabBaseId := rowId + 3
   let tabWidgets := tabs.mapIdx fun idx config =>
-    -- Build tab at known ID position
-    let tabStartId := rowId + 1 + idx * 2
+    let tabStartId := tabBaseId + idx * 2
     buildFrom tabStartId (buildTab config fontId style screenScale)
 
   -- Collect tab IDs (the center container IDs)
   let tabIds := tabs.mapIdx fun idx _ =>
-    rowId + 1 + idx * 2
+    tabBaseId + idx * 2
 
-  -- Build the row containing all tabs
-  let rowWidget := Widget.flex rowId none
+  let split := (tabs.size + 1) / 2
+  let row1Tabs := tabWidgets.take split
+  let row2Tabs := tabWidgets.drop split
+
+  let rowStyle := {
+    backgroundColor := some style.backgroundColor
+    padding := { top := s 4, right := s 8, bottom := s 4, left := s 8 }
+    height := .length (s style.height)
+    flexItem := some (Trellis.FlexItem.fixed (s style.height))
+  }
+
+  let rowWidget1 := Widget.flex row1Id none
     (Trellis.FlexContainer.row (s style.tabGap))
+    rowStyle
+    row1Tabs
+
+  let rowWidget2 := Widget.flex row2Id none
+    (Trellis.FlexContainer.row (s style.tabGap))
+    rowStyle
+    row2Tabs
+
+  let totalHeight := tabBarTotalHeight style
+  let rootWidget := Widget.flex rowId none
+    (Trellis.FlexContainer.column (s style.tabGap))
     {
       backgroundColor := some style.backgroundColor
-      padding := { top := s 4, right := s 8, bottom := s 4, left := s 8 }
-      height := .length (s style.height)
-      flexItem := some (Trellis.FlexItem.fixed (s style.height))
+      height := .length (s totalHeight)
+      flexItem := some (Trellis.FlexItem.fixed (s totalHeight))
     }
-    tabWidgets
+    #[rowWidget1, rowWidget2]
 
-  let finalId := rowId + 1 + tabs.size * 2
+  let finalId := tabBaseId + tabs.size * 2
 
-  { widget := rowWidget, rowId := rowId, tabIds := tabIds, finalId := finalId }
+  { widget := rootWidget, rowId := rowId, tabIds := tabIds, finalId := finalId }
 
 /-- Find which tab was clicked given a widget ID.
     Returns Some tabIndex if a tab was clicked, None otherwise. -/

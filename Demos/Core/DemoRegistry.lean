@@ -46,6 +46,9 @@ import Demos.Linalg.CatmullRomSplineEditor
 import Demos.Linalg.BSplineCurveDemo
 import Demos.Linalg.ArcLengthParameterization
 import Demos.Linalg.BezierPatchSurface
+import Demos.Linalg.EasingFunctionGallery
+import Demos.Linalg.SmoothDampFollower
+import Demos.Linalg.SpringAnimationPlayground
 import Afferent.Canopy.Reactive
 import Reactive.Host.Spider
 import Worldmap
@@ -106,6 +109,9 @@ inductive DemoId where
   | bSplineCurveDemo
   | arcLengthParameterization
   | bezierPatchSurface
+  | easingFunctionGallery
+  | smoothDampFollower
+  | springAnimationPlayground
   deriving Repr, BEq, Inhabited
 
 structure CirclesState where
@@ -210,6 +216,9 @@ def DemoState : DemoId → Type
   | .bSplineCurveDemo => Linalg.BSplineCurveDemoState
   | .arcLengthParameterization => Linalg.ArcLengthParameterizationState
   | .bezierPatchSurface => Linalg.BezierPatchSurfaceState
+  | .easingFunctionGallery => Linalg.EasingFunctionGalleryState
+  | .smoothDampFollower => Linalg.SmoothDampFollowerState
+  | .springAnimationPlayground => Linalg.SpringAnimationPlaygroundState
 
 class Demo (id : DemoId) where
   name : String
@@ -2064,6 +2073,187 @@ instance : Demo .bezierPatchSurface where
     pure { state with dragging := .none }
   step := fun c _ s => pure (c, s)
 
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Linalg Easing & Interpolation Demos
+-- ═══════════════════════════════════════════════════════════════════════════
+
+instance : Demo .easingFunctionGallery where
+  name := "EASING FUNCTION GALLERY"
+  shortName := "Easing"
+  init := fun _ => pure Linalg.easingFunctionGalleryInitialState
+  update := fun env s => do
+    let mut state := s
+    let count := Linalg.easingEntryCount
+    if count == 0 then
+      return state
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.easingFunctionGalleryInitialState
+    else if env.keyCode == FFI.Key.space then
+      env.clearKey
+      state := { state with animating := !state.animating }
+    else if env.keyCode == FFI.Key.c then
+      env.clearKey
+      state := { state with compareMode := !state.compareMode }
+    else if env.keyCode == FFI.Key.tab then
+      env.clearKey
+      state := { state with selected := (state.selected + 1) % count }
+    else if env.keyCode == FFI.Key.left then
+      env.clearKey
+      state := { state with selected := (state.selected + count - 1) % count }
+    else if env.keyCode == FFI.Key.right then
+      env.clearKey
+      state := { state with selected := (state.selected + 1) % count }
+    else if env.keyCode == FFI.Key.x then
+      env.clearKey
+      state := { state with compare := (state.compare + 1) % count }
+    else if env.keyCode == FFI.Key.up then
+      env.clearKey
+      state := { state with speed := Linalg.Float.clamp (state.speed + 0.1) 0.1 3.0 }
+    else if env.keyCode == FFI.Key.down then
+      env.clearKey
+      state := { state with speed := Linalg.Float.clamp (state.speed - 0.1) 0.1 3.0 }
+
+    if state.compare == state.selected then
+      state := { state with compare := (state.compare + 1) % count }
+
+    if state.animating then
+      let newT := state.t + env.dt * state.speed
+      state := { state with t := if newT > 1.0 then newT - 1.0 else newT }
+    pure state
+  view := fun env s => some (Linalg.easingFunctionGalleryWidget env s)
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .smoothDampFollower where
+  name := "SMOOTH DAMP FOLLOWER"
+  shortName := "SmoothD"
+  init := fun _ => pure Linalg.smoothDampFollowerInitialState
+  update := fun env s => do
+    let mut state := s
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.smoothDampFollowerInitialState
+    else if env.keyCode == FFI.Key.space then
+      env.clearKey
+      state := { state with animating := !state.animating }
+    if state.animating then
+      let (_newPos, newState) := Linalg.SmoothDampState2.step
+        state.dampState state.target state.smoothTime env.dt state.maxSpeed
+      let speed := newState.velocity.length
+      let mut history := state.history.push speed
+      if history.size > 120 then
+        history := history.eraseIdxIfInBounds 0
+      state := { state with dampState := newState, history := history }
+    pure state
+  view := fun env s => some (Linalg.smoothDampFollowerWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 then return state
+    let localX := click.x - env.contentOffsetX
+    let localY := click.y - env.contentOffsetY
+    let layoutSmooth := Linalg.smoothDampSliderLayout env.physWidthF env.physHeightF env.screenScale 0
+    let layoutMax := Linalg.smoothDampSliderLayout env.physWidthF env.physHeightF env.screenScale 1
+    let hitSmooth := localX >= layoutSmooth.x && localX <= layoutSmooth.x + layoutSmooth.width
+      && localY >= layoutSmooth.y - 8.0 && localY <= layoutSmooth.y + layoutSmooth.height + 8.0
+    let hitMax := localX >= layoutMax.x && localX <= layoutMax.x + layoutMax.width
+      && localY >= layoutMax.y - 8.0 && localY <= layoutMax.y + layoutMax.height + 8.0
+    if hitSmooth then
+      let t := Linalg.Float.clamp ((localX - layoutSmooth.x) / layoutSmooth.width) 0.0 1.0
+      let value := Linalg.smoothDampSmoothTimeFrom t
+      pure { state with smoothTime := value, dragging := .slider .smoothTime }
+    else if hitMax then
+      let t := Linalg.Float.clamp ((localX - layoutMax.x) / layoutMax.width) 0.0 1.0
+      let value := Linalg.smoothDampMaxSpeedFrom t
+      pure { state with maxSpeed := value, dragging := .slider .maxSpeed }
+    else
+      let origin := (env.physWidthF / 2, env.physHeightF / 2)
+      let scale := 70.0 * env.screenScale
+      let worldPos := Linalg.screenToWorld (localX, localY) origin scale
+      if Linalg.nearPoint worldPos state.target 0.45 then
+        pure { state with dragging := .target }
+      else
+        pure { state with target := worldPos, dragging := .target }
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX mouseY _layouts _widget => do
+    match state.dragging with
+    | .none => pure state
+    | .target =>
+        let origin := (env.physWidthF / 2, env.physHeightF / 2)
+        let scale := 70.0 * env.screenScale
+        let worldPos := Linalg.screenToWorld (mouseX - env.contentOffsetX, mouseY - env.contentOffsetY) origin scale
+        pure { state with target := worldPos }
+    | .slider which =>
+        let localX := mouseX - env.contentOffsetX
+        match which with
+        | .smoothTime =>
+            let layout := Linalg.smoothDampSliderLayout env.physWidthF env.physHeightF env.screenScale 0
+            let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+            pure { state with smoothTime := Linalg.smoothDampSmoothTimeFrom t }
+        | .maxSpeed =>
+            let layout := Linalg.smoothDampSliderLayout env.physWidthF env.physHeightF env.screenScale 1
+            let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+            pure { state with maxSpeed := Linalg.smoothDampMaxSpeedFrom t }
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := .none }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .springAnimationPlayground where
+  name := "SPRING ANIMATION PLAYGROUND"
+  shortName := "Spring"
+  init := fun _ => pure Linalg.springAnimationPlaygroundInitialState
+  update := fun env s => do
+    let mut state := s
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.springAnimationPlaygroundInitialState
+    else if env.keyCode == FFI.Key.space then
+      env.clearKey
+      state := { state with animating := !state.animating }
+    if state.animating then
+      let newTime := state.time + env.dt
+      let time := if newTime > 4.0 then newTime - 4.0 else newTime
+      let ω := 2.0 * Linalg.Float.pi * state.frequency
+      let x := Linalg.springResponse time state.dampingRatio ω
+      let v := Linalg.springVelocity time state.dampingRatio ω
+      let energy := 0.5 * (x * x + (v / ω) * (v / ω))
+      let mut history := state.energyHistory.push energy
+      if history.size > 140 then
+        history := history.eraseIdxIfInBounds 0
+      state := { state with time := time, energyHistory := history }
+    pure state
+  view := fun env s => some (Linalg.springAnimationPlaygroundWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 then return state
+    let localX := click.x - env.contentOffsetX
+    let localY := click.y - env.contentOffsetY
+    let layoutDamp := Linalg.springSliderLayout env.physWidthF env.physHeightF env.screenScale 0
+    let layoutFreq := Linalg.springSliderLayout env.physWidthF env.physHeightF env.screenScale 1
+    let hitDamp := localX >= layoutDamp.x && localX <= layoutDamp.x + layoutDamp.width
+      && localY >= layoutDamp.y - 8.0 && localY <= layoutDamp.y + layoutDamp.height + 8.0
+    let hitFreq := localX >= layoutFreq.x && localX <= layoutFreq.x + layoutFreq.width
+      && localY >= layoutFreq.y - 8.0 && localY <= layoutFreq.y + layoutFreq.height + 8.0
+    if hitDamp then
+      let t := Linalg.Float.clamp ((localX - layoutDamp.x) / layoutDamp.width) 0.0 1.0
+      pure { state with dampingRatio := Linalg.springDampingFrom t, dragging := .sliderDamping }
+    else if hitFreq then
+      let t := Linalg.Float.clamp ((localX - layoutFreq.x) / layoutFreq.width) 0.0 1.0
+      pure { state with frequency := Linalg.springFrequencyFrom t, dragging := .sliderFrequency }
+    else
+      pure state
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX _mouseY _layouts _widget => do
+    let localX := mouseX - env.contentOffsetX
+    match state.dragging with
+    | .sliderDamping =>
+        let layout := Linalg.springSliderLayout env.physWidthF env.physHeightF env.screenScale 0
+        let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+        pure { state with dampingRatio := Linalg.springDampingFrom t }
+    | .sliderFrequency =>
+        let layout := Linalg.springSliderLayout env.physWidthF env.physHeightF env.screenScale 1
+        let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+        pure { state with frequency := Linalg.springFrequencyFrom t }
+    | .none => pure state
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := .none }
+  step := fun c _ s => pure (c, s)
+
 def demoInstance (id : DemoId) : Demo id := by
   cases id <;> infer_instance
 
@@ -2196,6 +2386,10 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let bsplineDemo ← mkAnyDemo .bSplineCurveDemo env
   let arcLenDemo ← mkAnyDemo .arcLengthParameterization env
   let patchDemo ← mkAnyDemo .bezierPatchSurface env
+  -- Linalg easing demos
+  let easingDemo ← mkAnyDemo .easingFunctionGallery env
+  let smoothDampDemo ← mkAnyDemo .smoothDampFollower env
+  let springDemo ← mkAnyDemo .springAnimationPlayground env
   pure #[demoGrid, gridPerf, trianglesPerf, circlesPerf, spritesPerf, layoutDemo, cssGridDemo,
     reactiveShowcaseDemo, widgetPerfDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
     lineCapsDemo, dashedLinesDemo, linesPerfDemo, textureMatrixDemo, orbitalInstancedDemo,
@@ -2209,6 +2403,8 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
     -- Linalg geometry demos
     rayPlayDemo, overlapDemo, baryDemo, frustumDemo,
     -- Linalg curve demos
-    bezierDemo, catmullDemo, bsplineDemo, arcLenDemo, patchDemo]
+    bezierDemo, catmullDemo, bsplineDemo, arcLenDemo, patchDemo,
+    -- Linalg easing demos
+    easingDemo, smoothDampDemo, springDemo]
 
 end Demos

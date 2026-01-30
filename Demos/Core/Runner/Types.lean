@@ -77,7 +77,7 @@ structure LoadedAssets where
   layoutScale : Float
 
 /-- Fixed tabbar height in logical pixels. -/
-def tabBarHeight : Float := ({} : TabBarStyle).height
+def tabBarHeight : Float := tabBarTotalHeight ({} : TabBarStyle)
 def footerBarHeight : Float := 90
 
 structure RootBuild where
