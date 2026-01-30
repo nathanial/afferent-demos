@@ -31,4 +31,8 @@ import Demos.Linalg.QuaternionVisualizer
 import Demos.Linalg.SlerpInterpolation
 import Demos.Linalg.EulerGimbalLock
 import Demos.Linalg.DualQuaternionBlending
+import Demos.Linalg.RayCastingPlayground
+import Demos.Linalg.PrimitiveOverlapTester
+import Demos.Linalg.BarycentricCoordinates
+import Demos.Linalg.FrustumCullingDemo
 import Demos.Core.Runner

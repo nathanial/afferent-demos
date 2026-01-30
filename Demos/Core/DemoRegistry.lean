@@ -37,6 +37,10 @@ import Demos.Linalg.QuaternionVisualizer
 import Demos.Linalg.SlerpInterpolation
 import Demos.Linalg.EulerGimbalLock
 import Demos.Linalg.DualQuaternionBlending
+import Demos.Linalg.RayCastingPlayground
+import Demos.Linalg.PrimitiveOverlapTester
+import Demos.Linalg.BarycentricCoordinates
+import Demos.Linalg.FrustumCullingDemo
 import Afferent.Canopy.Reactive
 import Reactive.Host.Spider
 import Worldmap
@@ -88,6 +92,10 @@ inductive DemoId where
   | slerpInterpolation
   | eulerGimbalLock
   | dualQuaternionBlending
+  | rayCastingPlayground
+  | primitiveOverlapTester
+  | barycentricCoordinates
+  | frustumCullingDemo
   deriving Repr, BEq, Inhabited
 
 structure CirclesState where
@@ -183,6 +191,10 @@ def DemoState : DemoId → Type
   | .slerpInterpolation => Linalg.SlerpInterpolationState
   | .eulerGimbalLock => Linalg.EulerGimbalLockState
   | .dualQuaternionBlending => Linalg.DualQuaternionBlendingState
+  | .rayCastingPlayground => Linalg.RayCastingPlaygroundState
+  | .primitiveOverlapTester => Linalg.PrimitiveOverlapTesterState
+  | .barycentricCoordinates => Linalg.BarycentricCoordinatesState
+  | .frustumCullingDemo => Linalg.FrustumCullingDemoState
 
 class Demo (id : DemoId) where
   name : String
@@ -1450,6 +1462,182 @@ instance : Demo .dualQuaternionBlending where
     pure { state with dragging := false }
   step := fun c _ s => pure (c, s)
 
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Linalg Geometry Demos
+-- ═══════════════════════════════════════════════════════════════════════════
+
+instance : Demo .rayCastingPlayground where
+  name := "RAY CASTING PLAYGROUND"
+  shortName := "Ray"
+  init := fun _ => pure Linalg.rayCastingPlaygroundInitialState
+  update := fun env s => do
+    let mut state := s
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.rayCastingPlaygroundInitialState
+    pure state
+  view := fun env s => some (Linalg.rayCastingPlaygroundWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 && click.button != 1 then
+      return state
+    let origin := (env.contentOffsetX + env.physWidthF / 2, env.contentOffsetY + env.physHeightF / 2)
+    let scale := 70.0 * env.screenScale
+    let worldPos := Linalg.screenToWorld (click.x, click.y) origin scale
+    let origin2 := Linalg.Vec2.mk state.rayOrigin.x state.rayOrigin.z
+    let target2 := Linalg.Vec2.mk state.rayTarget.x state.rayTarget.z
+    if click.button == 1 then
+      pure { state with dragging := .camera, lastMouseX := click.x, lastMouseY := click.y }
+    else if Linalg.nearPoint worldPos origin2 0.5 then
+      pure { state with dragging := .origin, lastMouseX := click.x, lastMouseY := click.y }
+    else if Linalg.nearPoint worldPos target2 0.5 then
+      pure { state with dragging := .direction, lastMouseX := click.x, lastMouseY := click.y }
+    else
+      pure state
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX mouseY _layouts _widget => do
+    match state.dragging with
+    | .none => pure state
+    | .camera =>
+        let dx := mouseX - state.lastMouseX
+        let dy := mouseY - state.lastMouseY
+        let newYaw := state.cameraYaw + dx * 0.005
+        let newPitch := state.cameraPitch + dy * 0.005
+        pure { state with cameraYaw := newYaw, cameraPitch := newPitch, lastMouseX := mouseX, lastMouseY := mouseY }
+    | .origin =>
+        let origin := (env.contentOffsetX + env.physWidthF / 2, env.contentOffsetY + env.physHeightF / 2)
+        let scale := 70.0 * env.screenScale
+        let worldPos := Linalg.screenToWorld (mouseX, mouseY) origin scale
+        let newOrigin := Linalg.Vec3.mk worldPos.x 0.0 worldPos.y
+        pure { state with rayOrigin := newOrigin, lastMouseX := mouseX, lastMouseY := mouseY }
+    | .direction =>
+        let origin := (env.contentOffsetX + env.physWidthF / 2, env.contentOffsetY + env.physHeightF / 2)
+        let scale := 70.0 * env.screenScale
+        let worldPos := Linalg.screenToWorld (mouseX, mouseY) origin scale
+        let newTarget := Linalg.Vec3.mk worldPos.x 0.0 worldPos.y
+        pure { state with rayTarget := newTarget, lastMouseX := mouseX, lastMouseY := mouseY }
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := .none }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .primitiveOverlapTester where
+  name := "PRIMITIVE OVERLAP TESTER"
+  shortName := "Overlap"
+  init := fun _ => pure Linalg.primitiveOverlapTesterInitialState
+  update := fun env s => do
+    let mut state := s
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.primitiveOverlapTesterInitialState
+    else if env.keyCode == FFI.Key.num1 then
+      env.clearKey
+      state := { state with mode := .sphereSphere }
+    else if env.keyCode == FFI.Key.num2 then
+      env.clearKey
+      state := { state with mode := .aabbAabb }
+    else if env.keyCode == FFI.Key.num3 then
+      env.clearKey
+      state := { state with mode := .sphereAabb }
+    pure state
+  view := fun env s => some (Linalg.primitiveOverlapTesterWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 then return state
+    let origin := (env.contentOffsetX + env.physWidthF / 2, env.contentOffsetY + env.physHeightF / 2)
+    let scale := 70.0 * env.screenScale
+    let worldPos := Linalg.screenToWorld (click.x, click.y) origin scale
+    if Linalg.nearPoint worldPos state.centerA 0.6 then
+      pure { state with dragging := .shapeA }
+    else if Linalg.nearPoint worldPos state.centerB 0.6 then
+      pure { state with dragging := .shapeB }
+    else
+      pure state
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX mouseY _layouts _widget => do
+    let origin := (env.contentOffsetX + env.physWidthF / 2, env.contentOffsetY + env.physHeightF / 2)
+    let scale := 70.0 * env.screenScale
+    let worldPos := Linalg.screenToWorld (mouseX, mouseY) origin scale
+    match state.dragging with
+    | .shapeA => pure { state with centerA := worldPos }
+    | .shapeB => pure { state with centerB := worldPos }
+    | .none => pure state
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := .none }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .barycentricCoordinates where
+  name := "BARYCENTRIC COORDINATES"
+  shortName := "Bary"
+  init := fun _ => pure Linalg.barycentricCoordinatesInitialState
+  update := fun env s => do
+    let mut state := s
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.barycentricCoordinatesInitialState
+    pure state
+  view := fun env s => some (Linalg.barycentricCoordinatesWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 then return state
+    let origin := (env.contentOffsetX + env.physWidthF / 2, env.contentOffsetY + env.physHeightF / 2)
+    let scale := 70.0 * env.screenScale
+    let worldPos := Linalg.screenToWorld (click.x, click.y) origin scale
+    if Linalg.nearPoint worldPos state.point 0.4 then
+      pure { state with dragging := true }
+    else
+      pure state
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX mouseY _layouts _widget => do
+    if !state.dragging then return state
+    let origin := (env.contentOffsetX + env.physWidthF / 2, env.contentOffsetY + env.physHeightF / 2)
+    let scale := 70.0 * env.screenScale
+    let worldPos := Linalg.screenToWorld (mouseX, mouseY) origin scale
+    pure { state with point := worldPos }
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := false }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .frustumCullingDemo where
+  name := "FRUSTUM CULLING DEMO"
+  shortName := "Frustum"
+  init := fun _ => pure Linalg.frustumCullingDemoInitialState
+  update := fun env s => do
+    let mut state := s
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.frustumCullingDemoInitialState
+    else if env.keyCode == FFI.Key.j then
+      env.clearKey
+      state := { state with camYaw := state.camYaw - 0.08 }
+    else if env.keyCode == FFI.Key.l then
+      env.clearKey
+      state := { state with camYaw := state.camYaw + 0.08 }
+    else if env.keyCode == FFI.Key.i then
+      env.clearKey
+      let newPitch := state.camPitch + 0.08
+      state := { state with camPitch := if newPitch > 1.2 then 1.2 else newPitch }
+    else if env.keyCode == FFI.Key.k then
+      env.clearKey
+      let newPitch := state.camPitch - 0.08
+      state := { state with camPitch := if newPitch < -1.2 then -1.2 else newPitch }
+    else if env.keyCode == 24 then
+      env.clearKey
+      let newDist := state.camDist - 0.3
+      state := { state with camDist := if newDist < 2.0 then 2.0 else newDist }
+    else if env.keyCode == 27 then
+      env.clearKey
+      state := { state with camDist := state.camDist + 0.3 }
+    pure state
+  view := fun env s => some (Linalg.frustumCullingDemoWidget env s)
+  handleClickWithLayouts := fun _env state _ _ click _ _ => do
+    if click.button != 0 then return state
+    pure { state with dragging := true, lastMouseX := click.x, lastMouseY := click.y }
+  handleHoverWithLayouts := fun _env state _ _ mouseX mouseY _ _ => do
+    if !state.dragging then return state
+    let dx := mouseX - state.lastMouseX
+    let dy := mouseY - state.lastMouseY
+    let newYaw := state.viewYaw + dx * 0.005
+    let newPitch := state.viewPitch + dy * 0.005
+    pure { state with viewYaw := newYaw, viewPitch := newPitch, lastMouseX := mouseX, lastMouseY := mouseY }
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := false }
+  step := fun c _ s => pure (c, s)
+
 def demoInstance (id : DemoId) : Demo id := by
   cases id <;> infer_instance
 
@@ -1571,6 +1759,11 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let slerpDemo ← mkAnyDemo .slerpInterpolation env
   let gimbalDemo ← mkAnyDemo .eulerGimbalLock env
   let dualQuatDemo ← mkAnyDemo .dualQuaternionBlending env
+  -- Linalg geometry demos
+  let rayPlayDemo ← mkAnyDemo .rayCastingPlayground env
+  let overlapDemo ← mkAnyDemo .primitiveOverlapTester env
+  let baryDemo ← mkAnyDemo .barycentricCoordinates env
+  let frustumDemo ← mkAnyDemo .frustumCullingDemo env
   pure #[demoGrid, gridPerf, trianglesPerf, circlesPerf, spritesPerf, layoutDemo, cssGridDemo,
     reactiveShowcaseDemo, widgetPerfDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
     lineCapsDemo, dashedLinesDemo, linesPerfDemo, textureMatrixDemo, orbitalInstancedDemo,
@@ -1580,6 +1773,8 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
     -- Linalg matrix demos
     matrix2DDemo, matrix3DDemo, projExplorerDemo, matrixDecompDemo,
     -- Linalg rotation demos
-    quatDemo, slerpDemo, gimbalDemo, dualQuatDemo]
+    quatDemo, slerpDemo, gimbalDemo, dualQuatDemo,
+    -- Linalg geometry demos
+    rayPlayDemo, overlapDemo, baryDemo, frustumDemo]
 
 end Demos
