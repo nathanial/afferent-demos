@@ -27,4 +27,8 @@ import Demos.Linalg.Matrix2DTransform
 import Demos.Linalg.Matrix3DTransform
 import Demos.Linalg.ProjectionExplorer
 import Demos.Linalg.MatrixDecomposition
+import Demos.Linalg.QuaternionVisualizer
+import Demos.Linalg.SlerpInterpolation
+import Demos.Linalg.EulerGimbalLock
+import Demos.Linalg.DualQuaternionBlending
 import Demos.Core.Runner

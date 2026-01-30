@@ -33,6 +33,10 @@ import Demos.Linalg.Matrix2DTransform
 import Demos.Linalg.Matrix3DTransform
 import Demos.Linalg.ProjectionExplorer
 import Demos.Linalg.MatrixDecomposition
+import Demos.Linalg.QuaternionVisualizer
+import Demos.Linalg.SlerpInterpolation
+import Demos.Linalg.EulerGimbalLock
+import Demos.Linalg.DualQuaternionBlending
 import Afferent.Canopy.Reactive
 import Reactive.Host.Spider
 import Worldmap
@@ -80,6 +84,10 @@ inductive DemoId where
   | matrix3DTransform
   | projectionExplorer
   | matrixDecomposition
+  | quaternionVisualizer
+  | slerpInterpolation
+  | eulerGimbalLock
+  | dualQuaternionBlending
   deriving Repr, BEq, Inhabited
 
 structure CirclesState where
@@ -171,6 +179,10 @@ def DemoState : DemoId → Type
   | .matrix3DTransform => Linalg.Matrix3DTransformState
   | .projectionExplorer => Linalg.ProjectionExplorerState
   | .matrixDecomposition => Linalg.MatrixDecompositionState
+  | .quaternionVisualizer => Linalg.QuaternionVisualizerState
+  | .slerpInterpolation => Linalg.SlerpInterpolationState
+  | .eulerGimbalLock => Linalg.EulerGimbalLockState
+  | .dualQuaternionBlending => Linalg.DualQuaternionBlendingState
 
 class Demo (id : DemoId) where
   name : String
@@ -1214,6 +1226,230 @@ instance : Demo .matrixDecomposition where
   view := fun env s => some (Linalg.matrixDecompositionWidget env s)
   step := fun c _ s => pure (c, s)
 
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Linalg Rotation System Demos
+-- ═══════════════════════════════════════════════════════════════════════════
+
+instance : Demo .quaternionVisualizer where
+  name := "QUATERNION VISUALIZER (arcball + sliders)"
+  shortName := "Quat"
+  init := fun _ => pure Linalg.quaternionVisualizerInitialState
+  update := fun env s => do
+    let mut state := s
+    -- Reset
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.quaternionVisualizerInitialState
+    -- Apply Euler angles to quaternion
+    else if env.keyCode == FFI.Key.e then
+      env.clearKey
+      let e := state.eulerAngles
+      let q := Linalg.Quat.fromEuler e.x e.y e.z
+      state := { state with quat := q.normalize }
+    -- Select Euler component
+    else if env.keyCode == FFI.Key.num1 then
+      env.clearKey
+      state := { state with selectedEuler := 0 }
+    else if env.keyCode == FFI.Key.num2 then
+      env.clearKey
+      state := { state with selectedEuler := 1 }
+    else if env.keyCode == FFI.Key.num3 then
+      env.clearKey
+      state := { state with selectedEuler := 2 }
+    -- Adjust Euler angles
+    else if env.keyCode == FFI.Key.left then
+      env.clearKey
+      let delta := -5.0 * Linalg.Float.pi / 180.0
+      let e := state.eulerAngles
+      let e' := match state.selectedEuler with
+        | 0 => Linalg.Vec3.mk (e.x + delta) e.y e.z
+        | 1 => Linalg.Vec3.mk e.x (e.y + delta) e.z
+        | _ => Linalg.Vec3.mk e.x e.y (e.z + delta)
+      state := { state with eulerAngles := e' }
+    else if env.keyCode == FFI.Key.right then
+      env.clearKey
+      let delta := 5.0 * Linalg.Float.pi / 180.0
+      let e := state.eulerAngles
+      let e' := match state.selectedEuler with
+        | 0 => Linalg.Vec3.mk (e.x + delta) e.y e.z
+        | 1 => Linalg.Vec3.mk e.x (e.y + delta) e.z
+        | _ => Linalg.Vec3.mk e.x e.y (e.z + delta)
+      state := { state with eulerAngles := e' }
+    pure state
+  view := fun env s => some (Linalg.quaternionVisualizerWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 && click.button != 1 then
+      return state
+    let localX := click.x - env.contentOffsetX
+    let localY := click.y - env.contentOffsetY
+    let labels : Array (Linalg.QuatComponent × Nat) := #[(.x, 0), (.y, 1), (.z, 2), (.w, 3)]
+    let mut hitSlider : Option Linalg.QuatComponent := none
+    for (comp, idx) in labels do
+      let layout := Linalg.sliderLayoutFor env.physWidthF env.physHeightF env.screenScale idx
+      let hit := localX >= layout.x && localX <= layout.x + layout.width
+        && localY >= layout.y - 8.0 && localY <= layout.y + layout.height + 8.0
+      if hit then
+        hitSlider := some comp
+    match hitSlider with
+    | some comp =>
+        let layout := Linalg.sliderLayoutFor env.physWidthF env.physHeightF env.screenScale
+          (match comp with | .x => 0 | .y => 1 | .z => 2 | .w => 3)
+        let t := (localX - layout.x) / layout.width
+        let value := Linalg.clampUnit (t * 2.0 - 1.0)
+        let q := (Linalg.setQuatComponent state.quat comp value).normalize
+        pure { state with quat := q, dragging := .slider comp, lastMouseX := click.x, lastMouseY := click.y }
+    | none =>
+        if click.button == 1 then
+          pure { state with dragging := .camera, lastMouseX := click.x, lastMouseY := click.y }
+        else
+          pure { state with dragging := .arcball, lastMouseX := click.x, lastMouseY := click.y }
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX mouseY _layouts _widget => do
+    match state.dragging with
+    | .none => pure state
+    | .camera =>
+        let dx := mouseX - state.lastMouseX
+        let dy := mouseY - state.lastMouseY
+        let yaw := state.cameraYaw + dx * 0.005
+        let pitch := state.cameraPitch + dy * 0.005
+        pure { state with cameraYaw := yaw, cameraPitch := pitch, lastMouseX := mouseX, lastMouseY := mouseY }
+    | .arcball =>
+        let dx := mouseX - state.lastMouseX
+        let dy := mouseY - state.lastMouseY
+        let rotY := Linalg.Quat.fromAxisAngle Linalg.Vec3.unitY (dx * 0.008)
+        let rotX := Linalg.Quat.fromAxisAngle Linalg.Vec3.unitX (dy * 0.008)
+        let q := Linalg.Quat.multiply rotY (Linalg.Quat.multiply rotX state.quat) |>.normalize
+        pure { state with quat := q, lastMouseX := mouseX, lastMouseY := mouseY }
+    | .slider comp =>
+        let localX := mouseX - env.contentOffsetX
+        let layout := Linalg.sliderLayoutFor env.physWidthF env.physHeightF env.screenScale
+          (match comp with | .x => 0 | .y => 1 | .z => 2 | .w => 3)
+        let t := (localX - layout.x) / layout.width
+        let value := Linalg.clampUnit (t * 2.0 - 1.0)
+        let q := (Linalg.setQuatComponent state.quat comp value).normalize
+        pure { state with quat := q, lastMouseX := mouseX, lastMouseY := mouseY }
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := .none }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .slerpInterpolation where
+  name := "SLERP vs LERP (quaternion)"
+  shortName := "Slerp"
+  init := fun _ => pure Linalg.slerpInterpolationInitialState
+  update := fun env s => do
+    let mut state := s
+    if env.keyCode == FFI.Key.space then
+      env.clearKey
+      state := { state with animating := !state.animating }
+    if state.animating then
+      let newT := state.t + env.dt * 0.35
+      state := { state with t := if newT > 1.0 then newT - 1.0 else newT }
+    pure state
+  view := fun env s => some (Linalg.slerpInterpolationWidget env s)
+  handleClickWithLayouts := fun _env state _ _ click _ _ => do
+    if click.button != 0 then return state
+    pure { state with dragging := true, lastMouseX := click.x, lastMouseY := click.y }
+  handleHoverWithLayouts := fun _env state _ _ mouseX mouseY _ _ => do
+    if !state.dragging then return state
+    let dx := mouseX - state.lastMouseX
+    let dy := mouseY - state.lastMouseY
+    let newYaw := state.cameraYaw + dx * 0.005
+    let newPitch := state.cameraPitch + dy * 0.005
+    pure { state with cameraYaw := newYaw, cameraPitch := newPitch, lastMouseX := mouseX, lastMouseY := mouseY }
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := false }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .eulerGimbalLock where
+  name := "EULER GIMBAL LOCK"
+  shortName := "Gimbal"
+  init := fun _ => pure Linalg.eulerGimbalLockInitialState
+  update := fun env s => do
+    let mut state := s
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.eulerGimbalLockInitialState
+    else if env.keyCode == FFI.Key.num1 then
+      env.clearKey
+      state := { state with selectedAxis := 0 }
+    else if env.keyCode == FFI.Key.num2 then
+      env.clearKey
+      state := { state with selectedAxis := 1 }
+    else if env.keyCode == FFI.Key.num3 then
+      env.clearKey
+      state := { state with selectedAxis := 2 }
+    else if env.keyCode == FFI.Key.o then
+      env.clearKey
+      let nextOrder := match state.euler.order with
+        | .XYZ => .XZY
+        | .XZY => .YXZ
+        | .YXZ => .YZX
+        | .YZX => .ZXY
+        | .ZXY => .ZYX
+        | .ZYX => .XYZ
+      state := { state with euler := { state.euler with order := nextOrder } }
+    else if env.keyCode == FFI.Key.left || env.keyCode == FFI.Key.right then
+      let delta := if env.keyCode == FFI.Key.left then -5.0 else 5.0
+      env.clearKey
+      let e := state.euler
+      let radDelta := delta * Linalg.Float.pi / 180.0
+      let e' := match state.selectedAxis with
+        | 0 => { e with a1 := e.a1 + radDelta }
+        | 1 => { e with a2 := e.a2 + radDelta }
+        | _ => { e with a3 := e.a3 + radDelta }
+      state := { state with euler := e' }
+    pure state
+  view := fun env s => some (Linalg.eulerGimbalLockWidget env s)
+  handleClickWithLayouts := fun _env state _ _ click _ _ => do
+    if click.button != 0 then return state
+    pure { state with dragging := true, lastMouseX := click.x, lastMouseY := click.y }
+  handleHoverWithLayouts := fun _env state _ _ mouseX mouseY _ _ => do
+    if !state.dragging then return state
+    let dx := mouseX - state.lastMouseX
+    let dy := mouseY - state.lastMouseY
+    let newYaw := state.cameraYaw + dx * 0.005
+    let newPitch := state.cameraPitch + dy * 0.005
+    pure { state with cameraYaw := newYaw, cameraPitch := newPitch, lastMouseX := mouseX, lastMouseY := mouseY }
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := false }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .dualQuaternionBlending where
+  name := "DUAL QUATERNION BLENDING (LBS vs DLB)"
+  shortName := "DualQuat"
+  init := fun _ => pure Linalg.dualQuaternionBlendingInitialState
+  update := fun env s => do
+    let mut state := s
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.dualQuaternionBlendingInitialState
+    else if env.keyCode == FFI.Key.t then
+      env.clearKey
+      state := { state with twist := state.twist + 0.1 }
+    else if env.keyCode == FFI.Key.g then
+      env.clearKey
+      state := { state with twist := state.twist - 0.1 }
+    else if env.keyCode == FFI.Key.b then
+      env.clearKey
+      state := { state with bend := state.bend + 0.1 }
+    else if env.keyCode == FFI.Key.v then
+      env.clearKey
+      state := { state with bend := state.bend - 0.1 }
+    pure state
+  view := fun env s => some (Linalg.dualQuaternionBlendingWidget env s)
+  handleClickWithLayouts := fun _env state _ _ click _ _ => do
+    if click.button != 0 then return state
+    pure { state with dragging := true, lastMouseX := click.x, lastMouseY := click.y }
+  handleHoverWithLayouts := fun _env state _ _ mouseX mouseY _ _ => do
+    if !state.dragging then return state
+    let dx := mouseX - state.lastMouseX
+    let dy := mouseY - state.lastMouseY
+    let newYaw := state.cameraYaw + dx * 0.005
+    let newPitch := state.cameraPitch + dy * 0.005
+    pure { state with cameraYaw := newYaw, cameraPitch := newPitch, lastMouseX := mouseX, lastMouseY := mouseY }
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := false }
+  step := fun c _ s => pure (c, s)
+
 def demoInstance (id : DemoId) : Demo id := by
   cases id <;> infer_instance
 
@@ -1330,6 +1566,11 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let matrix3DDemo ← mkAnyDemo .matrix3DTransform env
   let projExplorerDemo ← mkAnyDemo .projectionExplorer env
   let matrixDecompDemo ← mkAnyDemo .matrixDecomposition env
+  -- Linalg rotation demos
+  let quatDemo ← mkAnyDemo .quaternionVisualizer env
+  let slerpDemo ← mkAnyDemo .slerpInterpolation env
+  let gimbalDemo ← mkAnyDemo .eulerGimbalLock env
+  let dualQuatDemo ← mkAnyDemo .dualQuaternionBlending env
   pure #[demoGrid, gridPerf, trianglesPerf, circlesPerf, spritesPerf, layoutDemo, cssGridDemo,
     reactiveShowcaseDemo, widgetPerfDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
     lineCapsDemo, dashedLinesDemo, linesPerfDemo, textureMatrixDemo, orbitalInstancedDemo,
@@ -1337,6 +1578,8 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
     -- Linalg vector demos
     vectorInterpDemo, vectorArithDemo, vectorProjDemo, vectorFieldDemo, crossProduct3DDemo,
     -- Linalg matrix demos
-    matrix2DDemo, matrix3DDemo, projExplorerDemo, matrixDecompDemo]
+    matrix2DDemo, matrix3DDemo, projExplorerDemo, matrixDecompDemo,
+    -- Linalg rotation demos
+    quatDemo, slerpDemo, gimbalDemo, dualQuatDemo]
 
 end Demos
