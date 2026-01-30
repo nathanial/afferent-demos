@@ -17,7 +17,7 @@ open Afferent CanvasM Linalg
 
 namespace Demos.Linalg
 
-/-- Decomposition result: R2 * S * R1 where R1, R2 are rotations and S is scale -/
+/-- Decomposition result: R1 * S * R2 where R1, R2 are rotations and S is scale -/
 structure MatrixDecomp where
   rotation1 : Float  -- First rotation angle
   scaleX : Float     -- Scale along X after R1
@@ -27,29 +27,49 @@ structure MatrixDecomp where
 
 /-- Simple 2D SVD-like decomposition -/
 def decomposeMatrix2D (m : Mat2) : MatrixDecomp :=
-  -- Extract columns as vectors
-  let c0 := m.column 0
-  let c1 := m.column 1
+  -- Compute symmetric AᵀA to get right singular vectors.
+  let a := m.get 0 0
+  let b := m.get 0 1
+  let c := m.get 1 0
+  let d := m.get 1 1
+  let ata00 := a * a + c * c
+  let ata01 := a * b + c * d
+  let ata11 := b * b + d * d
 
-  -- Get the lengths (singular values approximation)
-  let sx := c0.length
-  let sy := c1.length
+  let trace := ata00 + ata11
+  let diff := ata00 - ata11
+  let disc := Float.sqrt (Float.max 0.0 (diff * diff * 0.25 + ata01 * ata01))
+  let lambda1 := trace * 0.5 + disc
+  let lambda2 := trace * 0.5 - disc
+  let s1 := Float.sqrt (Float.max 0.0 lambda1)
+  let s2 := Float.sqrt (Float.max 0.0 lambda2)
 
-  -- Get rotation from first column
-  let angle1 := Float.atan2 c0.y c0.x
+  let phi := 0.5 * Float.atan2 (2.0 * ata01) diff
+  let (sigma1, sigma2, angleV) :=
+    if s1 < s2 then
+      (s2, s1, phi + Float.pi / 2)
+    else
+      (s1, s2, phi)
 
-  -- Check for reflection by looking at determinant
-  let det := m.determinant
-  let effectiveScaleY := if det < 0 then -sy else sy
+  let v := Mat2.rotation angleV
+  let invSx := if Float.abs sigma1 > 1.0e-6 then 1.0 / sigma1 else 0.0
+  let invSy := if Float.abs sigma2 > 1.0e-6 then 1.0 / sigma2 else 0.0
+  let invS := Mat2.scaling invSx invSy
+  let uBase := m * v * invS
+  let (u, scaleY) :=
+    if uBase.determinant < 0.0 then
+      (uBase * Mat2.scaling 1.0 (-1.0), -sigma2)
+    else
+      (uBase, sigma2)
 
-  -- Second rotation accounts for non-axis-aligned scaling
-  let angle2 := Float.atan2 c1.y c1.x - Float.pi / 2
+  let rotation1 := Float.atan2 (u.get 1 0) (u.get 0 0)
+  let rotation2 := -angleV
 
   {
-    rotation1 := angle1
-    scaleX := sx
-    scaleY := effectiveScaleY
-    rotation2 := 0.0  -- Simplified: we absorb into rotation1
+    rotation1 := rotation1
+    scaleX := sigma1
+    scaleY := scaleY
+    rotation2 := rotation2
   }
 
 /-- Visualization step in the decomposition animation -/
@@ -86,20 +106,20 @@ def decompositionPresets : Array (String × Mat2) := #[
 /-- Get matrix for current animation step -/
 def getStepMatrix (state : MatrixDecompositionState) : Mat2 :=
   let d := state.decomp
+  let invR1 := Mat2.rotation (-d.rotation1)
+  let invR2 := Mat2.rotation (-d.rotation2)
+  let invS := if Float.abs d.scaleX > 0.001 && Float.abs d.scaleY > 0.001
+              then Mat2.scaling (1.0 / d.scaleX) (1.0 / d.scaleY)
+              else Mat2.identity
   match state.currentStep with
   | .original => state.matrix
   | .afterRotation1 =>
     -- Undo first rotation: apply inverse rotation to see aligned axes
-    let invR1 := Mat2.rotation (-d.rotation1)
     invR1 * state.matrix
   | .afterScale =>
     -- After undoing rotation and scale: should be close to identity
-    let invR1 := Mat2.rotation (-d.rotation1)
-    let invS := if Float.abs d.scaleX > 0.001 && Float.abs d.scaleY > 0.001
-                then Mat2.scaling (1.0 / d.scaleX) (1.0 / d.scaleY)
-                else Mat2.identity
     invS * invR1 * state.matrix
-  | .afterRotation2 => Mat2.identity
+  | .afterRotation2 => invR2 * invS * invR1 * state.matrix
 
 /-- Draw a unit circle and its transformation -/
 def drawUnitCircle (matrix : Mat2) (origin : Float × Float) (scale : Float)
@@ -132,17 +152,15 @@ def drawUnitCircle (matrix : Mat2) (origin : Float × Float) (scale : Float)
   strokePath path
 
 /-- Draw decomposition component visualization -/
-def drawDecompositionComponents (state : MatrixDecompositionState) (origin : Float × Float)
+def drawDecompositionComponents (matrix : Mat2) (origin : Float × Float)
     (scale : Float) (fontSmall : Font) : CanvasM Unit := do
-  let d := state.decomp
-
   -- Draw basis vectors showing the decomposition
   let e1 := Vec2.mk 1.0 0.0
   let e2 := Vec2.mk 0.0 1.0
 
   -- Step 1: Original basis vectors after full transform
-  let fullE1 := state.matrix.transformVec2 e1
-  let fullE2 := state.matrix.transformVec2 e2
+  let fullE1 := matrix.transformVec2 e1
+  let fullE2 := matrix.transformVec2 e2
   drawVectorArrow Vec2.zero fullE1 origin scale
     { color := Color.rgba 1.0 0.3 0.3 0.8, lineWidth := 3.0 }
   drawVectorArrow Vec2.zero fullE2 origin scale
@@ -205,7 +223,7 @@ def renderMatrixDecomposition (state : MatrixDecompositionState)
 
   -- Draw decomposition components
   if state.showComponents then
-    drawDecompositionComponents state origin scale fontSmall
+    drawDecompositionComponents displayMatrix origin scale fontSmall
 
   -- Draw origin marker
   setFillColor Color.white
@@ -213,7 +231,7 @@ def renderMatrixDecomposition (state : MatrixDecompositionState)
 
   -- Info panel (left side)
   let infoX := 20.0 * screenScale
-  let infoY := h - 200.0 * screenScale
+  let infoY := h - 220.0 * screenScale
 
   setFillColor VecColor.label
   fillTextXY "Matrix M:" infoX infoY fontSmall
@@ -230,18 +248,20 @@ def renderMatrixDecomposition (state : MatrixDecompositionState)
   fillTextXY "Decomposition:" infoX (infoY + 72 * screenScale) fontSmall
 
   let angleDeg1 := d.rotation1 * 180 / Float.pi
+  let angleDeg2 := d.rotation2 * 180 / Float.pi
   setFillColor (Color.rgba 0.8 0.8 0.3 0.9)
-  fillTextXY s!"Rotation: {formatFloat angleDeg1}" infoX (infoY + 92 * screenScale) fontSmall
+  fillTextXY s!"Rotation1: {formatFloat angleDeg1}" infoX (infoY + 92 * screenScale) fontSmall
+  fillTextXY s!"Rotation2: {formatFloat angleDeg2}" infoX (infoY + 112 * screenScale) fontSmall
 
   setFillColor (Color.rgba 0.3 0.8 0.8 0.9)
-  fillTextXY s!"Scale X: {formatFloat d.scaleX}" infoX (infoY + 112 * screenScale) fontSmall
-  fillTextXY s!"Scale Y: {formatFloat d.scaleY}" infoX (infoY + 132 * screenScale) fontSmall
+  fillTextXY s!"Scale X: {formatFloat d.scaleX}" infoX (infoY + 132 * screenScale) fontSmall
+  fillTextXY s!"Scale Y: {formatFloat d.scaleY}" infoX (infoY + 152 * screenScale) fontSmall
 
   -- Determinant
   let det := state.matrix.determinant
   let detColor := if det >= 0 then Color.green else Color.red
   setFillColor detColor
-  fillTextXY s!"det(M) = {formatFloat det}" infoX (infoY + 160 * screenScale) fontSmall
+  fillTextXY s!"det(M) = {formatFloat det}" infoX (infoY + 180 * screenScale) fontSmall
 
   -- Current step indicator
   let stepName := match state.currentStep with
@@ -250,7 +270,7 @@ def renderMatrixDecomposition (state : MatrixDecompositionState)
     | .afterScale => "After Undo Scale"
     | .afterRotation2 => "Identity"
   setFillColor VecColor.label
-  fillTextXY s!"View: {stepName}" infoX (infoY + 185 * screenScale) fontSmall
+  fillTextXY s!"View: {stepName}" infoX (infoY + 205 * screenScale) fontSmall
 
   -- Preset info (right side)
   let presetX := w - 200.0 * screenScale

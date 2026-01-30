@@ -73,7 +73,7 @@ def matrix3DTransformInitialState : Matrix3DTransformState := {}
 
 /-- Compose all transforms in order -/
 def composeTransforms (transforms : Array Transform3DType) : Mat4 :=
-  transforms.foldl (fun acc t => acc * t.toMatrix) Mat4.identity
+  transforms.foldl (fun acc t => t.toMatrix * acc) Mat4.identity
 
 /-- Get a cube's vertices (centered at origin, size 1) -/
 def getCubeVertices : Array Vec3 := #[

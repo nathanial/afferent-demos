@@ -961,6 +961,51 @@ instance : Demo .matrix2DTransform where
     else if env.keyCode == FFI.Key.num9 then
       env.clearKey
       state := { state with preset := .reflectY, matrix := Linalg.presetToMatrix .reflectY }
+    -- Tab to cycle editable matrix cell
+    else if env.keyCode == FFI.Key.tab then
+      env.clearKey
+      state := { state with editingCell := Linalg.nextMatrixCell state.editingCell }
+    -- Arrow keys to move selected cell
+    else if env.keyCode == FFI.Key.left then
+      env.clearKey
+      state := { state with editingCell := Linalg.moveMatrixCell state.editingCell 0 (-1) }
+    else if env.keyCode == FFI.Key.right then
+      env.clearKey
+      state := { state with editingCell := Linalg.moveMatrixCell state.editingCell 0 1 }
+    else if env.keyCode == FFI.Key.up then
+      env.clearKey
+      state := { state with editingCell := Linalg.moveMatrixCell state.editingCell (-1) 0 }
+    else if env.keyCode == FFI.Key.down then
+      env.clearKey
+      state := { state with editingCell := Linalg.moveMatrixCell state.editingCell 1 0 }
+    -- +/- to edit selected cell
+    else if env.keyCode == 24 then  -- = (plus)
+      env.clearKey
+      if state.editingCell != .none then
+        let updated := Linalg.modifyMatrixCell state.matrix state.editingCell 0.1
+        state := { state with matrix := updated, preset := .custom }
+    else if env.keyCode == 27 then  -- - (minus)
+      env.clearKey
+      if state.editingCell != .none then
+        let updated := Linalg.modifyMatrixCell state.matrix state.editingCell (-0.1)
+        state := { state with matrix := updated, preset := .custom }
+    -- IJKL to translate
+    else if env.keyCode == FFI.Key.i then
+      env.clearKey
+      let t := state.translation
+      state := { state with translation := Linalg.Vec2.mk t.x (t.y + 0.1), preset := .custom }
+    else if env.keyCode == FFI.Key.k then
+      env.clearKey
+      let t := state.translation
+      state := { state with translation := Linalg.Vec2.mk t.x (t.y - 0.1), preset := .custom }
+    else if env.keyCode == FFI.Key.j then
+      env.clearKey
+      let t := state.translation
+      state := { state with translation := Linalg.Vec2.mk (t.x - 0.1) t.y, preset := .custom }
+    else if env.keyCode == FFI.Key.l then
+      env.clearKey
+      let t := state.translation
+      state := { state with translation := Linalg.Vec2.mk (t.x + 0.1) t.y, preset := .custom }
     -- G to toggle grid
     else if env.keyCode == FFI.Key.g then
       env.clearKey

@@ -44,6 +44,27 @@ structure ProjectionExplorerState where
 
 def projectionExplorerInitialState : ProjectionExplorerState := {}
 
+/-- Test objects placed in world space for projection visualization. -/
+def projectionTestObjects : Array (Vec3 × Float × Color) := #[
+  (Vec3.mk 0.0 0.0 (-1.0), 0.2, Color.cyan),
+  (Vec3.mk 0.5 0.3 (-2.5), 0.3, Color.magenta),
+  (Vec3.mk (-0.4) (-0.2) (-4.0), 0.4, Color.orange)
+]
+
+/-- Build the projection matrix from the current state. -/
+def projectionMatrix (state : ProjectionExplorerState) : Mat4 :=
+  match state.projType with
+  | .perspective =>
+      Mat4.perspective state.fov state.aspect state.near state.far
+  | .orthographic =>
+      let halfH := state.orthoSize
+      let halfW := halfH * state.aspect
+      Mat4.orthographic (-halfW) halfW (-halfH) halfH state.near state.far
+
+/-- Build the view matrix (camera at origin looking down -Z). -/
+def viewMatrix : Mat4 :=
+  Mat4.lookAt (Vec3.mk 0 0 0) (Vec3.mk 0 0 (-1)) (Vec3.mk 0 1 0)
+
 /-- Project 3D point to 2D screen -/
 def projectToScreen (p : Vec3) (yaw pitch : Float) (origin : Float × Float) (scale : Float) : Float × Float :=
   let cosY := Float.cos yaw
@@ -157,16 +178,9 @@ def drawFrustum (state : ProjectionExplorerState) (yaw pitch : Float)
   strokePath dirPath
 
 /-- Draw test objects in the scene -/
-def drawTestObjects (state : ProjectionExplorerState) (yaw pitch : Float)
+def drawTestObjects (_state : ProjectionExplorerState) (yaw pitch : Float)
     (origin : Float × Float) (scale : Float) : CanvasM Unit := do
-  -- Draw some spheres at different depths
-  let objects := #[
-    (Vec3.mk 0.0 0.0 (-1.0), 0.2, Color.cyan),
-    (Vec3.mk 0.5 0.3 (-2.5), 0.3, Color.magenta),
-    (Vec3.mk (-0.4) (-0.2) (-4.0), 0.4, Color.orange)
-  ]
-
-  for (pos, radius, color) in objects do
+  for (pos, radius, color) in projectionTestObjects do
     let screenPos := projectToScreen pos yaw pitch origin scale
     let screenRadius := radius * scale * 0.8  -- Approximate screen-space radius
     setFillColor (Color.rgba color.r color.g color.b 0.6)
@@ -176,7 +190,8 @@ def drawTestObjects (state : ProjectionExplorerState) (yaw pitch : Float)
     strokePath (Afferent.Path.circle (Point.mk screenPos.1 screenPos.2) screenRadius)
 
 /-- Draw clip space visualization (NDC cube) -/
-def drawClipSpace (origin : Float × Float) (scale : Float) (yaw pitch : Float) : CanvasM Unit := do
+def drawClipSpace (origin : Float × Float) (scale : Float) (yaw pitch : Float)
+    (points : Array (Vec3 × Color)) : CanvasM Unit := do
   -- Draw the normalized device coordinate cube (-1 to 1 in all axes)
   let vertices := #[
     Vec3.mk (-1) (-1) (-1), Vec3.mk 1 (-1) (-1),
@@ -203,6 +218,12 @@ def drawClipSpace (origin : Float × Float) (scale : Float) (yaw pitch : Float) 
       |>.lineTo (Point.mk p2.1 p2.2)
     strokePath path
 
+  -- Draw projected points inside clip space
+  for (pos, color) in points do
+    let screenPos := projectToScreen pos yaw pitch origin scale
+    setFillColor color
+    fillPath (Afferent.Path.circle (Point.mk screenPos.1 screenPos.2) 4.0)
+
 /-- Render the projection explorer visualization -/
 def renderProjectionExplorer (state : ProjectionExplorerState)
     (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
@@ -211,6 +232,16 @@ def renderProjectionExplorer (state : ProjectionExplorerState)
   let clipOrigin := (w * 0.75, h / 2)
   let worldScale := 50.0 * screenScale
   let clipScale := 40.0 * screenScale
+  let vp := projectionMatrix state * viewMatrix
+  let clipSamples := Id.run do
+    let mut arr : Array (Vec3 × Color × Vec4) := #[]
+    for (pos, _radius, color) in projectionTestObjects do
+      let clip := vp.transformVec4 (Vec4.fromPoint pos)
+      let ndc := clip.toVec3Normalized
+      let alpha := if clip.w <= 0.0 then 0.2 else 0.85
+      let drawColor := Color.rgba color.r color.g color.b alpha
+      arr := arr.push (ndc, drawColor, clip)
+    return arr
 
   -- Draw divider
   setStrokeColor (Color.gray 0.3)
@@ -247,7 +278,11 @@ def renderProjectionExplorer (state : ProjectionExplorerState)
   fillTextXY "Clip Space (NDC)" (w * 0.68) (90 * screenScale) fontSmall
 
   if state.showClipSpace then
-    drawClipSpace clipOrigin clipScale 0.4 0.3
+    let clipPoints := if state.showTestObjects then
+      clipSamples.map (fun sample => (sample.1, sample.2.1))
+    else
+      #[]
+    drawClipSpace clipOrigin clipScale 0.4 0.3 clipPoints
 
   -- Info panel
   let infoY := h - 160.0 * screenScale
@@ -281,11 +316,24 @@ def renderProjectionExplorer (state : ProjectionExplorerState)
   setFillColor (Color.gray 0.7)
   fillTextXY "Far plane" (infoX + 118 * screenScale) (infoY + 120 * screenScale) fontSmall
 
+  -- Clip coordinate readout (right side)
+  let clipInfoX := w * 0.58
+  let clipInfoY := h - 120.0 * screenScale
+  setFillColor (Color.gray 0.7)
+  fillTextXY "Clip coords (x,y,z,w):" clipInfoX clipInfoY fontSmall
+  if state.showTestObjects then
+    for i in [:clipSamples.size] do
+      let sample := clipSamples.getD i (Vec3.zero, Color.white, Vec4.zero)
+      let clip := sample.2.2
+      let line := s!"{i + 1}: {formatFloat clip.x}, {formatFloat clip.y}, {formatFloat clip.z}, {formatFloat clip.w}"
+      fillTextXY line clipInfoX (clipInfoY + (i.toFloat + 1) * 18.0 * screenScale) fontSmall
+
   -- Title and instructions
   setFillColor VecColor.label
   fillTextXY "PROJECTION MATRIX EXPLORER" (20 * screenScale) (30 * screenScale) fontMedium
   setFillColor (Color.gray 0.6)
-  fillTextXY "Tab: Switch projection | F/N: Adjust far/near | +/-: FOV/Size | Drag: Rotate" (20 * screenScale) (55 * screenScale) fontSmall
+  fillTextXY "Tab: Switch projection | F/N: Near/Far | +/-: FOV/Size | C: Clip | O: Objects | Drag: Rotate"
+    (20 * screenScale) (55 * screenScale) fontSmall
 
 /-- Create the projection explorer widget -/
 def projectionExplorerWidget (env : DemoEnv) (state : ProjectionExplorerState)
