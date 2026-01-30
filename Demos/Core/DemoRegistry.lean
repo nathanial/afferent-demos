@@ -41,6 +41,11 @@ import Demos.Linalg.RayCastingPlayground
 import Demos.Linalg.PrimitiveOverlapTester
 import Demos.Linalg.BarycentricCoordinates
 import Demos.Linalg.FrustumCullingDemo
+import Demos.Linalg.BezierCurveEditor
+import Demos.Linalg.CatmullRomSplineEditor
+import Demos.Linalg.BSplineCurveDemo
+import Demos.Linalg.ArcLengthParameterization
+import Demos.Linalg.BezierPatchSurface
 import Afferent.Canopy.Reactive
 import Reactive.Host.Spider
 import Worldmap
@@ -96,6 +101,11 @@ inductive DemoId where
   | primitiveOverlapTester
   | barycentricCoordinates
   | frustumCullingDemo
+  | bezierCurveEditor
+  | catmullRomSplineEditor
+  | bSplineCurveDemo
+  | arcLengthParameterization
+  | bezierPatchSurface
   deriving Repr, BEq, Inhabited
 
 structure CirclesState where
@@ -195,6 +205,11 @@ def DemoState : DemoId → Type
   | .primitiveOverlapTester => Linalg.PrimitiveOverlapTesterState
   | .barycentricCoordinates => Linalg.BarycentricCoordinatesState
   | .frustumCullingDemo => Linalg.FrustumCullingDemoState
+  | .bezierCurveEditor => Linalg.BezierCurveEditorState
+  | .catmullRomSplineEditor => Linalg.CatmullRomSplineEditorState
+  | .bSplineCurveDemo => Linalg.BSplineCurveDemoState
+  | .arcLengthParameterization => Linalg.ArcLengthParameterizationState
+  | .bezierPatchSurface => Linalg.BezierPatchSurfaceState
 
 class Demo (id : DemoId) where
   name : String
@@ -1638,6 +1653,417 @@ instance : Demo .frustumCullingDemo where
     pure { state with dragging := false }
   step := fun c _ s => pure (c, s)
 
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Linalg Curve and Spline Demos
+-- ═══════════════════════════════════════════════════════════════════════════
+
+instance : Demo .bezierCurveEditor where
+  name := "BEZIER CURVE EDITOR"
+  shortName := "Bezier"
+  init := fun _ => pure Linalg.bezierCurveEditorInitialState
+  update := fun env s => do
+    let mut state := s
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.bezierCurveEditorInitialState
+    else if env.keyCode == FFI.Key.q then
+      env.clearKey
+      state := { state with mode := .quadratic }
+    else if env.keyCode == FFI.Key.c then
+      env.clearKey
+      state := { state with mode := .cubic }
+    pure state
+  view := fun env s => some (Linalg.bezierCurveEditorWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 then return state
+    let localX := click.x - env.contentOffsetX
+    let localY := click.y - env.contentOffsetY
+    let sliderX := env.physWidthF - 250.0 * env.screenScale
+    let sliderY := 95.0 * env.screenScale
+    let sliderW := 180.0 * env.screenScale
+    let sliderH := 8.0 * env.screenScale
+    let hitSlider := localX >= sliderX && localX <= sliderX + sliderW
+      && localY >= sliderY - 8.0 && localY <= sliderY + sliderH + 8.0
+    if hitSlider then
+      let t := Linalg.Float.clamp ((localX - sliderX) / sliderW) 0.0 1.0
+      pure { state with t := t, dragging := .slider }
+    else
+      let origin := (env.physWidthF / 2, env.physHeightF / 2)
+      let scale := 70.0 * env.screenScale
+      let worldPos := Linalg.screenToWorld (localX, localY) origin scale
+      let points := match state.mode with
+        | .quadratic => state.quadPoints
+        | .cubic => state.cubicPoints
+      let mut hit : Option Nat := none
+      for i in [:points.size] do
+        let p := points.getD i Linalg.Vec2.zero
+        if Linalg.nearPoint worldPos p 0.45 then
+          hit := some i
+      match hit with
+      | some idx => pure { state with dragging := .control idx }
+      | none => pure state
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX mouseY _layouts _widget => do
+    match state.dragging with
+    | .none => pure state
+    | .slider =>
+        let localX := mouseX - env.contentOffsetX
+        let sliderX := env.physWidthF - 250.0 * env.screenScale
+        let sliderW := 180.0 * env.screenScale
+        let t := Linalg.Float.clamp ((localX - sliderX) / sliderW) 0.0 1.0
+        pure { state with t := t }
+    | .control idx =>
+        let origin := (env.physWidthF / 2, env.physHeightF / 2)
+        let scale := 70.0 * env.screenScale
+        let worldPos := Linalg.screenToWorld (mouseX - env.contentOffsetX, mouseY - env.contentOffsetY) origin scale
+        let state' := match state.mode with
+          | .quadratic =>
+              if idx < state.quadPoints.size then
+                { state with quadPoints := state.quadPoints.set! idx worldPos }
+              else state
+          | .cubic =>
+              if idx < state.cubicPoints.size then
+                { state with cubicPoints := state.cubicPoints.set! idx worldPos }
+              else state
+        pure state'
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := .none }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .catmullRomSplineEditor where
+  name := "CATMULL-ROM SPLINE EDITOR"
+  shortName := "Catmull"
+  init := fun _ => pure Linalg.catmullRomSplineEditorInitialState
+  update := fun env s => do
+    let mut state := s
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.catmullRomSplineEditorInitialState
+    else if env.keyCode == FFI.Key.c then
+      env.clearKey
+      state := { state with closed := !state.closed }
+    else if env.keyCode == FFI.Key.delete then
+      env.clearKey
+      if state.points.size > 0 then
+        state := { state with points := state.points.pop }
+    else if env.keyCode == FFI.Key.space then
+      env.clearKey
+      state := { state with animating := !state.animating }
+    if state.animating then
+      let newT := state.t + env.dt * 0.2
+      state := { state with t := if newT > 1.0 then newT - 1.0 else newT }
+    pure state
+  view := fun env s => some (Linalg.catmullRomSplineEditorWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 then return state
+    let localX := click.x - env.contentOffsetX
+    let localY := click.y - env.contentOffsetY
+    let sliderX := env.physWidthF - 260.0 * env.screenScale
+    let sliderY := 95.0 * env.screenScale
+    let sliderW := 190.0 * env.screenScale
+    let sliderH := 8.0 * env.screenScale
+    let hitSlider := localX >= sliderX && localX <= sliderX + sliderW
+      && localY >= sliderY - 8.0 && localY <= sliderY + sliderH + 8.0
+    if hitSlider then
+      let alpha := Linalg.Float.clamp ((localX - sliderX) / sliderW) 0.0 1.0
+      pure { state with alpha := alpha, dragging := .slider }
+    else
+      let origin := (env.physWidthF / 2, env.physHeightF / 2)
+      let scale := 70.0 * env.screenScale
+      let worldPos := Linalg.screenToWorld (localX, localY) origin scale
+      let mut hit : Option Nat := none
+      for i in [:state.points.size] do
+        let p := state.points.getD i Linalg.Vec2.zero
+        if Linalg.nearPoint worldPos p 0.45 then
+          hit := some i
+      match hit with
+      | some idx => pure { state with dragging := .point idx }
+      | none =>
+          let newPoints := state.points.push worldPos
+          pure { state with points := newPoints, dragging := .point (newPoints.size - 1) }
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX mouseY _layouts _widget => do
+    match state.dragging with
+    | .none => pure state
+    | .slider =>
+        let localX := mouseX - env.contentOffsetX
+        let sliderX := env.physWidthF - 260.0 * env.screenScale
+        let sliderW := 190.0 * env.screenScale
+        let alpha := Linalg.Float.clamp ((localX - sliderX) / sliderW) 0.0 1.0
+        pure { state with alpha := alpha }
+    | .point idx =>
+        let origin := (env.physWidthF / 2, env.physHeightF / 2)
+        let scale := 70.0 * env.screenScale
+        let worldPos := Linalg.screenToWorld (mouseX - env.contentOffsetX, mouseY - env.contentOffsetY) origin scale
+        if idx < state.points.size then
+          pure { state with points := state.points.set! idx worldPos }
+        else
+          pure state
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := .none }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .bSplineCurveDemo where
+  name := "B-SPLINE CURVE DEMO"
+  shortName := "B-Spline"
+  init := fun _ => pure Linalg.bSplineCurveDemoInitialState
+  update := fun env s => do
+    let mut state := s
+    let maxDegree := Nat.min 5 (state.controlPoints.size - 1)
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.bSplineCurveDemoInitialState
+    else if env.keyCode == FFI.Key.u then
+      env.clearKey
+      state := { state with knots := Linalg.BSpline.uniform state.controlPoints state.degree |>.knots }
+    else if env.keyCode == FFI.Key.num1 then
+      env.clearKey
+      let d := Nat.min 1 maxDegree
+      state := { state with degree := d, knots := Linalg.BSpline.uniform state.controlPoints d |>.knots }
+    else if env.keyCode == FFI.Key.num2 then
+      env.clearKey
+      let d := Nat.min 2 maxDegree
+      state := { state with degree := d, knots := Linalg.BSpline.uniform state.controlPoints d |>.knots }
+    else if env.keyCode == FFI.Key.num3 then
+      env.clearKey
+      let d := Nat.min 3 maxDegree
+      state := { state with degree := d, knots := Linalg.BSpline.uniform state.controlPoints d |>.knots }
+    else if env.keyCode == FFI.Key.num4 then
+      env.clearKey
+      let d := Nat.min 4 maxDegree
+      state := { state with degree := d, knots := Linalg.BSpline.uniform state.controlPoints d |>.knots }
+    else if env.keyCode == FFI.Key.num5 then
+      env.clearKey
+      let d := Nat.min 5 maxDegree
+      state := { state with degree := d, knots := Linalg.BSpline.uniform state.controlPoints d |>.knots }
+    pure state
+  view := fun env s => some (Linalg.bSplineCurveDemoWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 then return state
+    let localX := click.x - env.contentOffsetX
+    let localY := click.y - env.contentOffsetY
+    let rectX := 40.0 * env.screenScale
+    let rectY := env.physHeightF - 190.0 * env.screenScale
+    let rectW := env.physWidthF - 80.0 * env.screenScale
+    let rectH := 120.0 * env.screenScale
+    let knotY := rectY + rectH + 12.0
+    let spline := { controlPoints := state.controlPoints, knots := state.knots, degree := state.degree : Linalg.BSpline Linalg.Vec2 }
+    let mut hitKnot : Option Nat := none
+    for i in [:spline.knots.size] do
+      let editable := i > spline.degree && i < spline.knots.size - spline.degree - 1
+      if editable then
+        let knot := spline.knots.getD i 0.0
+        let x := rectX + knot * rectW
+        let dx := localX - x
+        let dy := localY - knotY
+        if dx * dx + dy * dy <= 70.0 then
+          hitKnot := some i
+    match hitKnot with
+    | some idx =>
+        let t := Linalg.Float.clamp ((localX - rectX) / rectW) 0.0 1.0
+        let prev := spline.knots.getD (idx - 1) 0.0
+        let next := spline.knots.getD (idx + 1) 1.0
+        let v := Linalg.Float.clamp t prev next
+        let knots := spline.knots.set! idx v
+        pure { state with knots := knots, dragging := .knot idx }
+    | none =>
+        let origin := (env.physWidthF / 2, env.physHeightF / 2 - 40 * env.screenScale)
+        let scale := 60.0 * env.screenScale
+        let worldPos := Linalg.screenToWorld (localX, localY) origin scale
+        let mut hitPt : Option Nat := none
+        for i in [:state.controlPoints.size] do
+          let p := state.controlPoints.getD i Linalg.Vec2.zero
+          if Linalg.nearPoint worldPos p 0.45 then
+            hitPt := some i
+        match hitPt with
+        | some idx => pure { state with dragging := .point idx }
+        | none => pure state
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX mouseY _layouts _widget => do
+    match state.dragging with
+    | .none => pure state
+    | .point idx =>
+        let origin := (env.physWidthF / 2, env.physHeightF / 2 - 40 * env.screenScale)
+        let scale := 60.0 * env.screenScale
+        let worldPos := Linalg.screenToWorld (mouseX - env.contentOffsetX, mouseY - env.contentOffsetY) origin scale
+        if idx < state.controlPoints.size then
+          pure { state with controlPoints := state.controlPoints.set! idx worldPos }
+        else
+          pure state
+    | .knot idx =>
+        let rectX := 40.0 * env.screenScale
+        let rectW := env.physWidthF - 80.0 * env.screenScale
+        let t := Linalg.Float.clamp ((mouseX - env.contentOffsetX - rectX) / rectW) 0.0 1.0
+        let prev := state.knots.getD (idx - 1) 0.0
+        let next := state.knots.getD (idx + 1) 1.0
+        let v := Linalg.Float.clamp t prev next
+        pure { state with knots := state.knots.set! idx v }
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := .none }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .arcLengthParameterization where
+  name := "ARC-LENGTH PARAMETERIZATION"
+  shortName := "ArcLen"
+  init := fun _ => pure Linalg.arcLengthParameterizationInitialState
+  update := fun env s => do
+    let mut state := s
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.arcLengthParameterizationInitialState
+    else if env.keyCode == FFI.Key.space then
+      env.clearKey
+      state := { state with animating := !state.animating }
+    if state.animating then
+      let p0 := state.controlPoints.getD 0 Linalg.Vec2.zero
+      let p1 := state.controlPoints.getD 1 Linalg.Vec2.zero
+      let p2 := state.controlPoints.getD 2 Linalg.Vec2.zero
+      let p3 := state.controlPoints.getD 3 Linalg.Vec2.zero
+      let curve := Linalg.Bezier3.mk p0 p1 p2 p3
+      let evalFn := fun t => Linalg.Bezier3.evalVec2 curve t
+      let table := Linalg.ArcLengthTable.build evalFn 120
+      let newT := state.t + env.dt * 0.2
+      let newS := state.s + state.speed * env.dt
+      let wrappedS := if table.totalLength > Linalg.Float.epsilon then
+        if newS > table.totalLength then newS - table.totalLength else newS
+      else 0.0
+      state := { state with t := (if newT > 1.0 then newT - 1.0 else newT), s := wrappedS }
+    pure state
+  view := fun env s => some (Linalg.arcLengthParameterizationWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 then return state
+    let localX := click.x - env.contentOffsetX
+    let localY := click.y - env.contentOffsetY
+    let sliderX := env.physWidthF - 260.0 * env.screenScale
+    let sliderY := 95.0 * env.screenScale
+    let sliderW := 190.0 * env.screenScale
+    let sliderH := 8.0 * env.screenScale
+    let hitSlider := localX >= sliderX && localX <= sliderX + sliderW
+      && localY >= sliderY - 8.0 && localY <= sliderY + sliderH + 8.0
+    if hitSlider then
+      let t := Linalg.Float.clamp ((localX - sliderX) / sliderW) 0.0 1.0
+      let speed := 0.2 + t * 3.8
+      pure { state with speed := speed, dragging := .slider }
+    else
+      let origin := (env.physWidthF / 2, env.physHeightF / 2)
+      let scale := 70.0 * env.screenScale
+      let worldPos := Linalg.screenToWorld (localX, localY) origin scale
+      let mut hit : Option Nat := none
+      for i in [:state.controlPoints.size] do
+        let p := state.controlPoints.getD i Linalg.Vec2.zero
+        if Linalg.nearPoint worldPos p 0.45 then
+          hit := some i
+      match hit with
+      | some idx => pure { state with dragging := .point idx }
+      | none => pure state
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX mouseY _layouts _widget => do
+    match state.dragging with
+    | .none => pure state
+    | .slider =>
+        let localX := mouseX - env.contentOffsetX
+        let sliderX := env.physWidthF - 260.0 * env.screenScale
+        let sliderW := 190.0 * env.screenScale
+        let t := Linalg.Float.clamp ((localX - sliderX) / sliderW) 0.0 1.0
+        let speed := 0.2 + t * 3.8
+        pure { state with speed := speed }
+    | .point idx =>
+        let origin := (env.physWidthF / 2, env.physHeightF / 2)
+        let scale := 70.0 * env.screenScale
+        let worldPos := Linalg.screenToWorld (mouseX - env.contentOffsetX, mouseY - env.contentOffsetY) origin scale
+        if idx < state.controlPoints.size then
+          pure { state with controlPoints := state.controlPoints.set! idx worldPos }
+        else
+          pure state
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := .none }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .bezierPatchSurface where
+  name := "BEZIER PATCH SURFACE"
+  shortName := "Patch"
+  init := fun _ => pure Linalg.bezierPatchSurfaceInitialState
+  update := fun env s => do
+    let mut state := s
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.bezierPatchSurfaceInitialState
+    else if env.keyCode == FFI.Key.n then
+      env.clearKey
+      state := { state with showNormals := !state.showNormals }
+    else if env.keyCode == FFI.Key.left then
+      env.clearKey
+      let newTess := if state.tessellation > 2 then state.tessellation - 1 else 2
+      state := { state with tessellation := newTess }
+    else if env.keyCode == FFI.Key.right then
+      env.clearKey
+      let newTess := if state.tessellation < 18 then state.tessellation + 1 else 18
+      state := { state with tessellation := newTess }
+    else if env.keyCode == FFI.Key.up || env.keyCode == FFI.Key.down then
+      let delta := if env.keyCode == FFI.Key.up then 0.2 else -0.2
+      env.clearKey
+      match state.selected with
+      | some idx =>
+          let row := idx / 4
+          let col := idx % 4
+          let p := state.patch.getPoint row col
+          let patch := state.patch.setPoint row col (Linalg.Vec3.mk p.x p.y (p.z + delta))
+          state := { state with patch := patch }
+      | none => state := state
+    pure state
+  view := fun env s => some (Linalg.bezierPatchSurfaceWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    let localX := click.x - env.contentOffsetX
+    let localY := click.y - env.contentOffsetY
+    let rectX := env.physWidthF - 260.0 * env.screenScale
+    let rectY := 110.0 * env.screenScale
+    let rectW := 220.0 * env.screenScale
+    let rectH := 220.0 * env.screenScale
+    let withinMini := localX >= rectX && localX <= rectX + rectW
+      && localY >= rectY && localY <= rectY + rectH
+    if click.button == 1 then
+      pure { state with dragging := .camera, lastMouseX := click.x, lastMouseY := click.y }
+    else if click.button == 0 && withinMini then
+      let origin := (rectX + rectW / 2, rectY + rectH / 2)
+      let scale := rectW / 5.8
+      let worldPos := Linalg.screenToWorld (localX, localY) origin scale
+      let mut hit : Option Nat := none
+      for idx in [:16] do
+        let row := idx / 4
+        let col := idx % 4
+        let p := state.patch.getPoint row col
+        let p2 := Linalg.Vec2.mk p.x p.y
+        if Linalg.nearPoint worldPos p2 0.35 then
+          hit := some idx
+      match hit with
+      | some idx => pure { state with selected := some idx, dragging := .point idx }
+      | none => pure state
+    else
+      pure state
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX mouseY _layouts _widget => do
+    match state.dragging with
+    | .none => pure state
+    | .camera =>
+        let dx := mouseX - state.lastMouseX
+        let dy := mouseY - state.lastMouseY
+        let yaw := state.cameraYaw + dx * 0.005
+        let pitch := state.cameraPitch + dy * 0.005
+        pure { state with cameraYaw := yaw, cameraPitch := pitch, lastMouseX := mouseX, lastMouseY := mouseY }
+    | .point idx =>
+        let rectX := env.physWidthF - 260.0 * env.screenScale
+        let rectY := 110.0 * env.screenScale
+        let rectW := 220.0 * env.screenScale
+        let rectH := 220.0 * env.screenScale
+        let origin := (rectX + rectW / 2, rectY + rectH / 2)
+        let scale := rectW / 5.8
+        let localX := mouseX - env.contentOffsetX
+        let localY := mouseY - env.contentOffsetY
+        let worldPos := Linalg.screenToWorld (localX, localY) origin scale
+        let row := idx / 4
+        let col := idx % 4
+        let p := state.patch.getPoint row col
+        let patch := state.patch.setPoint row col (Linalg.Vec3.mk worldPos.x worldPos.y p.z)
+        pure { state with patch := patch }
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := .none }
+  step := fun c _ s => pure (c, s)
+
 def demoInstance (id : DemoId) : Demo id := by
   cases id <;> infer_instance
 
@@ -1764,6 +2190,12 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let overlapDemo ← mkAnyDemo .primitiveOverlapTester env
   let baryDemo ← mkAnyDemo .barycentricCoordinates env
   let frustumDemo ← mkAnyDemo .frustumCullingDemo env
+  -- Linalg curve demos
+  let bezierDemo ← mkAnyDemo .bezierCurveEditor env
+  let catmullDemo ← mkAnyDemo .catmullRomSplineEditor env
+  let bsplineDemo ← mkAnyDemo .bSplineCurveDemo env
+  let arcLenDemo ← mkAnyDemo .arcLengthParameterization env
+  let patchDemo ← mkAnyDemo .bezierPatchSurface env
   pure #[demoGrid, gridPerf, trianglesPerf, circlesPerf, spritesPerf, layoutDemo, cssGridDemo,
     reactiveShowcaseDemo, widgetPerfDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
     lineCapsDemo, dashedLinesDemo, linesPerfDemo, textureMatrixDemo, orbitalInstancedDemo,
@@ -1775,6 +2207,8 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
     -- Linalg rotation demos
     quatDemo, slerpDemo, gimbalDemo, dualQuatDemo,
     -- Linalg geometry demos
-    rayPlayDemo, overlapDemo, baryDemo, frustumDemo]
+    rayPlayDemo, overlapDemo, baryDemo, frustumDemo,
+    -- Linalg curve demos
+    bezierDemo, catmullDemo, bsplineDemo, arcLenDemo, patchDemo]
 
 end Demos

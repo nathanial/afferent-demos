@@ -35,4 +35,9 @@ import Demos.Linalg.RayCastingPlayground
 import Demos.Linalg.PrimitiveOverlapTester
 import Demos.Linalg.BarycentricCoordinates
 import Demos.Linalg.FrustumCullingDemo
+import Demos.Linalg.BezierCurveEditor
+import Demos.Linalg.CatmullRomSplineEditor
+import Demos.Linalg.BSplineCurveDemo
+import Demos.Linalg.ArcLengthParameterization
+import Demos.Linalg.BezierPatchSurface
 import Demos.Core.Runner
