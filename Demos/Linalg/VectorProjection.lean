@@ -56,7 +56,11 @@ def renderVectorProjection (state : VectorProjectionState)
   -- Calculate projection and related vectors
   let proj := Vec2.project state.vectorV state.vectorU
   let perp := state.vectorV - proj
-  let reflected := Vec2.reflect state.vectorV state.vectorU.normalize
+  let reflected :=
+    if state.vectorU.length > Float.epsilon then
+      (proj * 2.0) - state.vectorV
+    else
+      state.vectorV
 
   -- Draw the base vector U (extended line for reference)
   let uNorm := state.vectorU.normalize
@@ -66,6 +70,11 @@ def renderVectorProjection (state : VectorProjectionState)
   let screenLineStart := worldToScreen lineStart origin scale
   let screenLineEnd := worldToScreen lineEnd origin scale
   drawDashedLine screenLineStart screenLineEnd (Color.gray 0.4) 10.0 5.0 1.5
+
+  -- Draw vector U (the axis/normal) - drawn early so projection renders on top
+  drawVectorArrow Vec2.zero state.vectorU origin scale
+    { color := VecColor.vectorB, lineWidth := 3.0 }
+  drawMarker state.vectorU origin scale VecColor.vectorB 8.0
 
   -- Show projection visualization
   if state.showMode == .projection || state.showMode == .both then
@@ -95,9 +104,9 @@ def renderVectorProjection (state : VectorProjectionState)
       { color := VecColor.projection, lineWidth := 3.0 }
     drawMarker proj origin scale VecColor.projection 6.0
 
-    -- Draw perpendicular component (red, from origin)
+    -- Draw perpendicular component (red, from projection to V)
     if perp.length > 0.1 then
-      drawVectorArrow proj state.vectorV origin scale
+      drawVectorArrow proj perp origin scale
         { color := VecColor.perpendicular, lineWidth := 2.0 }
 
   -- Show reflection visualization
@@ -110,15 +119,8 @@ def renderVectorProjection (state : VectorProjectionState)
     -- Draw dashed line showing the reflection relationship
     let screenV := worldToScreen state.vectorV origin scale
     let screenRefl := worldToScreen reflected origin scale
-    let midpoint := Vec2.lerp state.vectorV reflected 0.5
-    let screenMid := worldToScreen midpoint origin scale
     -- Line from V through midpoint to reflected
     drawDashedLine screenV screenRefl (Color.gray 0.4) 6.0 6.0 1.0
-
-  -- Draw vector U (the axis/normal)
-  drawVectorArrow Vec2.zero state.vectorU origin scale
-    { color := VecColor.vectorB, lineWidth := 3.0 }
-  drawMarker state.vectorU origin scale VecColor.vectorB 8.0
 
   -- Draw vector V (the input vector)
   drawVectorArrow Vec2.zero state.vectorV origin scale
