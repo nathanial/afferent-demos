@@ -17,4 +17,10 @@ import Demos.Visuals.ShapeGallery
 import Demos.Visuals.LineCaps
 import Demos.Visuals.DashedLines
 import Demos.Chat.App
+import Demos.Linalg.Shared
+import Demos.Linalg.VectorInterpolation
+import Demos.Linalg.VectorArithmetic
+import Demos.Linalg.VectorProjection
+import Demos.Linalg.VectorField
+import Demos.Linalg.CrossProduct3D
 import Demos.Core.Runner

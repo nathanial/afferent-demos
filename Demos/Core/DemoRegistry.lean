@@ -23,6 +23,12 @@ import Demos.Overview.Fonts
 import Demos.Reactive.Showcase.App
 import Demos.Perf.Widget.App
 import Demos.Chat.App
+import Demos.Linalg.Shared
+import Demos.Linalg.VectorInterpolation
+import Demos.Linalg.VectorArithmetic
+import Demos.Linalg.VectorProjection
+import Demos.Linalg.VectorField
+import Demos.Linalg.CrossProduct3D
 import Afferent.Canopy.Reactive
 import Reactive.Host.Spider
 import Worldmap
@@ -61,6 +67,11 @@ inductive DemoId where
   | orbitalInstanced
   | fontShowcase
   | chatDemo
+  | vectorInterpolation
+  | vectorArithmetic
+  | vectorProjection
+  | vectorField
+  | crossProduct3D
   deriving Repr, BEq, Inhabited
 
 structure CirclesState where
@@ -143,6 +154,11 @@ def DemoState : DemoId → Type
   | .orbitalInstanced => Unit
   | .fontShowcase => Unit
   | .chatDemo => ChatDemoState
+  | .vectorInterpolation => Linalg.VectorInterpolationState
+  | .vectorArithmetic => Linalg.VectorArithmeticState
+  | .vectorProjection => Linalg.VectorProjectionState
+  | .vectorField => Linalg.VectorFieldState
+  | .crossProduct3D => Linalg.CrossProduct3DState
 
 class Demo (id : DemoId) where
   name : String
@@ -692,6 +708,209 @@ instance : Demo .chatDemo where
 
   step := fun c _ s => pure (c, s)
 
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Linalg Vector Demos
+-- ═══════════════════════════════════════════════════════════════════════════
+
+instance : Demo .vectorInterpolation where
+  name := "VECTOR INTERPOLATION (space to toggle animation)"
+  shortName := "Lerp"
+  init := fun _ => pure Linalg.vectorInterpolationInitialState
+  update := fun env s => do
+    let mut state := s
+    -- Handle keyboard: space toggles animation
+    if env.keyCode == FFI.Key.space then
+      env.clearKey
+      state := { state with animating := !state.animating }
+    -- Update animation
+    if state.animating then
+      let newT := (state.t + env.dt * 0.5)
+      state := { state with t := if newT >= 1.0 then newT - 1.0 else newT }
+    pure state
+  view := fun env s => some (Linalg.vectorInterpolationWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 then return state
+    -- Calculate world position from click using content area dimensions
+    let origin := (env.contentOffsetX + env.physWidthF / 2, env.contentOffsetY + env.physHeightF / 2)
+    let scale := 50.0 * env.screenScale
+    let worldPos := Linalg.screenToWorld (click.x, click.y) origin scale
+    -- Check if near any draggable point
+    if Linalg.nearPoint worldPos state.vectorA 0.5 then
+      pure { state with dragging := some .vectorA }
+    else if Linalg.nearPoint worldPos state.vectorB 0.5 then
+      pure { state with dragging := some .vectorB }
+    else
+      pure state
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX mouseY _layouts _widget => do
+    match state.dragging with
+    | some target =>
+        let origin := (env.contentOffsetX + env.physWidthF / 2, env.contentOffsetY + env.physHeightF / 2)
+        let scale := 50.0 * env.screenScale
+        let worldPos := Linalg.screenToWorld (mouseX, mouseY) origin scale
+        match target with
+        | .vectorA => pure { state with vectorA := worldPos }
+        | .vectorB => pure { state with vectorB := worldPos }
+    | none => pure state
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ => do
+    pure { state with dragging := none }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .vectorArithmetic where
+  name := "VECTOR ARITHMETIC (1/2/3 to switch ops)"
+  shortName := "Arithmetic"
+  init := fun _ => pure Linalg.vectorArithmeticInitialState
+  update := fun env s => do
+    let mut state := s
+    -- Handle keyboard: 1=add, 2=sub, 3=scale
+    if env.keyCode == FFI.Key.num1 then
+      env.clearKey
+      state := { state with operation := .add }
+    else if env.keyCode == FFI.Key.num2 then
+      env.clearKey
+      state := { state with operation := .sub }
+    else if env.keyCode == FFI.Key.num3 then
+      env.clearKey
+      state := { state with operation := .scale }
+    -- +/- to adjust scale factor
+    else if env.keyCode == 24 then  -- = (plus without shift)
+      env.clearKey
+      state := { state with scaleFactor := state.scaleFactor + 0.1 }
+    else if env.keyCode == 27 then  -- - (minus)
+      env.clearKey
+      let newScale := if state.scaleFactor > 0.2 then state.scaleFactor - 0.1 else 0.1
+      state := { state with scaleFactor := newScale }
+    pure state
+  view := fun env s => some (Linalg.vectorArithmeticWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 then return state
+    let origin := (env.contentOffsetX + env.physWidthF / 2, env.contentOffsetY + env.physHeightF / 2)
+    let scale := 50.0 * env.screenScale
+    let worldPos := Linalg.screenToWorld (click.x, click.y) origin scale
+    if Linalg.nearPoint worldPos state.vectorA 0.5 then
+      pure { state with dragging := some .vectorA }
+    else if Linalg.nearPoint worldPos state.vectorB 0.5 then
+      pure { state with dragging := some .vectorB }
+    else
+      pure state
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX mouseY _layouts _widget => do
+    match state.dragging with
+    | some target =>
+        let origin := (env.contentOffsetX + env.physWidthF / 2, env.contentOffsetY + env.physHeightF / 2)
+        let scale := 50.0 * env.screenScale
+        let worldPos := Linalg.screenToWorld (mouseX, mouseY) origin scale
+        match target with
+        | .vectorA => pure { state with vectorA := worldPos }
+        | .vectorB => pure { state with vectorB := worldPos }
+    | none => pure state
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ => do
+    pure { state with dragging := none }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .vectorProjection where
+  name := "VECTOR PROJECTION (P/R/B to switch modes)"
+  shortName := "Projection"
+  init := fun _ => pure Linalg.vectorProjectionInitialState
+  update := fun env s => do
+    let mut state := s
+    -- Handle keyboard: P=projection, R=reflection, B=both
+    if env.keyCode == FFI.Key.p then
+      env.clearKey
+      state := { state with showMode := .projection }
+    else if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := { state with showMode := .reflection }
+    else if env.keyCode == FFI.Key.b then
+      env.clearKey
+      state := { state with showMode := .both }
+    pure state
+  view := fun env s => some (Linalg.vectorProjectionWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 then return state
+    let origin := (env.contentOffsetX + env.physWidthF / 2, env.contentOffsetY + env.physHeightF / 2)
+    let scale := 50.0 * env.screenScale
+    let worldPos := Linalg.screenToWorld (click.x, click.y) origin scale
+    if Linalg.nearPoint worldPos state.vectorV 0.5 then
+      pure { state with dragging := some .vectorV }
+    else if Linalg.nearPoint worldPos state.vectorU 0.5 then
+      pure { state with dragging := some .vectorU }
+    else
+      pure state
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX mouseY _layouts _widget => do
+    match state.dragging with
+    | some target =>
+        let origin := (env.contentOffsetX + env.physWidthF / 2, env.contentOffsetY + env.physHeightF / 2)
+        let scale := 50.0 * env.screenScale
+        let worldPos := Linalg.screenToWorld (mouseX, mouseY) origin scale
+        match target with
+        | .vectorV => pure { state with vectorV := worldPos }
+        | .vectorU => pure { state with vectorU := worldPos }
+    | none => pure state
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ => do
+    pure { state with dragging := none }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .vectorField where
+  name := "VECTOR FIELD (1-4 to switch fields)"
+  shortName := "Field"
+  init := fun _ => pure Linalg.vectorFieldInitialState
+  update := fun env s => do
+    let mut state := s
+    -- Handle keyboard: 1-4 for field types
+    if env.keyCode == FFI.Key.num1 then
+      env.clearKey
+      state := { state with fieldType := .radial }
+    else if env.keyCode == FFI.Key.num2 then
+      env.clearKey
+      state := { state with fieldType := .rotational }
+    else if env.keyCode == FFI.Key.num3 then
+      env.clearKey
+      state := { state with fieldType := .gradient }
+    else if env.keyCode == FFI.Key.num4 then
+      env.clearKey
+      state := { state with fieldType := .saddle }
+    -- +/- to adjust grid resolution
+    else if env.keyCode == 24 then  -- = (plus)
+      env.clearKey
+      state := { state with gridResolution := Nat.min 24 (state.gridResolution + 2) }
+    else if env.keyCode == 27 then  -- - (minus)
+      env.clearKey
+      state := { state with gridResolution := Nat.max 4 (state.gridResolution - 2) }
+    pure state
+  view := fun env s => some (Linalg.vectorFieldWidget env s)
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .crossProduct3D where
+  name := "3D CROSS PRODUCT (drag to rotate)"
+  shortName := "Cross 3D"
+  init := fun _ => pure Linalg.crossProduct3DInitialState
+  update := fun env s => do
+    let mut state := s
+    -- Handle keyboard: P=toggle parallelogram, R=reset camera
+    if env.keyCode == FFI.Key.p then
+      env.clearKey
+      state := { state with showParallelogram := !state.showParallelogram }
+    else if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := { state with cameraYaw := 0.6, cameraPitch := 0.4 }
+    pure state
+  view := fun env s => some (Linalg.crossProduct3DWidget env s)
+  handleClickWithLayouts := fun _env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 then return state
+    pure { state with dragging := .camera, lastMouseX := click.x, lastMouseY := click.y }
+  handleHoverWithLayouts := fun _env state _contentId _hitPath mouseX mouseY _layouts _widget => do
+    match state.dragging with
+    | .camera =>
+        let dx := mouseX - state.lastMouseX
+        let dy := mouseY - state.lastMouseY
+        let newYaw := state.cameraYaw + dx * 0.01
+        let rawPitch := state.cameraPitch + dy * 0.01
+        let newPitch := if rawPitch < -1.5 then -1.5 else if rawPitch > 1.5 then 1.5 else rawPitch
+        pure { state with cameraYaw := newYaw, cameraPitch := newPitch, lastMouseX := mouseX, lastMouseY := mouseY }
+    | _ => pure state
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ => do
+    pure { state with dragging := .none }
+  step := fun c _ s => pure (c, s)
+
 def demoInstance (id : DemoId) : Demo id := by
   cases id <;> infer_instance
 
@@ -797,9 +1016,17 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let orbitalInstancedDemo ← mkAnyDemo .orbitalInstanced env
   let fontShowcaseDemo ← mkAnyDemo .fontShowcase env
   let chatDemoDemo ← mkAnyDemo .chatDemo env
+  -- Linalg demos
+  let vectorInterpDemo ← mkAnyDemo .vectorInterpolation env
+  let vectorArithDemo ← mkAnyDemo .vectorArithmetic env
+  let vectorProjDemo ← mkAnyDemo .vectorProjection env
+  let vectorFieldDemo ← mkAnyDemo .vectorField env
+  let crossProduct3DDemo ← mkAnyDemo .crossProduct3D env
   pure #[demoGrid, gridPerf, trianglesPerf, circlesPerf, spritesPerf, layoutDemo, cssGridDemo,
     reactiveShowcaseDemo, widgetPerfDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
     lineCapsDemo, dashedLinesDemo, linesPerfDemo, textureMatrixDemo, orbitalInstancedDemo,
-    fontShowcaseDemo, chatDemoDemo]
+    fontShowcaseDemo, chatDemoDemo,
+    -- Linalg vector demos
+    vectorInterpDemo, vectorArithDemo, vectorProjDemo, vectorFieldDemo, crossProduct3DDemo]
 
 end Demos
