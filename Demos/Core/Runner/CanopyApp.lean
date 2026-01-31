@@ -11,6 +11,7 @@ import Demos.Overview.Card
 import Demos.Overview.DemoGrid
 import Demos.Overview.SpinningCubes
 import Demos.Perf.Circles
+import Demos.Perf.Sprites
 import Trellis
 
 open Reactive Reactive.Host
@@ -55,6 +56,21 @@ private def circlesTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Floa
     emit (pure (circlesPerfWidget t env.fontMedium particles env.circleRadius))
   pure ()
 
+private def spritesTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
+    (particlesRef : IO.Ref Render.Dynamic.ParticleState)
+    (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+  let _ ← dynWidget elapsedTime fun t => do
+    let particles ← SpiderM.liftIO do
+      let lastT ← lastTimeRef.get
+      let dt := if lastT == 0.0 then 0.0 else max 0.0 (t - lastT)
+      let current ← particlesRef.get
+      let next := current.updateBouncing dt env.spriteHalfSize
+      particlesRef.set next
+      lastTimeRef.set t
+      pure next
+    emit (pure (spritesPerfWidget env.screenScale env.fontMedium env.spriteTexture particles env.spriteHalfSize))
+  pure ()
+
 private def demoStubContent (id : DemoId) : WidgetM Unit := do
   let inst := demoInstance id
   filledPanel' 24 do
@@ -71,11 +87,16 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
     let particles := Render.Dynamic.ParticleState.create 1000000 env.physWidthF env.physHeightF 42
     IO.mkRef particles
   let circlesTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
+  let spritesRef ← SpiderM.liftIO do
+    let particles := Render.Dynamic.ParticleState.create 1000000 env.physWidthF env.physHeightF 123
+    IO.mkRef particles
+  let spritesTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let tabs : Array TabDef := demoIds.map fun id => {
     label := (demoInstance id).shortName
     content := match id with
       | .demoGrid => overviewTabContent env elapsedTime
       | .circlesPerf => circlesTabContent env elapsedTime circlesRef circlesTimeRef
+      | .spritesPerf => spritesTabContent env elapsedTime spritesRef spritesTimeRef
       | _ => demoStubContent id
   }
 
