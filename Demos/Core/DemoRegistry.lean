@@ -95,7 +95,7 @@ def mkAnyDemo (id : DemoId) (env : DemoEnv) : IO AnyDemo := do
 
 /-- Demo ids in display order. -/
 def demoIds : Array DemoId := #[
-  .demoGrid, .gridPerf, .trianglesPerf, .circlesPerf, .spritesPerf, .layout, .cssGrid,
+  .demoGrid, .circlesPerf, .spritesPerf, .layout, .cssGrid,
   .reactiveShowcase, .widgetPerf, .seascape, .shapeGallery, .worldmap, .lineCaps,
   .dashedLines, .linesPerf, .textureMatrix, .orbitalInstanced, .fontShowcase, .chatDemo,
   -- Linalg vector demos

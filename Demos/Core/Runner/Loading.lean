@@ -29,7 +29,7 @@ private def showcaseFontSpecs : Array (String × String × Nat) :=
 
 private def showcaseFontCount : Nat := 24  -- 4 families × 6 sizes
 
-private def loadingStepsTotal : Nat := 14 + showcaseFontCount  -- 38 total
+private def loadingStepsTotal : Nat := 13 + showcaseFontCount  -- 37 total
 
 private def loadingStepsDone (s : LoadingState) : Nat :=
   (if s.fontSmall.isSome then 1 else 0) +
@@ -44,7 +44,6 @@ private def loadingStepsDone (s : LoadingState) : Nat :=
   (if s.spriteTexture.isSome then 1 else 0) +
   (if s.lineSegments.isSome then 1 else 0) +
   (if s.lineBuffer.isSome then 1 else 0) +
-  (if s.gridParticles.isSome then 1 else 0) +
   (if s.orbitalParams.isSome then 1 else 0) +
   (if s.orbitalBuffer.isSome then 1 else 0)
 
@@ -67,8 +66,6 @@ def loadingStatus (s : LoadingState) : String :=
     "Generating lines..."
   else if s.lineBuffer.isNone then
     "Uploading line buffer..."
-  else if s.gridParticles.isNone then
-    "Generating particles..."
   else if s.orbitalParams.isNone then
     "Preparing orbitals..."
   else if s.orbitalBuffer.isNone then
@@ -137,16 +134,12 @@ def renderLoading (c : Canvas) (t : Float) (screenScale : Float)
 
 def advanceLoading (s0 : LoadingState) (screenScale : Float) (canvas : Canvas)
     (lineRef : IO.Ref (Option (Array Float × Nat)))
-    (gridRef : IO.Ref (Option Render.Dynamic.ParticleState))
     (orbitalRef : IO.Ref (Option FloatArray))
     (orbitalCount : Nat) : IO LoadingState := do
   let mut s := s0
   if s.lineSegments.isNone then
     if let some segs ← lineRef.get then
       s := { s with lineSegments := some segs }
-  if s.gridParticles.isNone then
-    if let some grid ← gridRef.get then
-      s := { s with gridParticles := some grid }
   if s.orbitalParams.isNone then
     if let some params ← orbitalRef.get then
       s := { s with orbitalParams := some params }
@@ -227,7 +220,7 @@ def advanceLoading (s0 : LoadingState) (screenScale : Float) (canvas : Canvas)
   return s
 
 def toLoadedAssets (s : LoadingState)
-    (screenScale halfSize circleRadius : Float)
+    (screenScale circleRadius : Float)
     (lineWidth : Float)
     (orbitalCount : Nat)
     (physWidthF physHeightF : Float)
@@ -235,10 +228,10 @@ def toLoadedAssets (s : LoadingState)
     (layoutOffsetX layoutOffsetY layoutScale : Float)
     : IO (Option LoadedAssets) := do
   match s.fontSmall, s.fontMedium, s.fontLarge, s.fontHuge, s.fontCanopy, s.fontCanopySmall,
-        s.layoutFont, s.fontPack, s.spriteTexture, s.gridParticles, s.lineSegments,
+        s.layoutFont, s.fontPack, s.spriteTexture, s.lineSegments,
         s.lineBuffer, s.orbitalParams, s.orbitalBuffer with
   | some fontSmall, some fontMedium, some fontLarge, some fontHuge, some fontCanopy, some fontCanopySmall,
-    some layoutFont, some fontPack, some spriteTexture, some gridParticles, some (_, lineCount),
+    some layoutFont, some fontPack, some spriteTexture, some (_, lineCount),
     some lineBuffer, some orbitalParams, some orbitalBuffer =>
       let spriteHalfSize ← spriteHalfSizeFromTexture spriteTexture
       pure (some {
@@ -253,10 +246,8 @@ def toLoadedAssets (s : LoadingState)
         showcaseFonts := s.showcaseFonts
         fontPack
         spriteTexture
-        halfSize
         circleRadius
         spriteHalfSize
-        gridParticles
         lineBuffer
         lineCount
         lineWidth
@@ -271,7 +262,7 @@ def toLoadedAssets (s : LoadingState)
         layoutOffsetY
         layoutScale
       })
-  | _, _, _, _, _, _, _, _, _, _, _, _, _, _ => pure none
+  | _, _, _, _, _, _, _, _, _, _, _, _, _ => pure none
 
 def cleanupLoading (s : LoadingState) : IO Unit := do
   if let some font := s.fontSmall then font.destroy
@@ -327,10 +318,8 @@ def mkEnvFromAssets (a : LoadedAssets) (t dt : Float)
   fontCanopySmallId := a.fontPack.canopySmallId
   showcaseFonts := a.fontPack.showcaseFonts
   spriteTexture := a.spriteTexture
-  halfSize := a.halfSize
   circleRadius := a.circleRadius
   spriteHalfSize := a.spriteHalfSize
-  gridParticles := a.gridParticles
   lineBuffer := a.lineBuffer
   lineCount := a.lineCount
   lineWidth := a.lineWidth

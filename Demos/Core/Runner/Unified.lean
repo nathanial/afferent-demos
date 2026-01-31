@@ -41,7 +41,6 @@ def unifiedDemo : IO Unit := do
 
   let canvas ← Canvas.create physWidth physHeight "Afferent - Demo Shell"
 
-  let halfSize := 1.5 * screenScale
   let circleRadius := 2.0 * screenScale
   let physWidthF := baseWidth * screenScale
   let physHeightF := baseHeight * screenScale
@@ -58,11 +57,6 @@ def unifiedDemo : IO Unit := do
     (layoutOffsetX, layoutOffsetY, layoutScale)
   let (layoutOffsetX, layoutOffsetY, layoutScale) := calcLayout physWidthF physHeightF
 
-  let gridCols := 316 * 3
-  let gridRows := 316 * 2
-  let gridSpacing := 2.0 * screenScale
-  let gridStartX := (physWidthF - (gridCols.toFloat - 1) * gridSpacing) / 2.0
-  let gridStartY := (physHeightF - (gridRows.toFloat - 1) * gridSpacing) / 2.0
   let lineWidth := 1.0 * screenScale
 
   let orbitalCount : Nat := 50000
@@ -72,12 +66,6 @@ def unifiedDemo : IO Unit := do
   let speedMax : Float := 1.6
   let sizeMin : Float := 1.0 * screenScale
   let sizeMax : Float := 3.5 * screenScale
-
-  let gridRef ← IO.mkRef (none : Option Render.Dynamic.ParticleState)
-  let _ ← IO.asTask (prio := .dedicated) do
-    let gridParticles := Render.Dynamic.ParticleState.createGrid
-      gridCols gridRows gridStartX gridStartY gridSpacing physWidthF physHeightF
-    gridRef.set (some gridParticles)
 
   let lineRef ← IO.mkRef (none : Option (Array Float × Nat))
   let _ ← IO.asTask (prio := .dedicated) do
@@ -104,11 +92,11 @@ def unifiedDemo : IO Unit := do
         lastTime := now
         match state with
         | .loading ls =>
-            let ls ← advanceLoading ls screenScale c lineRef gridRef orbitalRef orbitalCount
+            let ls ← advanceLoading ls screenScale c lineRef orbitalRef orbitalCount
             let progress := loadingProgress ls
             let label := loadingStatus ls
             c ← renderLoading c t screenScale progress label ls.fontSmall
-            let assetsOpt ← toLoadedAssets ls screenScale halfSize circleRadius lineWidth orbitalCount
+            let assetsOpt ← toLoadedAssets ls screenScale circleRadius lineWidth orbitalCount
               physWidthF physHeightF physWidth physHeight layoutOffsetX layoutOffsetY layoutScale
             match assetsOpt with
             | some assets =>

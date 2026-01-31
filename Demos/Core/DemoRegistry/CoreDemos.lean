@@ -101,22 +101,6 @@ instance : Demo .demoGrid where
       pure state
   step := fun c _ s => pure (c, s)
 
-instance : Demo .gridPerf where
-  name := "GRID (squares) performance test"
-  shortName := "Grid"
-  init := fun _ => pure ()
-  view := fun env _ =>
-    some (gridPerfWidget env.t env.fontMedium env.gridParticles env.halfSize)
-  step := fun c _ s => pure (c, s)
-
-instance : Demo .trianglesPerf where
-  name := "TRIANGLES performance test"
-  shortName := "Triangles"
-  init := fun _ => pure ()
-  view := fun env _ =>
-    some (trianglesPerfWidget env.t env.fontMedium env.gridParticles env.halfSize)
-  step := fun c _ s => pure (c, s)
-
 instance : Demo .circlesPerf where
   name := "CIRCLES (bouncing) performance test"
   shortName := "Circles"

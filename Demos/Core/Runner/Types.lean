@@ -41,7 +41,6 @@ structure LoadingState where
   spriteTexture : Option FFI.Texture := none
   lineSegments : Option (Array Float × Nat) := none
   lineBuffer : Option FFI.Buffer := none
-  gridParticles : Option Render.Dynamic.ParticleState := none
   orbitalParams : Option FloatArray := none
   orbitalBuffer : Option FFI.FloatBuffer := none
 
@@ -58,10 +57,8 @@ structure LoadedAssets where
   showcaseFonts : Std.HashMap String Font
   fontPack : FontPack
   spriteTexture : FFI.Texture
-  halfSize : Float
   circleRadius : Float
   spriteHalfSize : Float
-  gridParticles : Render.Dynamic.ParticleState
   lineBuffer : FFI.Buffer
   lineCount : Nat
   lineWidth : Float

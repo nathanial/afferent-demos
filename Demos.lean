@@ -7,8 +7,6 @@ import Demos.Overview.Strokes
 import Demos.Overview.Gradients
 import Demos.Overview.Text
 import Demos.Overview.Animations
-import Demos.Perf.Grid
-import Demos.Perf.Triangles
 import Demos.Perf.Circles
 import Demos.Perf.Sprites
 import Demos.Perf.Lines

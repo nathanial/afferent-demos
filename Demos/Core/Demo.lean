@@ -35,10 +35,8 @@ structure DemoEnv where
   /-- Font showcase fonts keyed by "family-size" (e.g., "monaco-12", "helvetica-36") -/
   showcaseFonts : Std.HashMap String Afferent.Arbor.FontId
   spriteTexture : Afferent.FFI.Texture
-  halfSize : Float
   circleRadius : Float
   spriteHalfSize : Float
-  gridParticles : Afferent.Render.Dynamic.ParticleState
   lineBuffer : Afferent.FFI.Buffer
   lineCount : Nat
   lineWidth : Float

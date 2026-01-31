@@ -5,8 +5,6 @@ import Demos.Core.Demo
 import Demos.Overview.DemoGrid
 import Demos.Overview.Card
 import Demos.Layout.Flexbox
-import Demos.Perf.Grid
-import Demos.Perf.Triangles
 import Demos.Perf.Circles
 import Demos.Perf.Sprites
 import Demos.Layout.CssGrid
@@ -73,8 +71,6 @@ def getFrameNameMap : IO (Std.HashMap String Afferent.Arbor.WidgetId) :=
 
 inductive DemoId where
   | demoGrid
-  | gridPerf
-  | trianglesPerf
   | circlesPerf
   | spritesPerf
   | layout
@@ -184,8 +180,6 @@ structure ChatDemoState where
 /-- Demo state mapping by id. -/
 def DemoState : DemoId → Type
   | .demoGrid => DemoGridState
-  | .gridPerf => Unit
-  | .trianglesPerf => Unit
   | .circlesPerf => CirclesState
   | .spritesPerf => SpritesState
   | .layout => Unit
