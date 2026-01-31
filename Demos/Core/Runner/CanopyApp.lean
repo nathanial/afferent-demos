@@ -124,7 +124,8 @@ private def widgetPerfTabContent (appState : WidgetPerf.AppState) : WidgetM Unit
 
 private def seascapeTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
     (stateRef : IO.Ref SeascapeState) (lastTimeRef : IO.Ref Float)
-    (keysRef : IO.Ref SeascapeInputState) (lockRef : IO.Ref Bool) : WidgetM Unit := do
+    (keysRef : IO.Ref SeascapeInputState) (lockRef : IO.Ref Bool)
+    (deltaRef : IO.Ref Afferent.Canopy.Reactive.MouseDeltaData) : WidgetM Unit := do
   let seascapeName ← registerComponentW "seascape"
   let clickEvents ← useClick seascapeName
   let clickAction ← Event.mapM (fun _ => do
@@ -154,6 +155,10 @@ private def seascapeTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Flo
     ) keyEvents
   performEvent_ keyAction
 
+  let mouseDeltas ← useMouseDelta
+  let deltaAction ← Event.mapM (fun delta => deltaRef.set delta) mouseDeltas
+  performEvent_ deltaAction
+
   let _ ← dynWidget elapsedTime fun t => do
     let state ← SpiderM.liftIO do
       let lastT ← lastTimeRef.get
@@ -161,11 +166,9 @@ private def seascapeTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Flo
       let current ← stateRef.get
       let locked ← lockRef.get
       let keys ← keysRef.get
-      let (dx, dy) ←
-        if locked then
-          FFI.Window.getMouseDelta env.window
-        else
-          pure (0.0, 0.0)
+      let delta ← deltaRef.get
+      let dx := if locked then delta.dx else 0.0
+      let dy := if locked then delta.dy else 0.0
       let camera := current.camera.update dt keys.w keys.s keys.a keys.d keys.e keys.q dx dy
       let next := { current with camera := camera, locked := locked }
       stateRef.set next
@@ -228,6 +231,7 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
   let seascapeTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let seascapeKeysRef ← SpiderM.liftIO (IO.mkRef ({} : SeascapeInputState))
   let seascapeLockRef ← SpiderM.liftIO (IO.mkRef false)
+  let seascapeDeltaRef ← SpiderM.liftIO (IO.mkRef { dx := 0.0, dy := 0.0 })
   let tabs : Array TabDef := demoIds.map fun id => {
     label := (demoInstance id).shortName
     content := match id with
@@ -239,7 +243,7 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
       | .reactiveShowcase => reactiveShowcaseTabContent reactiveShowcaseApp
       | .widgetPerf => widgetPerfTabContent widgetPerfApp
       | .seascape => seascapeTabContent env elapsedTime seascapeRef seascapeTimeRef
-          seascapeKeysRef seascapeLockRef
+          seascapeKeysRef seascapeLockRef seascapeDeltaRef
       | _ => demoStubContent id
   }
 

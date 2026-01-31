@@ -225,6 +225,9 @@ def unifiedDemo : IO Unit := do
                   rs.inputs.fireScroll scrollData
                   FFI.Window.clearScroll c.ctx.window
 
+                let (mouseDx, mouseDy) ← FFI.Window.getMouseDelta c.ctx.window
+                rs.inputs.fireMouseDelta { dx := mouseDx, dy := mouseDy }
+
                 let buttons ← FFI.Window.getMouseButtons c.ctx.window
                 let leftDown := (buttons &&& (1 : UInt8)) != (0 : UInt8)
                 if !leftDown && rs.prevLeftDown then
