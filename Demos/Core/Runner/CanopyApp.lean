@@ -10,6 +10,7 @@ import Demos.Core.DemoRegistry
 import Demos.Overview.Card
 import Demos.Overview.DemoGrid
 import Demos.Overview.SpinningCubes
+import Demos.Perf.Grid
 import Trellis
 
 open Reactive Reactive.Host
@@ -39,6 +40,11 @@ private def overviewTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Flo
     emit (pure (demoGridWidget env.screenScale t demoFonts cubes env.windowWidthF env.windowHeightF))
   pure ()
 
+private def gridTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+  let _ ← dynWidget elapsedTime fun t => do
+    emit (pure (gridPerfWidget t env.fontMedium env.gridParticles env.halfSize))
+  pure ()
+
 private def demoStubContent (id : DemoId) : WidgetM Unit := do
   let inst := demoInstance id
   filledPanel' 24 do
@@ -55,6 +61,7 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
     label := (demoInstance id).shortName
     content := match id with
       | .demoGrid => overviewTabContent env elapsedTime
+      | .gridPerf => gridTabContent env elapsedTime
       | _ => demoStubContent id
   }
 
