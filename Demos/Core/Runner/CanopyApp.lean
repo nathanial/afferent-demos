@@ -10,6 +10,8 @@ import Demos.Core.DemoRegistry
 import Demos.Overview.Card
 import Demos.Overview.DemoGrid
 import Demos.Overview.SpinningCubes
+import Demos.Layout.Flexbox
+import Demos.Layout.CssGrid
 import Demos.Perf.Circles
 import Demos.Perf.Sprites
 import Trellis
@@ -92,6 +94,16 @@ private def spritesTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Floa
     emit (pure (spritesPerfWidget env.screenScale env.fontMedium env.spriteTexture particles env.spriteHalfSize))
   pure ()
 
+private def layoutTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+  let _ ← dynWidget elapsedTime fun _ => do
+    emit (pure (layoutWidgetFlex env.fontMediumId env.fontSmallId env.screenScale))
+  pure ()
+
+private def cssGridTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+  let _ ← dynWidget elapsedTime fun _ => do
+    emit (pure (cssGridWidget env.fontMediumId env.fontSmallId env.screenScale))
+  pure ()
+
 private def statsFooter (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
   let footerHeight := 110.0 * env.screenScale
   let footerStyle : BoxStyle := {
@@ -136,6 +148,8 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
       | .demoGrid => overviewTabContent env elapsedTime
       | .circlesPerf => circlesTabContent env elapsedTime circlesRef circlesTimeRef
       | .spritesPerf => spritesTabContent env elapsedTime spritesRef spritesTimeRef
+      | .layout => layoutTabContent env elapsedTime
+      | .cssGrid => cssGridTabContent env elapsedTime
       | _ => demoStubContent id
   }
 
