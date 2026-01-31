@@ -26,6 +26,26 @@ namespace Demos
 structure CanopyAppState where
   render : ComponentRender
 
+private def roundTo (v : Float) (places : Nat) : Float :=
+  let factor := (10 : Float) ^ places.toFloat
+  (v * factor).round / factor
+
+private def formatFloat (v : Float) (places : Nat := 2) : String :=
+  let s := toString (roundTo v places)
+  if s.any (· == '.') then
+    let s := s.dropRightWhile (· == '0')
+    if s.endsWith "." then s.dropRight 1 else s
+  else
+    s
+
+private def formatStatsLines (stats : RunnerStats) : Array String :=
+  #[
+    s!"layout {formatFloat stats.layoutMs}ms • collect {formatFloat stats.collectMs}ms • exec {formatFloat stats.executeMs}ms",
+    s!"cmds {stats.commandCount} • widgets {stats.widgetCount} • layouts {stats.layoutCount}",
+    s!"cache hits {stats.cacheHits} • misses {stats.cacheMisses}",
+    s!"frame {formatFloat stats.frameMs}ms • {formatFloat stats.fps 1} fps"
+  ]
+
 private def demoFontsFromEnv (env : DemoEnv) : DemoFonts := {
   label := env.fontSmallId
   small := env.fontSmallId
@@ -70,6 +90,24 @@ private def spritesTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Floa
       pure next
     emit (pure (spritesPerfWidget env.screenScale env.fontMedium env.spriteTexture particles env.spriteHalfSize))
   pure ()
+
+private def statsFooter (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+  let footerHeight := 90.0 * env.screenScale
+  let footerStyle : BoxStyle := {
+    backgroundColor := some (Color.gray 0.08)
+    padding := EdgeInsets.symmetric (6.0 * env.screenScale) (4.0 * env.screenScale)
+    width := .percent 1.0
+    height := .length footerHeight
+    flexItem := some (FlexItem.fixed footerHeight)
+  }
+  column' (gap := 2.0 * env.screenScale) (style := footerStyle) do
+    let _ ← dynWidget elapsedTime fun _ => do
+      let stats ← SpiderM.liftIO env.statsRef.get
+      let lines := formatStatsLines stats
+      for line in lines do
+        caption' line
+      pure ()
+    pure ()
 
 private def demoStubContent (id : DemoId) : WidgetM Unit := do
   let inst := demoInstance id
@@ -121,6 +159,7 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
       column' (gap := 0) (style := contentStyle) do
         let _ ← tabView tabs 0
         pure ()
+      statsFooter env elapsedTime
 
   pure { render := render }
 

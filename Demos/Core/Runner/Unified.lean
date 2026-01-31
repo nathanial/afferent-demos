@@ -79,6 +79,8 @@ def unifiedDemo : IO Unit := do
 
   let startTime ← IO.monoMsNow
 
+  let statsRef ← IO.mkRef ({} : RunnerStats)
+
   let renderLoop : IO (Canvas × AppState) := do
     let mut c := canvas
     let mut state : AppState := .loading {}
@@ -100,7 +102,7 @@ def unifiedDemo : IO Unit := do
               physWidthF physHeightF physWidth physHeight layoutOffsetX layoutOffsetY layoutScale
             match assetsOpt with
             | some assets =>
-                let initEnv := mkEnvFromAssets assets 0.0 0.0 0 (pure ()) c.ctx.window
+                let initEnv := mkEnvFromAssets assets 0.0 0.0 0 (pure ()) c.ctx.window statsRef
                 let theme : Afferent.Canopy.Theme := {
                   Afferent.Canopy.Theme.dark with
                   font := initEnv.fontCanopyId
@@ -242,10 +244,12 @@ def unifiedDemo : IO Unit := do
               } }
 
             let rootWidget := Afferent.Arbor.build widgetBuilder
+            let layoutStart ← IO.monoNanosNow
             let measureResult ← runWithFonts rs.assets.fontPack.registry
               (Afferent.Arbor.measureWidget rootWidget screenW screenH)
             let measuredWidget := measureResult.widget
             let layouts := Trellis.layout measureResult.node screenW screenH
+            let layoutEnd ← IO.monoNanosNow
             let hitIndex := Afferent.Arbor.buildHitTestIndex measuredWidget layouts
             rs := { rs with frameCache := some {
               measuredWidget := measuredWidget
@@ -253,12 +257,36 @@ def unifiedDemo : IO Unit := do
               hitIndex := hitIndex
             } }
 
-            let commands ← Afferent.Arbor.collectCommandsCached c.renderCache measuredWidget layouts
+            let collectStart ← IO.monoNanosNow
+            let (commands, cacheHits, cacheMisses) ←
+              Afferent.Arbor.collectCommandsCachedWithStats c.renderCache measuredWidget layouts
+            let collectEnd ← IO.monoNanosNow
+            let executeStart ← IO.monoNanosNow
             let (_, c') ← CanvasM.run c do
               Afferent.Widget.executeCommandsBatched rs.assets.fontPack.registry commands
               Afferent.Widget.renderCustomWidgets measuredWidget layouts
               pure ()
+            let executeEnd ← IO.monoNanosNow
             c := c'
+            let layoutMs := (layoutEnd - layoutStart).toFloat / 1000000.0
+            let collectMs := (collectEnd - collectStart).toFloat / 1000000.0
+            let executeMs := (executeEnd - executeStart).toFloat / 1000000.0
+            let frameMs := dt * 1000.0
+            let fps := if dt > 0.0 then 1.0 / dt else 0.0
+            let widgetCount := (Afferent.Arbor.Widget.allIds measuredWidget).size
+            let layoutCount := layouts.layouts.size
+            statsRef.set {
+              frameMs := frameMs
+              fps := fps
+              layoutMs := layoutMs
+              collectMs := collectMs
+              executeMs := executeMs
+              commandCount := commands.size
+              cacheHits := cacheHits
+              cacheMisses := cacheMisses
+              widgetCount := widgetCount
+              layoutCount := layoutCount
+            }
 
             c ← c.endFrame
             state := .running rs

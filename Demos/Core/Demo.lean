@@ -11,7 +11,22 @@ open Afferent
 
 namespace Demos
 
+structure RunnerStats where
+  frameMs : Float := 0.0
+  fps : Float := 0.0
+  layoutMs : Float := 0.0
+  collectMs : Float := 0.0
+  executeMs : Float := 0.0
+  commandCount : Nat := 0
+  cacheHits : Nat := 0
+  cacheMisses : Nat := 0
+  widgetCount : Nat := 0
+  layoutCount : Nat := 0
+  deriving Inhabited
+
 structure DemoEnv where
+  /-- Runner stats shared with the Canopy footer widget. -/
+  statsRef : IO.Ref RunnerStats
   screenScale : Float
   t : Float
   dt : Float

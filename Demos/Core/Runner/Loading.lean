@@ -295,7 +295,9 @@ def cleanupAssets (a : LoadedAssets) : IO Unit := do
   FFI.FloatBuffer.destroy a.orbitalBuffer
 
 def mkEnvFromAssets (a : LoadedAssets) (t dt : Float)
-    (keyCode : UInt16) (clearKey : IO Unit) (window : FFI.Window) : DemoEnv := {
+    (keyCode : UInt16) (clearKey : IO Unit) (window : FFI.Window)
+    (statsRef : IO.Ref RunnerStats) : DemoEnv := {
+  statsRef := statsRef
   screenScale := a.screenScale
   t := t
   dt := dt
