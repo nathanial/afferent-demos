@@ -262,10 +262,10 @@ def unifiedDemo : IO Unit := do
               Afferent.Arbor.collectCommandsCachedWithStats c.renderCache measuredWidget layouts
             let collectEnd ← IO.monoNanosNow
             let executeStart ← IO.monoNanosNow
-            let (_, c') ← CanvasM.run c do
-              Afferent.Widget.executeCommandsBatched rs.assets.fontPack.registry commands
+            let (batchStats, c') ← CanvasM.run c do
+              let batchStats ← Afferent.Widget.executeCommandsBatchedWithStats rs.assets.fontPack.registry commands
               Afferent.Widget.renderCustomWidgets measuredWidget layouts
-              pure ()
+              pure batchStats
             let executeEnd ← IO.monoNanosNow
             c := c'
             let layoutMs := (layoutEnd - layoutStart).toFloat / 1000000.0
@@ -275,6 +275,7 @@ def unifiedDemo : IO Unit := do
             let fps := if dt > 0.0 then 1.0 / dt else 0.0
             let widgetCount := (Afferent.Arbor.Widget.allIds measuredWidget).size
             let layoutCount := layouts.layouts.size
+            let drawCalls := batchStats.batchedCalls + batchStats.individualCalls
             statsRef.set {
               frameMs := frameMs
               fps := fps
@@ -282,6 +283,9 @@ def unifiedDemo : IO Unit := do
               collectMs := collectMs
               executeMs := executeMs
               commandCount := commands.size
+              drawCalls := drawCalls
+              batchedCalls := batchStats.batchedCalls
+              individualCalls := batchStats.individualCalls
               cacheHits := cacheHits
               cacheMisses := cacheMisses
               widgetCount := widgetCount

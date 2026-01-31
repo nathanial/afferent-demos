@@ -42,6 +42,7 @@ private def formatStatsLines (stats : RunnerStats) : Array String :=
   #[
     s!"layout {formatFloat stats.layoutMs}ms • collect {formatFloat stats.collectMs}ms • exec {formatFloat stats.executeMs}ms",
     s!"cmds {stats.commandCount} • widgets {stats.widgetCount} • layouts {stats.layoutCount}",
+    s!"draws {stats.drawCalls} • batched {stats.batchedCalls} • single {stats.individualCalls}",
     s!"cache hits {stats.cacheHits} • misses {stats.cacheMisses}",
     s!"frame {formatFloat stats.frameMs}ms • {formatFloat stats.fps 1} fps"
   ]
@@ -92,7 +93,7 @@ private def spritesTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Floa
   pure ()
 
 private def statsFooter (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
-  let footerHeight := 90.0 * env.screenScale
+  let footerHeight := 110.0 * env.screenScale
   let footerStyle : BoxStyle := {
     backgroundColor := some (Color.gray 0.08)
     padding := EdgeInsets.symmetric (6.0 * env.screenScale) (4.0 * env.screenScale)

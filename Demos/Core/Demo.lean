@@ -18,6 +18,9 @@ structure RunnerStats where
   collectMs : Float := 0.0
   executeMs : Float := 0.0
   commandCount : Nat := 0
+  drawCalls : Nat := 0
+  batchedCalls : Nat := 0
+  individualCalls : Nat := 0
   cacheHits : Nat := 0
   cacheMisses : Nat := 0
   widgetCount : Nat := 0
