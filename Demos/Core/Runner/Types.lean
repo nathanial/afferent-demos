@@ -98,6 +98,7 @@ structure RunningState where
   lastMouseX : Float := 0.0
   lastMouseY : Float := 0.0
   prevLeftDown : Bool := false
+  keysDown : Std.HashMap UInt16 Bool := {}
 
 inductive AppState where
   | loading (state : LoadingState)

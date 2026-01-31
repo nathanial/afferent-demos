@@ -31,6 +31,15 @@ namespace Demos
 structure CanopyAppState where
   render : ComponentRender
 
+private structure SeascapeInputState where
+  w : Bool := false
+  a : Bool := false
+  s : Bool := false
+  d : Bool := false
+  q : Bool := false
+  e : Bool := false
+  deriving Inhabited
+
 private def roundTo (v : Float) (places : Nat) : Float :=
   let factor := (10 : Float) ^ places.toFloat
   (v * factor).round / factor
@@ -114,42 +123,50 @@ private def widgetPerfTabContent (appState : WidgetPerf.AppState) : WidgetM Unit
   emit appState.render
 
 private def seascapeTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref SeascapeState) (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+    (stateRef : IO.Ref SeascapeState) (lastTimeRef : IO.Ref Float)
+    (keysRef : IO.Ref SeascapeInputState) (lockRef : IO.Ref Bool) : WidgetM Unit := do
   let seascapeName ← registerComponentW "seascape"
   let clickEvents ← useClick seascapeName
   let clickAction ← Event.mapM (fun _ => do
-    let locked ← FFI.Window.getPointerLock env.window
+    let locked ← lockRef.get
     if !locked then
       FFI.Window.setPointerLock env.window true
+      lockRef.set true
     ) clickEvents
   performEvent_ clickAction
 
-  let keyEvents ← useKeyboard
-  let escapeEvents ← Event.filterM (fun data => data.event.key == .escape) keyEvents
-  let escapeAction ← Event.mapM (fun _ => do
-    let locked ← FFI.Window.getPointerLock env.window
-    FFI.Window.setPointerLock env.window (!locked)
-    ) escapeEvents
-  performEvent_ escapeAction
+  let keyEvents ← useKeyboardAll
+  let keyAction ← Event.mapM (fun data => do
+    let key := data.event.key
+    let isPress := data.event.isPress
+    if key == .escape && isPress then
+      let locked ← lockRef.get
+      FFI.Window.setPointerLock env.window (!locked)
+      lockRef.set (!locked)
+    match key with
+    | .char 'w' => keysRef.modify fun s => { s with w := isPress }
+    | .char 'a' => keysRef.modify fun s => { s with a := isPress }
+    | .char 's' => keysRef.modify fun s => { s with s := isPress }
+    | .char 'd' => keysRef.modify fun s => { s with d := isPress }
+    | .char 'q' => keysRef.modify fun s => { s with q := isPress }
+    | .char 'e' => keysRef.modify fun s => { s with e := isPress }
+    | _ => pure ()
+    ) keyEvents
+  performEvent_ keyAction
 
   let _ ← dynWidget elapsedTime fun t => do
     let state ← SpiderM.liftIO do
       let lastT ← lastTimeRef.get
       let dt := if lastT == 0.0 then 0.0 else max 0.0 (t - lastT)
       let current ← stateRef.get
-      let locked ← FFI.Window.getPointerLock env.window
-      let wDown ← FFI.Window.isKeyDown env.window FFI.Key.w
-      let aDown ← FFI.Window.isKeyDown env.window FFI.Key.a
-      let sDown ← FFI.Window.isKeyDown env.window FFI.Key.s
-      let dDown ← FFI.Window.isKeyDown env.window FFI.Key.d
-      let qDown ← FFI.Window.isKeyDown env.window FFI.Key.q
-      let eDown ← FFI.Window.isKeyDown env.window FFI.Key.e
+      let locked ← lockRef.get
+      let keys ← keysRef.get
       let (dx, dy) ←
         if locked then
           FFI.Window.getMouseDelta env.window
         else
           pure (0.0, 0.0)
-      let camera := current.camera.update dt wDown sDown aDown dDown eDown qDown dx dy
+      let camera := current.camera.update dt keys.w keys.s keys.a keys.d keys.e keys.q dx dy
       let next := { current with camera := camera, locked := locked }
       stateRef.set next
       lastTimeRef.set t
@@ -209,6 +226,8 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
   let spritesTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let seascapeRef ← SpiderM.liftIO (IO.mkRef { camera := seascapeCamera })
   let seascapeTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
+  let seascapeKeysRef ← SpiderM.liftIO (IO.mkRef ({} : SeascapeInputState))
+  let seascapeLockRef ← SpiderM.liftIO (IO.mkRef false)
   let tabs : Array TabDef := demoIds.map fun id => {
     label := (demoInstance id).shortName
     content := match id with
@@ -220,6 +239,7 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
       | .reactiveShowcase => reactiveShowcaseTabContent reactiveShowcaseApp
       | .widgetPerf => widgetPerfTabContent widgetPerfApp
       | .seascape => seascapeTabContent env elapsedTime seascapeRef seascapeTimeRef
+          seascapeKeysRef seascapeLockRef
       | _ => demoStubContent id
   }
 

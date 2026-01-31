@@ -171,13 +171,36 @@ def unifiedDemo : IO Unit := do
                   let keyEvent : Afferent.Arbor.KeyEvent := {
                     key := Afferent.Arbor.Key.fromKeyCode keyCode
                     modifiers := Afferent.Arbor.Modifiers.fromBitmask modifiers
+                    isPress := true
                   }
                   let keyData : Afferent.Canopy.Reactive.KeyData := {
                     event := keyEvent
                     focusedWidget := none
                   }
                   rs.inputs.fireKey keyData
+                  rs := { rs with keysDown := rs.keysDown.insert keyCode true }
                   c.clearKey
+
+                let mut releasedKeys : Array UInt16 := #[]
+                for (code, _) in rs.keysDown.toList do
+                  let down ← FFI.Window.isKeyDown c.ctx.window code
+                  if !down then
+                    releasedKeys := releasedKeys.push code
+
+                if !releasedKeys.isEmpty then
+                  let modifiers ← FFI.Window.getModifiers c.ctx.window
+                  for code in releasedKeys do
+                    let keyEvent : Afferent.Arbor.KeyEvent := {
+                      key := Afferent.Arbor.Key.fromKeyCode code
+                      modifiers := Afferent.Arbor.Modifiers.fromBitmask modifiers
+                      isPress := false
+                    }
+                    let keyData : Afferent.Canopy.Reactive.KeyData := {
+                      event := keyEvent
+                      focusedWidget := none
+                    }
+                    rs.inputs.fireKey keyData
+                    rs := { rs with keysDown := rs.keysDown.erase code }
 
                 let (scrollX, scrollY) ← FFI.Window.getScrollDelta c.ctx.window
                 if scrollX != 0.0 || scrollY != 0.0 then
