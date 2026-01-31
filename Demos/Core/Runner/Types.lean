@@ -3,7 +3,7 @@
 -/
 import Afferent
 import Afferent.Arbor
-import Demos.Core.DemoRegistry
+import Afferent.Canopy.Reactive
 import Demos.Core.TabBar
 import Std.Data.HashMap
 import Init.Data.FloatArray
@@ -86,65 +86,21 @@ structure RootBuild where
   contentId : Afferent.Arbor.WidgetId
 
 structure FrameCache where
-  rootBuild : RootBuild
   measuredWidget : Afferent.Arbor.Widget
   layouts : Trellis.LayoutResult
   hitIndex : Afferent.Arbor.HitTestIndex
 
 structure RunningState where
   assets : LoadedAssets
-  demos : Array AnyDemo
-  demoRefs : Array (IO.Ref AnyDemo)
-  displayMode : Nat
-  frameCount : Nat
-  fpsAccumulator : Float
-  displayFps : Float
-  renderCommandCount : Nat
-  widgetCount : Nat
-  cacheHits : Nat
-  cacheMisses : Nat
-  cacheSize : Nat
-  cacheCapacity : Nat
-  batchedCalls : Nat
-  individualCalls : Nat
-  rectsBatched : Nat
-  circlesBatched : Nat
-  strokeRectsBatched : Nat
-  linesBatched : Nat
-  textsBatched : Nat
-  peakRssKb : UInt64
-  minorFaults : UInt64
-  majorFaults : UInt64
-  framesLeft : Nat
-  tabBar : TabBarResult
+  render : Afferent.Canopy.Reactive.ComponentRender
+  events : Afferent.Canopy.Reactive.ReactiveEvents
+  inputs : Afferent.Canopy.Reactive.ReactiveInputs
+  spiderEnv : Reactive.Host.SpiderEnv
+  cachedWidget : Afferent.Arbor.WidgetBuilder
   frameCache : Option FrameCache := none
-  lastHoverPath : Array Afferent.Arbor.WidgetId := #[]
   lastMouseX : Float := 0.0
   lastMouseY : Float := 0.0
   prevLeftDown : Bool := false
-  -- Timing stats (in milliseconds)
-  timeUpdateMs : Float := 0.0
-  timeBuildMs : Float := 0.0
-  timeLayoutMs : Float := 0.0
-  timeCollectMs : Float := 0.0
-  timeGpuMs : Float := 0.0
-  collectLookupMs : Float := 0.0
-  collectTouchMs : Float := 0.0
-  collectEmitAllMs : Float := 0.0
-  collectSpecMs : Float := 0.0
-  collectInsertMs : Float := 0.0
-  collectLookupCount : Nat := 0
-  collectTouchCount : Nat := 0
-  collectEmitAllCount : Nat := 0
-  collectSpecCount : Nat := 0
-  collectInsertCount : Nat := 0
-  -- GPU phase breakdown
-  timeFlattenMs : Float := 0.0
-  timeCoalesceMs : Float := 0.0
-  timeBatchLoopMs : Float := 0.0
-  timeDrawCallsMs : Float := 0.0
-  -- Canopy demo stats (for debugging memory leaks)
-  canopyStats : Option CanopyDemoStats := none
 
 inductive AppState where
   | loading (state : LoadingState)
