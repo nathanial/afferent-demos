@@ -49,6 +49,10 @@ import Demos.Linalg.BezierPatchSurface
 import Demos.Linalg.EasingFunctionGallery
 import Demos.Linalg.SmoothDampFollower
 import Demos.Linalg.SpringAnimationPlayground
+import Demos.Linalg.NoiseExplorer2D
+import Demos.Linalg.FBMTerrainGenerator
+import Demos.Linalg.DomainWarpingDemo
+import Demos.Linalg.WorleyCellularNoise
 import Afferent.Canopy.Reactive
 import Reactive.Host.Spider
 import Worldmap
@@ -58,6 +62,12 @@ import Std.Data.HashMap
 open Afferent
 
 namespace Demos
+
+private def arrayGet? (arr : Array α) (i : Nat) : Option α :=
+  if h : i < arr.size then
+    some (arr[i]'h)
+  else
+    none
 
 initialize frameNameMapRef : IO.Ref (Std.HashMap String Afferent.Arbor.WidgetId) ← IO.mkRef {}
 
@@ -112,6 +122,10 @@ inductive DemoId where
   | easingFunctionGallery
   | smoothDampFollower
   | springAnimationPlayground
+  | noiseExplorer2D
+  | fbmTerrainGenerator
+  | domainWarpingDemo
+  | worleyCellularNoise
   deriving Repr, BEq, Inhabited
 
 structure CirclesState where
@@ -219,6 +233,10 @@ def DemoState : DemoId → Type
   | .easingFunctionGallery => Linalg.EasingFunctionGalleryState
   | .smoothDampFollower => Linalg.SmoothDampFollowerState
   | .springAnimationPlayground => Linalg.SpringAnimationPlaygroundState
+  | .noiseExplorer2D => Linalg.NoiseExplorerState
+  | .fbmTerrainGenerator => Linalg.FBMTerrainState
+  | .domainWarpingDemo => Linalg.DomainWarpingState
+  | .worleyCellularNoise => Linalg.WorleyCellularState
 
 class Demo (id : DemoId) where
   name : String
@@ -2254,6 +2272,274 @@ instance : Demo .springAnimationPlayground where
     pure { state with dragging := .none }
   step := fun c _ s => pure (c, s)
 
+-- Linalg Noise Demos
+
+instance : Demo .noiseExplorer2D where
+  name := "NOISE EXPLORER 2D"
+  shortName := "Noise2D"
+  init := fun _ => pure Linalg.noiseExplorer2DInitialState
+  update := fun env s => do
+    let mut state := s
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.noiseExplorer2DInitialState
+    pure state
+  view := fun env s => some (Linalg.noiseExplorer2DWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 then return state
+    let localX := click.x - env.contentOffsetX
+    let localY := click.y - env.contentOffsetY
+    let drop := Linalg.noiseExplorerDropdownLayout env.physWidthF env.physHeightF env.screenScale
+    let inDrop := localX >= drop.x && localX <= drop.x + drop.width
+      && localY >= drop.y && localY <= drop.y + drop.height
+    if inDrop then
+      pure { state with dropdownOpen := !state.dropdownOpen }
+    else if state.dropdownOpen then
+      let mut selected : Option Linalg.NoiseType := none
+      for i in [:Linalg.noiseExplorerOptions.size] do
+        let optLayout := Linalg.noiseExplorerDropdownOptionLayout drop i
+        if localX >= optLayout.x && localX <= optLayout.x + optLayout.width
+            && localY >= optLayout.y && localY <= optLayout.y + optLayout.height then
+          selected := arrayGet? Linalg.noiseExplorerOptions i
+      match selected with
+      | some opt => pure { state with noiseType := opt, dropdownOpen := false }
+      | none => pure { state with dropdownOpen := false }
+    else
+      let toggle := Linalg.noiseExplorerFbmToggleLayout env.physWidthF env.physHeightF env.screenScale
+      let inToggle := localX >= toggle.x && localX <= toggle.x + toggle.size
+        && localY >= toggle.y && localY <= toggle.y + toggle.size
+      if inToggle then
+        pure { state with useFbm := !state.useFbm }
+      else
+        let sliders : Array Linalg.NoiseExplorerSlider := #[.scale, .offsetX, .offsetY, .octaves, .lacunarity, .persistence, .jitter]
+        let mut hit : Option Linalg.NoiseExplorerSlider := none
+        for i in [:sliders.size] do
+          let layout := Linalg.noiseExplorerSliderLayout env.physWidthF env.physHeightF env.screenScale i
+          let within := localX >= layout.x && localX <= layout.x + layout.width
+            && localY >= layout.y - 10.0 && localY <= layout.y + layout.height + 10.0
+          if within then
+            hit := arrayGet? sliders i
+        match hit with
+        | some which =>
+            let layout := Linalg.noiseExplorerSliderLayout env.physWidthF env.physHeightF env.screenScale
+              (sliders.findIdx? (fun s => s == which) |>.getD 0)
+            let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+            let newState := Linalg.noiseExplorerApplySlider state which t
+            pure { newState with dragging := .slider which }
+        | none => pure state
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX _mouseY _layouts _widget => do
+    match state.dragging with
+    | .slider which =>
+        let localX := mouseX - env.contentOffsetX
+        let sliders : Array Linalg.NoiseExplorerSlider := #[.scale, .offsetX, .offsetY, .octaves, .lacunarity, .persistence, .jitter]
+        let idx := sliders.findIdx? (fun s => s == which) |>.getD 0
+        let layout := Linalg.noiseExplorerSliderLayout env.physWidthF env.physHeightF env.screenScale idx
+        let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+        pure (Linalg.noiseExplorerApplySlider state which t)
+    | .none => pure state
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := .none }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .fbmTerrainGenerator where
+  name := "FBM TERRAIN GENERATOR"
+  shortName := "Terrain"
+  init := fun _ => pure Linalg.fbmTerrainInitialState
+  update := fun env s => do
+    let mut state := s
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.fbmTerrainInitialState
+    else if env.keyCode == FFI.Key.w then
+      env.clearKey
+      state := { state with showWireframe := !state.showWireframe }
+    else if env.keyCode == FFI.Key.t then
+      env.clearKey
+      state := { state with showTexture := !state.showTexture }
+    else if env.keyCode == FFI.Key.n then
+      env.clearKey
+      state := { state with showNormals := !state.showNormals }
+    pure state
+  view := fun env s => some (Linalg.fbmTerrainWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    let localX := click.x - env.contentOffsetX
+    let localY := click.y - env.contentOffsetY
+    if click.button == 1 then
+      pure { state with dragging := .camera, lastMouseX := click.x, lastMouseY := click.y }
+    else if click.button != 0 then
+      pure state
+    else
+      let toggleA := Linalg.fbmTerrainToggleLayout env.physWidthF env.physHeightF env.screenScale 0
+      let toggleB := Linalg.fbmTerrainToggleLayout env.physWidthF env.physHeightF env.screenScale 1
+      let toggleC := Linalg.fbmTerrainToggleLayout env.physWidthF env.physHeightF env.screenScale 2
+      let hitToggle (t : Linalg.FBMTerrainToggleLayout) : Bool :=
+        localX >= t.x && localX <= t.x + t.size && localY >= t.y && localY <= t.y + t.size
+      if hitToggle toggleA then
+        pure { state with showWireframe := !state.showWireframe }
+      else if hitToggle toggleB then
+        pure { state with showTexture := !state.showTexture }
+      else if hitToggle toggleC then
+        pure { state with showNormals := !state.showNormals }
+      else
+        let sliders : Array Linalg.TerrainSlider := #[.scale, .height, .octaves, .lacunarity, .persistence, .power, .terrace]
+        let mut hit : Option Linalg.TerrainSlider := none
+        for i in [:sliders.size] do
+          let layout := Linalg.fbmTerrainSliderLayout env.physWidthF env.physHeightF env.screenScale i
+          let within := localX >= layout.x && localX <= layout.x + layout.width
+            && localY >= layout.y - 10.0 && localY <= layout.y + layout.height + 10.0
+          if within then
+            hit := arrayGet? sliders i
+        match hit with
+        | some which =>
+            let idx := sliders.findIdx? (fun s => s == which) |>.getD 0
+            let layout := Linalg.fbmTerrainSliderLayout env.physWidthF env.physHeightF env.screenScale idx
+            let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+            let newState := Linalg.fbmTerrainApplySlider state which t
+            pure { newState with dragging := .slider which }
+        | none => pure state
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX mouseY _layouts _widget => do
+    match state.dragging with
+    | .camera =>
+        let dx := mouseX - state.lastMouseX
+        let dy := mouseY - state.lastMouseY
+        let newYaw := state.cameraYaw + dx * 0.005
+        let newPitch := Linalg.Float.clamp (state.cameraPitch + dy * 0.005) (-0.2) 1.4
+        pure { state with cameraYaw := newYaw, cameraPitch := newPitch, lastMouseX := mouseX, lastMouseY := mouseY }
+    | .slider which =>
+        let localX := mouseX - env.contentOffsetX
+        let sliders : Array Linalg.TerrainSlider := #[.scale, .height, .octaves, .lacunarity, .persistence, .power, .terrace]
+        let idx := sliders.findIdx? (fun s => s == which) |>.getD 0
+        let layout := Linalg.fbmTerrainSliderLayout env.physWidthF env.physHeightF env.screenScale idx
+        let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+        pure (Linalg.fbmTerrainApplySlider state which t)
+    | .none => pure state
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := .none }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .domainWarpingDemo where
+  name := "DOMAIN WARPING DEMO"
+  shortName := "Warp"
+  init := fun _ => pure Linalg.domainWarpingInitialState
+  update := fun env s => do
+    let mut state := s
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.domainWarpingInitialState
+    if state.animate then
+      state := { state with time := state.time + env.dt * state.speed }
+    pure state
+  view := fun env s => some (Linalg.domainWarpingDemoWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 then return state
+    let localX := click.x - env.contentOffsetX
+    let localY := click.y - env.contentOffsetY
+    let toggleA := Linalg.domainWarpingToggleLayout env.physWidthF env.physHeightF env.screenScale 0
+    let toggleB := Linalg.domainWarpingToggleLayout env.physWidthF env.physHeightF env.screenScale 1
+    let toggleC := Linalg.domainWarpingToggleLayout env.physWidthF env.physHeightF env.screenScale 2
+    let hitToggle (t : Linalg.DomainWarpingToggleLayout) : Bool :=
+      localX >= t.x && localX <= t.x + t.size && localY >= t.y && localY <= t.y + t.size
+    if hitToggle toggleA then
+      pure { state with useAdvanced := !state.useAdvanced }
+    else if hitToggle toggleB then
+      pure { state with animate := !state.animate }
+    else if hitToggle toggleC then
+      pure { state with showVectors := !state.showVectors }
+    else
+      let sliders : Array Linalg.WarpingSlider := #[.strength1, .strength2, .scale, .speed]
+      let mut hit : Option Linalg.WarpingSlider := none
+      for i in [:sliders.size] do
+        let layout := Linalg.domainWarpingSliderLayout env.physWidthF env.physHeightF env.screenScale i
+        let within := localX >= layout.x && localX <= layout.x + layout.width
+          && localY >= layout.y - 10.0 && localY <= layout.y + layout.height + 10.0
+        if within then
+          hit := arrayGet? sliders i
+      match hit with
+      | some which =>
+          let idx := sliders.findIdx? (fun s => s == which) |>.getD 0
+          let layout := Linalg.domainWarpingSliderLayout env.physWidthF env.physHeightF env.screenScale idx
+          let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+          let newState := Linalg.domainWarpingApplySlider state which t
+          pure { newState with dragging := .slider which }
+      | none => pure state
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX _mouseY _layouts _widget => do
+    match state.dragging with
+    | .slider which =>
+        let localX := mouseX - env.contentOffsetX
+        let sliders : Array Linalg.WarpingSlider := #[.strength1, .strength2, .scale, .speed]
+        let idx := sliders.findIdx? (fun s => s == which) |>.getD 0
+        let layout := Linalg.domainWarpingSliderLayout env.physWidthF env.physHeightF env.screenScale idx
+        let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+        pure (Linalg.domainWarpingApplySlider state which t)
+    | .none => pure state
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := .none }
+  step := fun c _ s => pure (c, s)
+
+instance : Demo .worleyCellularNoise where
+  name := "WORLEY CELLULAR NOISE"
+  shortName := "Worley"
+  init := fun _ => pure Linalg.worleyCellularInitialState
+  update := fun env s => do
+    let mut state := s
+    if env.keyCode == FFI.Key.r then
+      env.clearKey
+      state := Linalg.worleyCellularInitialState
+    pure state
+  view := fun env s => some (Linalg.worleyCellularNoiseWidget env s)
+  handleClickWithLayouts := fun env state _contentId _hitPath click _layouts _widget => do
+    if click.button != 0 then return state
+    let localX := click.x - env.contentOffsetX
+    let localY := click.y - env.contentOffsetY
+    let drop := Linalg.worleyDropdownLayout env.physWidthF env.physHeightF env.screenScale
+    let inDrop := localX >= drop.x && localX <= drop.x + drop.width
+      && localY >= drop.y && localY <= drop.y + drop.height
+    if inDrop then
+      pure { state with dropdownOpen := !state.dropdownOpen }
+    else if state.dropdownOpen then
+      let mut selected : Option Linalg.WorleyMode := none
+      for i in [:Linalg.worleyModeOptions.size] do
+        let optLayout := Linalg.worleyDropdownOptionLayout drop i
+        if localX >= optLayout.x && localX <= optLayout.x + optLayout.width
+            && localY >= optLayout.y && localY <= optLayout.y + optLayout.height then
+          selected := arrayGet? Linalg.worleyModeOptions i
+      match selected with
+      | some opt => pure { state with mode := opt, dropdownOpen := false }
+      | none => pure { state with dropdownOpen := false }
+    else
+      let layout := Linalg.worleySliderLayout env.physWidthF env.physHeightF env.screenScale
+      let inSlider := localX >= layout.x && localX <= layout.x + layout.width
+        && localY >= layout.y - 10.0 && localY <= layout.y + layout.height + 10.0
+      if inSlider then
+        let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+        let newState := { state with jitter := Linalg.worleyJitterFromSlider t }
+        pure { newState with dragging := .slider }
+      else
+        let toggleA := Linalg.worleyToggleLayout env.physWidthF env.physHeightF env.screenScale 0
+        let toggleB := Linalg.worleyToggleLayout env.physWidthF env.physHeightF env.screenScale 1
+        let toggleC := Linalg.worleyToggleLayout env.physWidthF env.physHeightF env.screenScale 2
+        let hitToggle (t : Linalg.WorleyToggleLayout) : Bool :=
+          localX >= t.x && localX <= t.x + t.size && localY >= t.y && localY <= t.y + t.size
+        if hitToggle toggleA then
+          pure { state with showEdges := !state.showEdges }
+        else if hitToggle toggleB then
+          pure { state with showPoints := !state.showPoints }
+        else if hitToggle toggleC then
+          pure { state with showConnections := !state.showConnections }
+        else
+          pure state
+  handleHoverWithLayouts := fun env state _contentId _hitPath mouseX _mouseY _layouts _widget => do
+    match state.dragging with
+    | .slider =>
+        let localX := mouseX - env.contentOffsetX
+        let layout := Linalg.worleySliderLayout env.physWidthF env.physHeightF env.screenScale
+        let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+        pure { state with jitter := Linalg.worleyJitterFromSlider t }
+    | .none => pure state
+  handleMouseUpWithLayouts := fun _env state _ _ _ _ _ =>
+    pure { state with dragging := .none }
+  step := fun c _ s => pure (c, s)
+
 def demoInstance (id : DemoId) : Demo id := by
   cases id <;> infer_instance
 
@@ -2390,6 +2676,11 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
   let easingDemo ← mkAnyDemo .easingFunctionGallery env
   let smoothDampDemo ← mkAnyDemo .smoothDampFollower env
   let springDemo ← mkAnyDemo .springAnimationPlayground env
+  -- Linalg noise demos
+  let noiseExplorerDemo ← mkAnyDemo .noiseExplorer2D env
+  let terrainDemo ← mkAnyDemo .fbmTerrainGenerator env
+  let warpDemo ← mkAnyDemo .domainWarpingDemo env
+  let worleyDemo ← mkAnyDemo .worleyCellularNoise env
   pure #[demoGrid, gridPerf, trianglesPerf, circlesPerf, spritesPerf, layoutDemo, cssGridDemo,
     reactiveShowcaseDemo, widgetPerfDemo, seascapeDemo, shapeGalleryDemo, worldmapDemo,
     lineCapsDemo, dashedLinesDemo, linesPerfDemo, textureMatrixDemo, orbitalInstancedDemo,
@@ -2405,6 +2696,8 @@ def buildDemoList (env : DemoEnv) : IO (Array AnyDemo) := do
     -- Linalg curve demos
     bezierDemo, catmullDemo, bsplineDemo, arcLenDemo, patchDemo,
     -- Linalg easing demos
-    easingDemo, smoothDampDemo, springDemo]
+    easingDemo, smoothDampDemo, springDemo,
+    -- Linalg noise demos
+    noiseExplorerDemo, terrainDemo, warpDemo, worleyDemo]
 
 end Demos
