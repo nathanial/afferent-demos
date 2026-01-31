@@ -12,8 +12,11 @@ import Demos.Overview.DemoGrid
 import Demos.Overview.SpinningCubes
 import Demos.Layout.Flexbox
 import Demos.Layout.CssGrid
+import Demos.Reactive.Showcase.App
 import Demos.Perf.Circles
 import Demos.Perf.Sprites
+import Demos.Perf.Widget.App
+import Demos.Visuals.Seascape
 import Trellis
 
 open Reactive Reactive.Host
@@ -104,6 +107,66 @@ private def cssGridTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Floa
     emit (pure (cssGridWidget env.fontMediumId env.fontSmallId env.screenScale))
   pure ()
 
+private def reactiveShowcaseTabContent (appState : ReactiveShowcase.AppState) : WidgetM Unit := do
+  emit appState.render
+
+private def widgetPerfTabContent (appState : WidgetPerf.AppState) : WidgetM Unit := do
+  emit appState.render
+
+private def seascapeTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
+    (stateRef : IO.Ref SeascapeState) (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+  let seascapeName ← registerComponentW "seascape"
+  let clickEvents ← useClick seascapeName
+  let clickAction ← Event.mapM (fun _ => do
+    let locked ← FFI.Window.getPointerLock env.window
+    if !locked then
+      FFI.Window.setPointerLock env.window true
+    ) clickEvents
+  performEvent_ clickAction
+
+  let keyEvents ← useKeyboard
+  let escapeEvents ← Event.filterM (fun data => data.event.key == .escape) keyEvents
+  let escapeAction ← Event.mapM (fun _ => do
+    let locked ← FFI.Window.getPointerLock env.window
+    FFI.Window.setPointerLock env.window (!locked)
+    ) escapeEvents
+  performEvent_ escapeAction
+
+  let _ ← dynWidget elapsedTime fun t => do
+    let state ← SpiderM.liftIO do
+      let lastT ← lastTimeRef.get
+      let dt := if lastT == 0.0 then 0.0 else max 0.0 (t - lastT)
+      let current ← stateRef.get
+      let locked ← FFI.Window.getPointerLock env.window
+      let wDown ← FFI.Window.isKeyDown env.window FFI.Key.w
+      let aDown ← FFI.Window.isKeyDown env.window FFI.Key.a
+      let sDown ← FFI.Window.isKeyDown env.window FFI.Key.s
+      let dDown ← FFI.Window.isKeyDown env.window FFI.Key.d
+      let qDown ← FFI.Window.isKeyDown env.window FFI.Key.q
+      let eDown ← FFI.Window.isKeyDown env.window FFI.Key.e
+      let (dx, dy) ←
+        if locked then
+          FFI.Window.getMouseDelta env.window
+        else
+          pure (0.0, 0.0)
+      let camera := current.camera.update dt wDown sDown aDown dDown eDown qDown dx dy
+      let next := { current with camera := camera, locked := locked }
+      stateRef.set next
+      lastTimeRef.set t
+      pure next
+    let (windowW, windowH) ← SpiderM.liftIO do
+      let (w, h) ← FFI.Window.getSize env.window
+      pure (w.toFloat, h.toFloat)
+    let containerStyle : BoxStyle := {
+      flexItem := some (FlexItem.growing 1)
+      width := .percent 1.0
+      height := .percent 1.0
+    }
+    emit (pure (namedColumn seascapeName 0 containerStyle #[
+      seascapeWidget t env.screenScale windowW windowH env.fontMedium env.fontSmall state
+    ]))
+  pure ()
+
 private def statsFooter (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
   let footerHeight := 110.0 * env.screenScale
   let footerStyle : BoxStyle := {
@@ -134,6 +197,8 @@ private def demoStubContent (id : DemoId) : WidgetM Unit := do
 /-- Create the demo shell as a single Canopy widget tree. -/
 def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
   let elapsedTime ← useElapsedTime
+  let reactiveShowcaseApp ← ReactiveShowcase.createApp env
+  let widgetPerfApp ← WidgetPerf.createApp env
   let circlesRef ← SpiderM.liftIO do
     let particles := Render.Dynamic.ParticleState.create 1000000 env.physWidthF env.physHeightF 42
     IO.mkRef particles
@@ -142,6 +207,8 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
     let particles := Render.Dynamic.ParticleState.create 1000000 env.physWidthF env.physHeightF 123
     IO.mkRef particles
   let spritesTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
+  let seascapeRef ← SpiderM.liftIO (IO.mkRef { camera := seascapeCamera })
+  let seascapeTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let tabs : Array TabDef := demoIds.map fun id => {
     label := (demoInstance id).shortName
     content := match id with
@@ -150,6 +217,9 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
       | .spritesPerf => spritesTabContent env elapsedTime spritesRef spritesTimeRef
       | .layout => layoutTabContent env elapsedTime
       | .cssGrid => cssGridTabContent env elapsedTime
+      | .reactiveShowcase => reactiveShowcaseTabContent reactiveShowcaseApp
+      | .widgetPerf => widgetPerfTabContent widgetPerfApp
+      | .seascape => seascapeTabContent env elapsedTime seascapeRef seascapeTimeRef
       | _ => demoStubContent id
   }
 
