@@ -81,6 +81,10 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
   let springAnimationPlaygroundRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.springAnimationPlaygroundInitialState)
   let springTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let noiseExplorer2DRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.noiseExplorer2DInitialState)
+  let fbmTerrainGeneratorRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.fbmTerrainInitialState)
+  let domainWarpingDemoRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.domainWarpingInitialState)
+  let domainWarpingTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
+  let worleyCellularNoiseRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.worleyCellularInitialState)
   let worldmapStateRef ← SpiderM.liftIO do
     let config : Worldmap.MapStateConfig := {
       lat := 37.7749
@@ -175,7 +179,12 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
           springAnimationPlaygroundTabContent env elapsedTime springAnimationPlaygroundRef springTimeRef
       | .noiseExplorer2D =>
           noiseExplorer2DTabContent env elapsedTime noiseExplorer2DRef
-      | _ => demoStubContent id
+      | .fbmTerrainGenerator =>
+          fbmTerrainGeneratorTabContent env elapsedTime fbmTerrainGeneratorRef
+      | .domainWarpingDemo =>
+          domainWarpingDemoTabContent env elapsedTime domainWarpingDemoRef domainWarpingTimeRef
+      | .worleyCellularNoise =>
+          worleyCellularNoiseTabContent env elapsedTime worleyCellularNoiseRef
   }
 
   let (_, render) ← runWidget do

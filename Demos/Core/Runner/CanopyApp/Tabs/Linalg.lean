@@ -32,6 +32,9 @@ import Demos.Linalg.EasingFunctionGallery
 import Demos.Linalg.SmoothDampFollower
 import Demos.Linalg.SpringAnimationPlayground
 import Demos.Linalg.NoiseExplorer2D
+import Demos.Linalg.FBMTerrainGenerator
+import Demos.Linalg.DomainWarpingDemo
+import Demos.Linalg.WorleyCellularNoise
 import Trellis
 
 open Reactive Reactive.Host
@@ -2620,6 +2623,341 @@ def noiseExplorer2DTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Floa
     }
     emit (pure (namedColumn noiseName 0 containerStyle #[
       Demos.Linalg.noiseExplorer2DWidget env state
+    ]))
+  pure ()
+
+def fbmTerrainGeneratorTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
+    (stateRef : IO.Ref Demos.Linalg.FBMTerrainState) : WidgetM Unit := do
+  let terrainName ← registerComponentW "fbm-terrain-generator"
+
+  let clickEvents ← useClickData terrainName
+  let clickAction ← Event.mapM (fun data => do
+    let button := data.click.button
+    match button with
+    | 1 =>
+        stateRef.modify fun s =>
+          { s with dragging := .camera, lastMouseX := data.click.x, lastMouseY := data.click.y }
+    | 0 =>
+        match data.nameMap.get? terrainName with
+        | some wid =>
+            match data.layouts.get wid with
+            | some layout =>
+                let rect := layout.contentRect
+                let localX := data.click.x - rect.x
+                let localY := data.click.y - rect.y
+                let toggleA := Demos.Linalg.fbmTerrainToggleLayout rect.width rect.height env.screenScale 0
+                let toggleB := Demos.Linalg.fbmTerrainToggleLayout rect.width rect.height env.screenScale 1
+                let toggleC := Demos.Linalg.fbmTerrainToggleLayout rect.width rect.height env.screenScale 2
+                let hitToggle (t : Demos.Linalg.FBMTerrainToggleLayout) : Bool :=
+                  localX >= t.x && localX <= t.x + t.size && localY >= t.y && localY <= t.y + t.size
+                if hitToggle toggleA then
+                  stateRef.modify fun s => { s with showWireframe := !s.showWireframe }
+                else if hitToggle toggleB then
+                  stateRef.modify fun s => { s with showTexture := !s.showTexture }
+                else if hitToggle toggleC then
+                  stateRef.modify fun s => { s with showNormals := !s.showNormals }
+                else
+                  let sliders : Array Demos.Linalg.TerrainSlider :=
+                    #[.scale, .height, .octaves, .lacunarity, .persistence, .power, .terrace]
+                  let mut hit : Option (Nat × Demos.Linalg.TerrainSlider) := none
+                  for i in [:sliders.size] do
+                    let layout := Demos.Linalg.fbmTerrainSliderLayout rect.width rect.height env.screenScale i
+                    let within := localX >= layout.x && localX <= layout.x + layout.width
+                      && localY >= layout.y - 10.0 && localY <= layout.y + layout.height + 10.0
+                    if within then
+                      hit := some (i, sliders.getD i .scale)
+                  match hit with
+                  | some (idx, which) =>
+                      let layout := Demos.Linalg.fbmTerrainSliderLayout rect.width rect.height env.screenScale idx
+                      let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+                      let newState := Demos.Linalg.fbmTerrainApplySlider (← stateRef.get) which t
+                      stateRef.set { newState with dragging := .slider which }
+                  | none => pure ()
+            | none => pure ()
+        | none => pure ()
+    | _ => pure ()
+    ) clickEvents
+  performEvent_ clickAction
+
+  let hoverEvents ← useAllHovers
+  let hoverAction ← Event.mapM (fun data => do
+    let state ← stateRef.get
+    match state.dragging with
+    | .camera =>
+        let dx := data.x - state.lastMouseX
+        let dy := data.y - state.lastMouseY
+        let newYaw := state.cameraYaw + dx * 0.005
+        let newPitch := Linalg.Float.clamp (state.cameraPitch + dy * 0.005) (-0.2) 1.4
+        stateRef.set { state with
+          cameraYaw := newYaw
+          cameraPitch := newPitch
+          lastMouseX := data.x
+          lastMouseY := data.y
+        }
+    | .slider which =>
+        match data.nameMap.get? terrainName with
+        | some wid =>
+            match data.layouts.get wid with
+            | some layout =>
+                let rect := layout.contentRect
+                let localX := data.x - rect.x
+                let sliders : Array Demos.Linalg.TerrainSlider :=
+                  #[.scale, .height, .octaves, .lacunarity, .persistence, .power, .terrace]
+                let idx := sliders.findIdx? (fun s => s == which) |>.getD 0
+                let layout := Demos.Linalg.fbmTerrainSliderLayout rect.width rect.height env.screenScale idx
+                let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+                stateRef.set (Demos.Linalg.fbmTerrainApplySlider state which t)
+            | none => pure ()
+        | none => pure ()
+    | .none => pure ()
+    ) hoverEvents
+  performEvent_ hoverAction
+
+  let mouseUpEvents ← useAllMouseUp
+  let mouseUpAction ← Event.mapM (fun _ => do
+    stateRef.modify fun s => { s with dragging := .none }
+    ) mouseUpEvents
+  performEvent_ mouseUpAction
+
+  let keyEvents ← useKeyboard
+  let keyAction ← Event.mapM (fun data => do
+    if data.event.isPress then
+      match data.event.key with
+      | .char 'r' =>
+          stateRef.set Demos.Linalg.fbmTerrainInitialState
+      | .char 'w' =>
+          stateRef.modify fun s => { s with showWireframe := !s.showWireframe }
+      | .char 't' =>
+          stateRef.modify fun s => { s with showTexture := !s.showTexture }
+      | .char 'n' =>
+          stateRef.modify fun s => { s with showNormals := !s.showNormals }
+      | _ => pure ()
+    ) keyEvents
+  performEvent_ keyAction
+
+  let _ ← dynWidget elapsedTime fun _ => do
+    let state ← SpiderM.liftIO stateRef.get
+    let containerStyle : BoxStyle := {
+      flexItem := some (FlexItem.growing 1)
+      width := .percent 1.0
+      height := .percent 1.0
+    }
+    emit (pure (namedColumn terrainName 0 containerStyle #[
+      Demos.Linalg.fbmTerrainWidget env state
+    ]))
+  pure ()
+
+def domainWarpingDemoTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
+    (stateRef : IO.Ref Demos.Linalg.DomainWarpingState)
+    (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+  let warpName ← registerComponentW "domain-warping-demo"
+
+  let clickEvents ← useClickData warpName
+  let clickAction ← Event.mapM (fun data => do
+    if data.click.button != 0 then
+      pure ()
+    else
+      match data.nameMap.get? warpName with
+      | some wid =>
+          match data.layouts.get wid with
+          | some layout =>
+              let rect := layout.contentRect
+              let localX := data.click.x - rect.x
+              let localY := data.click.y - rect.y
+              let toggleA := Demos.Linalg.domainWarpingToggleLayout rect.width rect.height env.screenScale 0
+              let toggleB := Demos.Linalg.domainWarpingToggleLayout rect.width rect.height env.screenScale 1
+              let toggleC := Demos.Linalg.domainWarpingToggleLayout rect.width rect.height env.screenScale 2
+              let hitToggle (t : Demos.Linalg.DomainWarpingToggleLayout) : Bool :=
+                localX >= t.x && localX <= t.x + t.size && localY >= t.y && localY <= t.y + t.size
+              if hitToggle toggleA then
+                stateRef.modify fun s => { s with useAdvanced := !s.useAdvanced }
+              else if hitToggle toggleB then
+                stateRef.modify fun s => { s with animate := !s.animate }
+              else if hitToggle toggleC then
+                stateRef.modify fun s => { s with showVectors := !s.showVectors }
+              else
+                let sliders : Array Demos.Linalg.WarpingSlider := #[.strength1, .strength2, .scale, .speed]
+                let mut hit : Option (Nat × Demos.Linalg.WarpingSlider) := none
+                for i in [:sliders.size] do
+                  let layout := Demos.Linalg.domainWarpingSliderLayout rect.width rect.height env.screenScale i
+                  let within := localX >= layout.x && localX <= layout.x + layout.width
+                    && localY >= layout.y - 10.0 && localY <= layout.y + layout.height + 10.0
+                  if within then
+                    hit := some (i, sliders.getD i .strength1)
+                match hit with
+                | some (idx, which) =>
+                    let layout := Demos.Linalg.domainWarpingSliderLayout rect.width rect.height env.screenScale idx
+                    let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+                    let newState := Demos.Linalg.domainWarpingApplySlider (← stateRef.get) which t
+                    stateRef.set { newState with dragging := .slider which }
+                | none => pure ()
+          | none => pure ()
+      | none => pure ()
+    ) clickEvents
+  performEvent_ clickAction
+
+  let hoverEvents ← useAllHovers
+  let hoverAction ← Event.mapM (fun data => do
+    let state ← stateRef.get
+    match state.dragging with
+    | .slider which =>
+        match data.nameMap.get? warpName with
+        | some wid =>
+            match data.layouts.get wid with
+            | some layout =>
+                let rect := layout.contentRect
+                let localX := data.x - rect.x
+                let sliders : Array Demos.Linalg.WarpingSlider := #[.strength1, .strength2, .scale, .speed]
+                let idx := sliders.findIdx? (fun s => s == which) |>.getD 0
+                let layout := Demos.Linalg.domainWarpingSliderLayout rect.width rect.height env.screenScale idx
+                let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+                stateRef.set (Demos.Linalg.domainWarpingApplySlider state which t)
+            | none => pure ()
+        | none => pure ()
+    | .none => pure ()
+    ) hoverEvents
+  performEvent_ hoverAction
+
+  let mouseUpEvents ← useAllMouseUp
+  let mouseUpAction ← Event.mapM (fun _ => do
+    stateRef.modify fun s => { s with dragging := .none }
+    ) mouseUpEvents
+  performEvent_ mouseUpAction
+
+  let keyEvents ← useKeyboard
+  let keyAction ← Event.mapM (fun data => do
+    if data.event.isPress then
+      match data.event.key with
+      | .char 'r' =>
+          stateRef.set Demos.Linalg.domainWarpingInitialState
+      | _ => pure ()
+    ) keyEvents
+  performEvent_ keyAction
+
+  let _ ← dynWidget elapsedTime fun t => do
+    let state ← SpiderM.liftIO do
+      let lastT ← lastTimeRef.get
+      let dt := if lastT == 0.0 then 0.0 else max 0.0 (t - lastT)
+      let mut current ← stateRef.get
+      if current.animate then
+        current := { current with time := current.time + dt * current.speed }
+        stateRef.set current
+      lastTimeRef.set t
+      pure current
+    let containerStyle : BoxStyle := {
+      flexItem := some (FlexItem.growing 1)
+      width := .percent 1.0
+      height := .percent 1.0
+    }
+    emit (pure (namedColumn warpName 0 containerStyle #[
+      Demos.Linalg.domainWarpingDemoWidget env state
+    ]))
+  pure ()
+
+def worleyCellularNoiseTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
+    (stateRef : IO.Ref Demos.Linalg.WorleyCellularState) : WidgetM Unit := do
+  let worleyName ← registerComponentW "worley-cellular-noise"
+
+  let clickEvents ← useClickData worleyName
+  let clickAction ← Event.mapM (fun data => do
+    if data.click.button != 0 then
+      pure ()
+    else
+      match data.nameMap.get? worleyName with
+      | some wid =>
+          match data.layouts.get wid with
+          | some layout =>
+              let rect := layout.contentRect
+              let localX := data.click.x - rect.x
+              let localY := data.click.y - rect.y
+              let drop := Demos.Linalg.worleyDropdownLayout rect.width rect.height env.screenScale
+              let inDrop := localX >= drop.x && localX <= drop.x + drop.width
+                && localY >= drop.y && localY <= drop.y + drop.height
+              let state ← stateRef.get
+              if inDrop then
+                stateRef.set { state with dropdownOpen := !state.dropdownOpen }
+              else if state.dropdownOpen then
+                let mut selected : Option Demos.Linalg.WorleyMode := none
+                for i in [:Demos.Linalg.worleyModeOptions.size] do
+                  let optLayout := Demos.Linalg.worleyDropdownOptionLayout drop i
+                  if localX >= optLayout.x && localX <= optLayout.x + optLayout.width
+                      && localY >= optLayout.y && localY <= optLayout.y + optLayout.height then
+                    selected := some (Demos.Linalg.worleyModeOptions.getD i .f1)
+                match selected with
+                | some opt => stateRef.set { state with mode := opt, dropdownOpen := false }
+                | none => stateRef.set { state with dropdownOpen := false }
+              else
+                let layout := Demos.Linalg.worleySliderLayout rect.width rect.height env.screenScale
+                let inSlider := localX >= layout.x && localX <= layout.x + layout.width
+                  && localY >= layout.y - 10.0 && localY <= layout.y + layout.height + 10.0
+                if inSlider then
+                  let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+                  let newState := { state with jitter := Demos.Linalg.worleyJitterFromSlider t }
+                  stateRef.set { newState with dragging := .slider }
+                else
+                  let toggleA := Demos.Linalg.worleyToggleLayout rect.width rect.height env.screenScale 0
+                  let toggleB := Demos.Linalg.worleyToggleLayout rect.width rect.height env.screenScale 1
+                  let toggleC := Demos.Linalg.worleyToggleLayout rect.width rect.height env.screenScale 2
+                  let hitToggle (t : Demos.Linalg.WorleyToggleLayout) : Bool :=
+                    localX >= t.x && localX <= t.x + t.size && localY >= t.y && localY <= t.y + t.size
+                  if hitToggle toggleA then
+                    stateRef.set { state with showEdges := !state.showEdges }
+                  else if hitToggle toggleB then
+                    stateRef.set { state with showPoints := !state.showPoints }
+                  else if hitToggle toggleC then
+                    stateRef.set { state with showConnections := !state.showConnections }
+                  else
+                    pure ()
+          | none => pure ()
+      | none => pure ()
+    ) clickEvents
+  performEvent_ clickAction
+
+  let hoverEvents ← useAllHovers
+  let hoverAction ← Event.mapM (fun data => do
+    let state ← stateRef.get
+    match state.dragging with
+    | .slider =>
+        match data.nameMap.get? worleyName with
+        | some wid =>
+            match data.layouts.get wid with
+            | some layout =>
+                let rect := layout.contentRect
+                let localX := data.x - rect.x
+                let layout := Demos.Linalg.worleySliderLayout rect.width rect.height env.screenScale
+                let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+                stateRef.set { state with jitter := Demos.Linalg.worleyJitterFromSlider t }
+            | none => pure ()
+        | none => pure ()
+    | .none => pure ()
+    ) hoverEvents
+  performEvent_ hoverAction
+
+  let mouseUpEvents ← useAllMouseUp
+  let mouseUpAction ← Event.mapM (fun _ => do
+    stateRef.modify fun s => { s with dragging := .none }
+    ) mouseUpEvents
+  performEvent_ mouseUpAction
+
+  let keyEvents ← useKeyboard
+  let keyAction ← Event.mapM (fun data => do
+    if data.event.isPress then
+      match data.event.key with
+      | .char 'r' =>
+          stateRef.set Demos.Linalg.worleyCellularInitialState
+      | _ => pure ()
+    ) keyEvents
+  performEvent_ keyAction
+
+  let _ ← dynWidget elapsedTime fun _ => do
+    let state ← SpiderM.liftIO stateRef.get
+    let containerStyle : BoxStyle := {
+      flexItem := some (FlexItem.growing 1)
+      width := .percent 1.0
+      height := .percent 1.0
+    }
+    emit (pure (namedColumn worleyName 0 containerStyle #[
+      Demos.Linalg.worleyCellularNoiseWidget env state
     ]))
   pure ()
 
