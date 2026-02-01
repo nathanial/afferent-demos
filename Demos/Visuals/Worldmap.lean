@@ -157,7 +157,7 @@ def worldmapWidgetNamed (screenScale : Float) (fontMedium fontSmall : Font)
       withContentRect layout fun _ _ => do
         let rect := layout.contentRect
         let renderer ← getRenderer
-        Worldmap.renderAt renderer state rect.x rect.y windowW windowH
+        Worldmap.renderAt renderer state rect.x rect.y rect.width rect.height
         resetTransform
         setFillColor Color.white
         fillTextXY "Worldmap Demo - drag to pan, scroll to zoom (Space to advance)"
