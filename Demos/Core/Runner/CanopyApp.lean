@@ -67,6 +67,7 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
   let primitiveOverlapTesterRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.primitiveOverlapTesterInitialState)
   let barycentricCoordinatesRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.barycentricCoordinatesInitialState)
   let frustumCullingDemoRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.frustumCullingDemoInitialState)
+  let bezierCurveEditorRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.bezierCurveEditorInitialState)
   let worldmapStateRef ← SpiderM.liftIO do
     let config : Worldmap.MapStateConfig := {
       lat := 37.7749
@@ -143,6 +144,8 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
           barycentricCoordinatesTabContent env elapsedTime barycentricCoordinatesRef
       | .frustumCullingDemo =>
           frustumCullingDemoTabContent env elapsedTime frustumCullingDemoRef
+      | .bezierCurveEditor =>
+          bezierCurveEditorTabContent env elapsedTime bezierCurveEditorRef
       | _ => demoStubContent id
   }
 
