@@ -47,37 +47,32 @@ def overviewTabContent (env : DemoEnv) : WidgetM Unit := do
 
 def circlesTabContent (env : DemoEnv) : WidgetM Unit := do
   let elapsedTime ← useElapsedTime
-  let particlesRef ← SpiderM.liftIO do
-    let particles := Render.Dynamic.ParticleState.create 1000000 env.physWidthF env.physHeightF 42
-    IO.mkRef particles
-  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
-  let _ ← dynWidget elapsedTime fun t => do
-    let particles ← SpiderM.liftIO do
-      let lastT ← lastTimeRef.get
+  let initialParticles := Render.Dynamic.ParticleState.create 1000000 env.physWidthF env.physHeightF 42
+  -- Accumulate (particles, lastTime) from elapsed time changes
+  let particleState ← foldDyn
+    (fun t (particles, lastT) =>
       let dt := if lastT == 0.0 then 0.0 else max 0.0 (t - lastT)
-      let current ← particlesRef.get
-      let next := current.updateBouncing dt env.circleRadius
-      particlesRef.set next
-      lastTimeRef.set t
-      pure next
+      let next := particles.updateBouncing dt env.circleRadius
+      (next, t))
+    (initialParticles, 0.0)
+    elapsedTime.updated
+  let _ ← dynWidget particleState fun (particles, _) => do
+    let t ← elapsedTime.sample
     emit (pure (circlesPerfWidget t env.fontMedium particles env.circleRadius))
   pure ()
 
 def spritesTabContent (env : DemoEnv) : WidgetM Unit := do
   let elapsedTime ← useElapsedTime
-  let particlesRef ← SpiderM.liftIO do
-    let particles := Render.Dynamic.ParticleState.create 1000000 env.physWidthF env.physHeightF 123
-    IO.mkRef particles
-  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
-  let _ ← dynWidget elapsedTime fun t => do
-    let particles ← SpiderM.liftIO do
-      let lastT ← lastTimeRef.get
+  let initialParticles := Render.Dynamic.ParticleState.create 1000000 env.physWidthF env.physHeightF 123
+  -- Accumulate (particles, lastTime) from elapsed time changes
+  let particleState ← foldDyn
+    (fun t (particles, lastT) =>
       let dt := if lastT == 0.0 then 0.0 else max 0.0 (t - lastT)
-      let current ← particlesRef.get
-      let next := current.updateBouncing dt env.spriteHalfSize
-      particlesRef.set next
-      lastTimeRef.set t
-      pure next
+      let next := particles.updateBouncing dt env.spriteHalfSize
+      (next, t))
+    (initialParticles, 0.0)
+    elapsedTime.updated
+  let _ ← dynWidget particleState fun (particles, _) => do
     emit (pure (spritesPerfWidget env.screenScale env.fontMedium env.spriteTexture particles env.spriteHalfSize))
   pure ()
 

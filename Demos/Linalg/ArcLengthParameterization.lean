@@ -32,6 +32,7 @@ structure ArcLengthParameterizationState where
   speed : Float := 1.2
   animating : Bool := true
   dragging : ArcLengthDragMode := .none
+  lastTime : Float := 0.0
   deriving Inhabited
 
 

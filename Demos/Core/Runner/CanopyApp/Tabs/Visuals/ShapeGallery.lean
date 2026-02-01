@@ -17,27 +17,41 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
+
+structure ShapeGalleryState where
+  index : Nat := 0
+  lastTime : Float := 0.0
+  deriving Inhabited
+
 def shapeGalleryTabContent (env : DemoEnv) : WidgetM Unit := do
   let elapsedTime ← useElapsedTime
-  let indexRef ← SpiderM.liftIO (IO.mkRef 0)
   let keyEvents ← useKeyboard
-  let keyAction ← Event.mapM (fun data => do
+
+  -- Map key events to state update functions
+  let keyUpdates ← Event.mapM (fun data =>
     let total := shapeGalleryCount
     if total == 0 then
-      pure ()
+      fun s => s
     else
       match data.event.key with
       | .right | .space =>
-          indexRef.modify fun idx => (idx + 1) % total
+          fun s => { s with index := (s.index + 1) % total }
       | .left =>
-          indexRef.modify fun idx => if idx == 0 then total - 1 else idx - 1
-      | _ => pure ()
+          fun s => { s with index := if s.index == 0 then total - 1 else s.index - 1 }
+      | _ => fun s => s
     ) keyEvents
-  performEvent_ keyAction
 
-  let _ ← dynWidget elapsedTime fun _ => do
-    let idx ← SpiderM.liftIO indexRef.get
-    emit (pure (shapeGalleryWidget idx env.screenScale env.fontLarge env.fontSmall env.fontMedium))
+  -- Map elapsed time updates to state update functions (for tracking lastTime)
+  let timeUpdates ← Event.mapM (fun t =>
+    fun s => { s with lastTime := t }
+    ) elapsedTime.updated
+
+  -- Merge all updates and fold into state
+  let allUpdates ← Event.mergeAllListM [keyUpdates, timeUpdates]
+  let state ← foldDyn (fun f s => f s) ({} : ShapeGalleryState) allUpdates
+
+  let _ ← dynWidget state fun s => do
+    emit (pure (shapeGalleryWidget s.index env.screenScale env.fontLarge env.fontSmall env.fontMedium))
   pure ()
 
 end Demos

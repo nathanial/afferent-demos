@@ -19,20 +19,20 @@ open Trellis
 namespace Demos
 def barycentricCoordinatesTabContent (env : DemoEnv) : WidgetM Unit := do
   let elapsedTime ← useElapsedTime
-  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.barycentricCoordinatesInitialState)
   let baryName ← registerComponentW "barycentric-coordinates"
 
   let keyEvents ← useKeyboard
-  let keyAction ← Event.mapM (fun data => do
-    if data.event.key == .char 'r' && data.event.isPress then
-      stateRef.set Demos.Linalg.barycentricCoordinatesInitialState
+  let keyUpdates ← Event.mapM (fun data =>
+    fun (s : Demos.Linalg.BarycentricCoordinatesState) =>
+      if data.event.key == .char 'r' && data.event.isPress then
+        Demos.Linalg.barycentricCoordinatesInitialState
+      else s
     ) keyEvents
-  performEvent_ keyAction
 
   let clickEvents ← useClickData baryName
-  let clickAction ← Event.mapM (fun data => do
+  let clickUpdates ← Event.mapM (fun data =>
     if data.click.button != 0 then
-      pure ()
+      id
     else
       match data.nameMap.get? baryName with
       | some wid =>
@@ -44,53 +44,52 @@ def barycentricCoordinatesTabContent (env : DemoEnv) : WidgetM Unit := do
               let origin := (rect.width / 2, rect.height / 2)
               let scale := 70.0 * env.screenScale
               let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
-              let state ← stateRef.get
-              if Demos.Linalg.nearPoint worldPos state.point 0.4 then
-                stateRef.set { state with dragging := true }
-              else
-                pure ()
-          | none => pure ()
-      | none => pure ()
+              fun (state : Demos.Linalg.BarycentricCoordinatesState) =>
+                if Demos.Linalg.nearPoint worldPos state.point 0.4 then
+                  { state with dragging := true }
+                else
+                  state
+          | none => id
+      | none => id
     ) clickEvents
-  performEvent_ clickAction
 
   let hoverEvents ← useAllHovers
-  let hoverAction ← Event.mapM (fun data => do
-    let state ← stateRef.get
-    if !state.dragging then
-      pure ()
-    else
-      match data.nameMap.get? baryName with
-      | some wid =>
-          match data.layouts.get wid with
-          | some layout =>
-              let rect := layout.contentRect
-              let localX := data.x - rect.x
-              let localY := data.y - rect.y
-              let origin := (rect.width / 2, rect.height / 2)
-              let scale := 70.0 * env.screenScale
-              let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
-              stateRef.set { state with point := worldPos }
-          | none => pure ()
-      | none => pure ()
+  let hoverUpdates ← Event.mapM (fun data =>
+    match data.nameMap.get? baryName with
+    | some wid =>
+        match data.layouts.get wid with
+        | some layout =>
+            let rect := layout.contentRect
+            let localX := data.x - rect.x
+            let localY := data.y - rect.y
+            let origin := (rect.width / 2, rect.height / 2)
+            let scale := 70.0 * env.screenScale
+            let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+            fun (state : Demos.Linalg.BarycentricCoordinatesState) =>
+              if state.dragging then
+                { state with point := worldPos }
+              else
+                state
+        | none => id
+    | none => id
     ) hoverEvents
-  performEvent_ hoverAction
 
   let mouseUpEvents ← useAllMouseUp
-  let mouseUpAction ← Event.mapM (fun _ => do
-    stateRef.modify fun s => { s with dragging := false }
+  let mouseUpUpdates ← Event.mapM (fun _ =>
+    fun (s : Demos.Linalg.BarycentricCoordinatesState) => { s with dragging := false }
     ) mouseUpEvents
-  performEvent_ mouseUpAction
 
-  let _ ← dynWidget elapsedTime fun _ => do
-    let state ← SpiderM.liftIO stateRef.get
+  let allUpdates ← Event.mergeAllListM [keyUpdates, clickUpdates, hoverUpdates, mouseUpUpdates]
+  let state ← foldDyn (fun f s => f s) Demos.Linalg.barycentricCoordinatesInitialState allUpdates
+
+  let _ ← dynWidget state fun s => do
     let containerStyle : BoxStyle := {
       flexItem := some (FlexItem.growing 1)
       width := .percent 1.0
       height := .percent 1.0
     }
     emit (pure (namedColumn baryName 0 containerStyle #[
-      Demos.Linalg.barycentricCoordinatesWidget env state
+      Demos.Linalg.barycentricCoordinatesWidget env s
     ]))
   pure ()
 

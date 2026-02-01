@@ -19,14 +19,12 @@ open Trellis
 namespace Demos
 def arcLengthParameterizationTabContent (env : DemoEnv) : WidgetM Unit := do
   let elapsedTime ← useElapsedTime
-  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.arcLengthParameterizationInitialState)
-  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let arcName ← registerComponentW "arc-length-parameterization"
 
   let clickEvents ← useClickData arcName
-  let clickAction ← Event.mapM (fun data => do
+  let clickUpdates ← Event.mapM (fun data =>
     if data.click.button != 0 then
-      pure ()
+      id
     else
       match data.nameMap.get? arcName with
       | some wid =>
@@ -44,111 +42,102 @@ def arcLengthParameterizationTabContent (env : DemoEnv) : WidgetM Unit := do
               if hitSlider then
                 let t := Linalg.Float.clamp ((localX - sliderX) / sliderW) 0.0 1.0
                 let speed := 0.2 + t * 3.8
-                stateRef.modify fun s => { s with speed := speed, dragging := .slider }
+                fun (s : Demos.Linalg.ArcLengthParameterizationState) =>
+                  { s with speed := speed, dragging := .slider }
               else
                 let origin := (rect.width / 2, rect.height / 2)
                 let scale := 70.0 * env.screenScale
                 let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
-                let state ← stateRef.get
-                let mut hit : Option Nat := none
-                for i in [:state.controlPoints.size] do
-                  let p := state.controlPoints.getD i Linalg.Vec2.zero
-                  if Demos.Linalg.nearPoint worldPos p 0.45 then
-                    hit := some i
-                match hit with
-                | some idx => stateRef.set { state with dragging := .point idx }
-                | none => pure ()
-          | none => pure ()
-      | none => pure ()
+                fun (state : Demos.Linalg.ArcLengthParameterizationState) =>
+                  let hit := (Array.range state.controlPoints.size).findSome? fun i =>
+                    let p := state.controlPoints.getD i Linalg.Vec2.zero
+                    if Demos.Linalg.nearPoint worldPos p 0.45 then some i else none
+                  match hit with
+                  | some idx => { state with dragging := .point idx }
+                  | none => state
+          | none => id
+      | none => id
     ) clickEvents
-  performEvent_ clickAction
 
   let hoverEvents ← useAllHovers
-  let hoverAction ← Event.mapM (fun data => do
-    let state ← stateRef.get
-    match state.dragging with
-    | .none => pure ()
-    | .slider =>
-        match data.nameMap.get? arcName with
-        | some wid =>
-            match data.layouts.get wid with
-            | some layout =>
-                let rect := layout.contentRect
-                let localX := data.x - rect.x
-                let sliderX := rect.width - 260.0 * env.screenScale
-                let sliderW := 190.0 * env.screenScale
-                let t := Linalg.Float.clamp ((localX - sliderX) / sliderW) 0.0 1.0
-                let speed := 0.2 + t * 3.8
-                stateRef.set { state with speed := speed }
-            | none => pure ()
-        | none => pure ()
-    | .point idx =>
-        match data.nameMap.get? arcName with
-        | some wid =>
-            match data.layouts.get wid with
-            | some layout =>
-                let rect := layout.contentRect
-                let localX := data.x - rect.x
-                let localY := data.y - rect.y
-                let origin := (rect.width / 2, rect.height / 2)
-                let scale := 70.0 * env.screenScale
-                let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
-                if idx < state.controlPoints.size then
-                  stateRef.set { state with controlPoints := state.controlPoints.set! idx worldPos }
-                else
-                  pure ()
-            | none => pure ()
-        | none => pure ()
+  let hoverUpdates ← Event.mapM (fun data =>
+    match data.nameMap.get? arcName with
+    | some wid =>
+        match data.layouts.get wid with
+        | some layout =>
+            let rect := layout.contentRect
+            let localX := data.x - rect.x
+            let localY := data.y - rect.y
+            fun (state : Demos.Linalg.ArcLengthParameterizationState) =>
+              match state.dragging with
+              | .none => state
+              | .slider =>
+                  let sliderX := rect.width - 260.0 * env.screenScale
+                  let sliderW := 190.0 * env.screenScale
+                  let t := Linalg.Float.clamp ((localX - sliderX) / sliderW) 0.0 1.0
+                  let speed := 0.2 + t * 3.8
+                  { state with speed := speed }
+              | .point idx =>
+                  let origin := (rect.width / 2, rect.height / 2)
+                  let scale := 70.0 * env.screenScale
+                  let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+                  if idx < state.controlPoints.size then
+                    { state with controlPoints := state.controlPoints.set! idx worldPos }
+                  else
+                    state
+        | none => id
+    | none => id
     ) hoverEvents
-  performEvent_ hoverAction
 
   let mouseUpEvents ← useAllMouseUp
-  let mouseUpAction ← Event.mapM (fun _ => do
-    stateRef.modify fun s => { s with dragging := .none }
+  let mouseUpUpdates ← Event.mapM (fun _ =>
+    fun (s : Demos.Linalg.ArcLengthParameterizationState) => { s with dragging := .none }
     ) mouseUpEvents
-  performEvent_ mouseUpAction
 
   let keyEvents ← useKeyboard
-  let keyAction ← Event.mapM (fun data => do
-    if data.event.isPress then
-      match data.event.key with
-      | .char 'r' =>
-          stateRef.set Demos.Linalg.arcLengthParameterizationInitialState
-      | .space =>
-          stateRef.modify fun s => { s with animating := !s.animating }
-      | _ => pure ()
+  let keyUpdates ← Event.mapM (fun data =>
+    fun (s : Demos.Linalg.ArcLengthParameterizationState) =>
+      if data.event.isPress then
+        match data.event.key with
+        | .char 'r' => Demos.Linalg.arcLengthParameterizationInitialState
+        | .space => { s with animating := !s.animating }
+        | _ => s
+      else s
     ) keyEvents
-  performEvent_ keyAction
 
-  let _ ← dynWidget elapsedTime fun t => do
-    let state ← SpiderM.liftIO do
-      let lastT ← lastTimeRef.get
-      let dt := if lastT == 0.0 then 0.0 else max 0.0 (t - lastT)
-      let mut current ← stateRef.get
-      if current.animating then
-        let p0 := current.controlPoints.getD 0 Linalg.Vec2.zero
-        let p1 := current.controlPoints.getD 1 Linalg.Vec2.zero
-        let p2 := current.controlPoints.getD 2 Linalg.Vec2.zero
-        let p3 := current.controlPoints.getD 3 Linalg.Vec2.zero
+  -- Time-based animation updates (track lastTime in state)
+  let timeUpdates ← Event.mapM (fun t =>
+    fun (state : Demos.Linalg.ArcLengthParameterizationState) =>
+      let dt := if state.lastTime == 0.0 then 0.0 else max 0.0 (t - state.lastTime)
+      if state.animating then
+        let p0 := state.controlPoints.getD 0 Linalg.Vec2.zero
+        let p1 := state.controlPoints.getD 1 Linalg.Vec2.zero
+        let p2 := state.controlPoints.getD 2 Linalg.Vec2.zero
+        let p3 := state.controlPoints.getD 3 Linalg.Vec2.zero
         let curve := Linalg.Bezier3.mk p0 p1 p2 p3
         let evalFn := fun t => Linalg.Bezier3.evalVec2 curve t
         let table := Linalg.ArcLengthTable.build evalFn 120
-        let newT := current.t + dt * 0.2
-        let newS := current.s + current.speed * dt
+        let newT := state.t + dt * 0.2
+        let newS := state.s + state.speed * dt
         let wrappedS := if table.totalLength > Linalg.Float.epsilon then
           if newS > table.totalLength then newS - table.totalLength else newS
         else 0.0
-        current := { current with t := (if newT > 1.0 then newT - 1.0 else newT), s := wrappedS }
-        stateRef.set current
-      lastTimeRef.set t
-      pure current
+        { state with t := (if newT > 1.0 then newT - 1.0 else newT), s := wrappedS, lastTime := t }
+      else
+        { state with lastTime := t }
+    ) elapsedTime.updated
+
+  let allUpdates ← Event.mergeAllListM [clickUpdates, hoverUpdates, mouseUpUpdates, keyUpdates, timeUpdates]
+  let state ← foldDyn (fun f s => f s) Demos.Linalg.arcLengthParameterizationInitialState allUpdates
+
+  let _ ← dynWidget state fun s => do
     let containerStyle : BoxStyle := {
       flexItem := some (FlexItem.growing 1)
       width := .percent 1.0
       height := .percent 1.0
     }
     emit (pure (namedColumn arcName 0 containerStyle #[
-      Demos.Linalg.arcLengthParameterizationWidget env state
+      Demos.Linalg.arcLengthParameterizationWidget env s
     ]))
   pure ()
 

@@ -19,21 +19,17 @@ open Trellis
 namespace Demos
 def matrix3DTransformTabContent (env : DemoEnv) : WidgetM Unit := do
   let elapsedTime ← useElapsedTime
-  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.matrix3DTransformInitialState)
   let mat3dName ← registerComponentW "matrix-3d-transform"
 
   let keyEvents ← useKeyboard
-  let keyAction ← Event.mapM (fun data => do
-    if data.event.isPress then
-      match data.event.key with
-      | .char '1' =>
-          stateRef.modify fun s => { s with selectedIndex := some 0 }
-      | .char '2' =>
-          stateRef.modify fun s => { s with selectedIndex := some 1 }
-      | .char '3' =>
-          stateRef.modify fun s => { s with selectedIndex := some 2 }
-      | .up =>
-          stateRef.modify fun s =>
+  let keyUpdates ← Event.mapM (fun data =>
+    fun (s : Demos.Linalg.Matrix3DTransformState) =>
+      if data.event.isPress then
+        match data.event.key with
+        | .char '1' => { s with selectedIndex := some 0 }
+        | .char '2' => { s with selectedIndex := some 1 }
+        | .char '3' => { s with selectedIndex := some 2 }
+        | .up =>
             match s.selectedIndex with
             | some idx =>
                 if idx > 0 then
@@ -44,8 +40,7 @@ def matrix3DTransformTabContent (env : DemoEnv) : WidgetM Unit := do
                   { s with transforms := arr, selectedIndex := some (idx - 1) }
                 else s
             | none => s
-      | .down =>
-          stateRef.modify fun s =>
+        | .down =>
             match s.selectedIndex with
             | some idx =>
                 if idx + 1 < s.transforms.size then
@@ -56,61 +51,60 @@ def matrix3DTransformTabContent (env : DemoEnv) : WidgetM Unit := do
                   { s with transforms := arr, selectedIndex := some (idx + 1) }
                 else s
             | none => s
-      | .char 'a' =>
-          stateRef.modify fun s => { s with showAxes := !s.showAxes }
-      | .char 'i' =>
-          stateRef.modify fun s => { s with showIntermediateSteps := !s.showIntermediateSteps }
-      | .char 'r' =>
-          stateRef.modify fun s => { s with cameraYaw := 0.5, cameraPitch := 0.3 }
-      | _ => pure ()
+        | .char 'a' => { s with showAxes := !s.showAxes }
+        | .char 'i' => { s with showIntermediateSteps := !s.showIntermediateSteps }
+        | .char 'r' => { s with cameraYaw := 0.5, cameraPitch := 0.3 }
+        | _ => s
+      else s
     ) keyEvents
-  performEvent_ keyAction
 
   let clickEvents ← useClickData mat3dName
-  let clickAction ← Event.mapM (fun data => do
+  let clickUpdates ← Event.mapM (fun data =>
     if data.click.button != 0 then
-      pure ()
+      id
     else
-      stateRef.modify fun s => { s with dragging := true, lastMouseX := data.click.x, lastMouseY := data.click.y }
+      fun (s : Demos.Linalg.Matrix3DTransformState) =>
+        { s with dragging := true, lastMouseX := data.click.x, lastMouseY := data.click.y }
     ) clickEvents
-  performEvent_ clickAction
 
   let hoverEvents ← useAllHovers
-  let hoverAction ← Event.mapM (fun data => do
-    let state ← stateRef.get
-    if state.dragging then
-      let dx := data.x - state.lastMouseX
-      let dy := data.y - state.lastMouseY
-      let newYaw := state.cameraYaw + dx * 0.01
-      let rawPitch := state.cameraPitch + dy * 0.01
-      let newPitch := if rawPitch < -1.5 then -1.5 else if rawPitch > 1.5 then 1.5 else rawPitch
-      stateRef.set { state with
-        cameraYaw := newYaw
-        cameraPitch := newPitch
-        lastMouseX := data.x
-        lastMouseY := data.y
-      }
-    else
-      pure ()
+  let hoverUpdates ← Event.mapM (fun data =>
+    fun (state : Demos.Linalg.Matrix3DTransformState) =>
+      if state.dragging then
+        let dx := data.x - state.lastMouseX
+        let dy := data.y - state.lastMouseY
+        let newYaw := state.cameraYaw + dx * 0.01
+        let rawPitch := state.cameraPitch + dy * 0.01
+        let newPitch := if rawPitch < -1.5 then -1.5 else if rawPitch > 1.5 then 1.5 else rawPitch
+        { state with
+          cameraYaw := newYaw
+          cameraPitch := newPitch
+          lastMouseX := data.x
+          lastMouseY := data.y
+        }
+      else
+        state
     ) hoverEvents
-  performEvent_ hoverAction
 
   let mouseUpEvents ← useAllMouseUp
-  let mouseUpAction ← Event.mapM (fun data => do
-    if data.button == 0 then
-      stateRef.modify fun s => { s with dragging := false }
+  let mouseUpUpdates ← Event.mapM (fun data =>
+    fun (s : Demos.Linalg.Matrix3DTransformState) =>
+      if data.button == 0 then
+        { s with dragging := false }
+      else s
     ) mouseUpEvents
-  performEvent_ mouseUpAction
 
-  let _ ← dynWidget elapsedTime fun _ => do
-    let state ← SpiderM.liftIO stateRef.get
+  let allUpdates ← Event.mergeAllListM [keyUpdates, clickUpdates, hoverUpdates, mouseUpUpdates]
+  let state ← foldDyn (fun f s => f s) Demos.Linalg.matrix3DTransformInitialState allUpdates
+
+  let _ ← dynWidget state fun s => do
     let containerStyle : BoxStyle := {
       flexItem := some (FlexItem.growing 1)
       width := .percent 1.0
       height := .percent 1.0
     }
     emit (pure (namedColumn mat3dName 0 containerStyle #[
-      Demos.Linalg.matrix3DTransformWidget env state
+      Demos.Linalg.matrix3DTransformWidget env s
     ]))
   pure ()
 

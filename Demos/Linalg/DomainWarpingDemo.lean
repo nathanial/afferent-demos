@@ -37,6 +37,7 @@ structure DomainWarpingState where
   showVectors : Bool := true
   useAdvanced : Bool := false
   time : Float := 0.0
+  lastTime : Float := 0.0
   dragging : WarpingDrag := .none
   deriving Inhabited
 

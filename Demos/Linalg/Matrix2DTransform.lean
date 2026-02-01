@@ -59,6 +59,7 @@ structure Matrix2DTransformState where
   animating : Bool := false
   animT : Float := 1.0  -- 0 = identity, 1 = full transform
   editingCell : MatrixCell := .none
+  lastTime : Float := 0.0
   deriving Inhabited
 
 def matrix2DTransformInitialState : Matrix2DTransformState := {}

@@ -34,6 +34,7 @@ structure CatmullRomSplineEditorState where
   t : Float := 0.0
   animating : Bool := true
   dragging : CatmullDragMode := .none
+  lastTime : Float := 0.0
   deriving Inhabited
 
 def catmullRomSplineEditorInitialState : CatmullRomSplineEditorState := {}

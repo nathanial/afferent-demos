@@ -19,14 +19,13 @@ open Trellis
 namespace Demos
 def vectorInterpolationTabContent (env : DemoEnv) : WidgetM Unit := do
   let elapsedTime ← useElapsedTime
-  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.vectorInterpolationInitialState)
   let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let interpName ← registerComponentW "vector-interpolation"
 
   let clickEvents ← useClickData interpName
-  let clickAction ← Event.mapM (fun data => do
+  let clickUpdates ← Event.mapM (fun data =>
     if data.click.button != 0 then
-      pure ()
+      id
     else
       match data.nameMap.get? interpName with
       | some wid =>
@@ -38,76 +37,78 @@ def vectorInterpolationTabContent (env : DemoEnv) : WidgetM Unit := do
               let origin := (rect.width / 2, rect.height / 2)
               let scale := 50.0 * env.screenScale
               let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
-              let state ← stateRef.get
-              if Demos.Linalg.nearPoint worldPos state.vectorA 0.5 then
-                stateRef.set { state with dragging := some .vectorA }
-              else if Demos.Linalg.nearPoint worldPos state.vectorB 0.5 then
-                stateRef.set { state with dragging := some .vectorB }
-              else
-                pure ()
-          | none => pure ()
-      | none => pure ()
+              fun (state : Demos.Linalg.VectorInterpolationState) =>
+                if Demos.Linalg.nearPoint worldPos state.vectorA 0.5 then
+                  { state with dragging := some .vectorA }
+                else if Demos.Linalg.nearPoint worldPos state.vectorB 0.5 then
+                  { state with dragging := some .vectorB }
+                else
+                  state
+          | none => id
+      | none => id
     ) clickEvents
-  performEvent_ clickAction
 
   let hoverEvents ← useAllHovers
-  let hoverAction ← Event.mapM (fun data => do
-    let state ← stateRef.get
-    match state.dragging with
-    | some target =>
-        match data.nameMap.get? interpName with
-        | some wid =>
-            match data.layouts.get wid with
-            | some layout =>
-                let rect := layout.contentRect
-                let localX := data.x - rect.x
-                let localY := data.y - rect.y
-                let origin := (rect.width / 2, rect.height / 2)
-                let scale := 50.0 * env.screenScale
-                let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
-                let next := match target with
+  let hoverUpdates ← Event.mapM (fun data =>
+    match data.nameMap.get? interpName with
+    | some wid =>
+        match data.layouts.get wid with
+        | some layout =>
+            let rect := layout.contentRect
+            let localX := data.x - rect.x
+            let localY := data.y - rect.y
+            let origin := (rect.width / 2, rect.height / 2)
+            let scale := 50.0 * env.screenScale
+            let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+            fun (state : Demos.Linalg.VectorInterpolationState) =>
+              match state.dragging with
+              | some target =>
+                  match target with
                   | .vectorA => { state with vectorA := worldPos }
                   | .vectorB => { state with vectorB := worldPos }
-                stateRef.set next
-            | none => pure ()
-        | none => pure ()
-    | none => pure ()
+              | none => state
+        | none => id
+    | none => id
     ) hoverEvents
-  performEvent_ hoverAction
 
   let mouseUpEvents ← useAllMouseUp
-  let mouseUpAction ← Event.mapM (fun data => do
-    if data.button == 0 then
-      stateRef.modify fun s => { s with dragging := none }
+  let mouseUpUpdates ← Event.mapM (fun data =>
+    fun (s : Demos.Linalg.VectorInterpolationState) =>
+      if data.button == 0 then { s with dragging := none } else s
     ) mouseUpEvents
-  performEvent_ mouseUpAction
 
   let keyEvents ← useKeyboard
-  let keyAction ← Event.mapM (fun data => do
-    if data.event.key == .space && data.event.isPress then
-      stateRef.modify fun s => { s with animating := !s.animating }
+  let keyUpdates ← Event.mapM (fun data =>
+    fun (s : Demos.Linalg.VectorInterpolationState) =>
+      if data.event.key == .space && data.event.isPress then
+        { s with animating := !s.animating }
+      else s
     ) keyEvents
-  performEvent_ keyAction
+
+  let allUpdates ← Event.mergeAllListM [clickUpdates, hoverUpdates, mouseUpUpdates, keyUpdates]
+  let state ← foldDyn (fun f s => f s) Demos.Linalg.vectorInterpolationInitialState allUpdates
 
   let _ ← dynWidget elapsedTime fun t => do
-    let state ← SpiderM.liftIO do
+    let currentState ← SpiderM.liftIO do
       let lastT ← lastTimeRef.get
       let dt := if lastT == 0.0 then 0.0 else max 0.0 (t - lastT)
-      let mut current ← stateRef.get
-      if current.animating then
-        let nextT := current.t + dt * 0.5
-        let wrapped := if nextT >= 1.0 then nextT - 1.0 else nextT
-        current := { current with t := wrapped }
-        stateRef.set current
       lastTimeRef.set t
-      pure current
+      pure dt
+    let dt := currentState
+    let s ← SpiderM.liftIO state.sample
+    let finalState :=
+      if s.animating then
+        let nextT := s.t + dt * 0.5
+        let wrapped := if nextT >= 1.0 then nextT - 1.0 else nextT
+        { s with t := wrapped }
+      else s
     let containerStyle : BoxStyle := {
       flexItem := some (FlexItem.growing 1)
       width := .percent 1.0
       height := .percent 1.0
     }
     emit (pure (namedColumn interpName 0 containerStyle #[
-      Demos.Linalg.vectorInterpolationWidget env state
+      Demos.Linalg.vectorInterpolationWidget env finalState
     ]))
   pure ()
 

@@ -18,32 +18,27 @@ open Trellis
 
 namespace Demos
 def projectionExplorerTabContent (env : DemoEnv) : WidgetM Unit := do
-  let elapsedTime ← useElapsedTime
-  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.projectionExplorerInitialState)
   let projName ← registerComponentW "projection-explorer"
 
   let keyEvents ← useKeyboard
-  let keyAction ← Event.mapM (fun data => do
-    if data.event.isPress then
-      match data.event.key with
-      | .tab =>
-          stateRef.modify fun s =>
+  let keyUpdates ← Event.mapM (fun data =>
+    fun (s : Demos.Linalg.ProjectionExplorerState) =>
+      if data.event.isPress then
+        match data.event.key with
+        | .tab =>
             { s with projType := match s.projType with
               | .perspective => .orthographic
               | .orthographic => .perspective
             }
-      | .char 'f' =>
-          stateRef.modify fun s =>
+        | .char 'f' =>
             let newFar := s.far + 0.5
             { s with far := if newFar > 10.0 then 10.0 else newFar }
-      | .char 'n' =>
-          stateRef.modify fun s =>
+        | .char 'n' =>
             let newNear := s.near + 0.1
             let maxNear := s.far - 0.5
             let clampedNear := if newNear > maxNear then maxNear else newNear
             { s with near := if clampedNear < 0.1 then 0.1 else clampedNear }
-      | .char '=' | .char '+' =>
-          stateRef.modify fun s =>
+        | .char '=' | .char '+' =>
             match s.projType with
             | .perspective =>
                 let newFov := s.fov + 0.1
@@ -52,8 +47,7 @@ def projectionExplorerTabContent (env : DemoEnv) : WidgetM Unit := do
             | .orthographic =>
                 let newSize := s.orthoSize + 0.2
                 { s with orthoSize := if newSize > 5.0 then 5.0 else newSize }
-      | .char '-' =>
-          stateRef.modify fun s =>
+        | .char '-' =>
             match s.projType with
             | .perspective =>
                 let newFov := s.fov - 0.1
@@ -61,59 +55,57 @@ def projectionExplorerTabContent (env : DemoEnv) : WidgetM Unit := do
             | .orthographic =>
                 let newSize := s.orthoSize - 0.2
                 { s with orthoSize := if newSize < 0.5 then 0.5 else newSize }
-      | .char 'c' =>
-          stateRef.modify fun s => { s with showClipSpace := !s.showClipSpace }
-      | .char 'o' =>
-          stateRef.modify fun s => { s with showTestObjects := !s.showTestObjects }
-      | _ => pure ()
+        | .char 'c' => { s with showClipSpace := !s.showClipSpace }
+        | .char 'o' => { s with showTestObjects := !s.showTestObjects }
+        | _ => s
+      else s
     ) keyEvents
-  performEvent_ keyAction
 
   let clickEvents ← useClickData projName
-  let clickAction ← Event.mapM (fun data => do
+  let clickUpdates ← Event.mapM (fun data =>
     if data.click.button != 0 then
-      pure ()
+      id
     else
-      stateRef.modify fun s => { s with dragging := true, lastMouseX := data.click.x, lastMouseY := data.click.y }
+      fun (s : Demos.Linalg.ProjectionExplorerState) =>
+        { s with dragging := true, lastMouseX := data.click.x, lastMouseY := data.click.y }
     ) clickEvents
-  performEvent_ clickAction
 
   let hoverEvents ← useAllHovers
-  let hoverAction ← Event.mapM (fun data => do
-    let state ← stateRef.get
-    if state.dragging then
-      let dx := data.x - state.lastMouseX
-      let dy := data.y - state.lastMouseY
-      let newYaw := state.cameraYaw + dx * 0.01
-      let rawPitch := state.cameraPitch + dy * 0.01
-      let newPitch := if rawPitch < -1.5 then -1.5 else if rawPitch > 1.5 then 1.5 else rawPitch
-      stateRef.set { state with
-        cameraYaw := newYaw
-        cameraPitch := newPitch
-        lastMouseX := data.x
-        lastMouseY := data.y
-      }
-    else
-      pure ()
+  let hoverUpdates ← Event.mapM (fun data =>
+    fun (state : Demos.Linalg.ProjectionExplorerState) =>
+      if state.dragging then
+        let dx := data.x - state.lastMouseX
+        let dy := data.y - state.lastMouseY
+        let newYaw := state.cameraYaw + dx * 0.01
+        let rawPitch := state.cameraPitch + dy * 0.01
+        let newPitch := if rawPitch < -1.5 then -1.5 else if rawPitch > 1.5 then 1.5 else rawPitch
+        { state with
+          cameraYaw := newYaw
+          cameraPitch := newPitch
+          lastMouseX := data.x
+          lastMouseY := data.y
+        }
+      else
+        state
     ) hoverEvents
-  performEvent_ hoverAction
 
   let mouseUpEvents ← useAllMouseUp
-  let mouseUpAction ← Event.mapM (fun data => do
-    if data.button == 0 then
-      stateRef.modify fun s => { s with dragging := false }
+  let mouseUpUpdates ← Event.mapM (fun data =>
+    fun (s : Demos.Linalg.ProjectionExplorerState) =>
+      if data.button == 0 then { s with dragging := false } else s
     ) mouseUpEvents
-  performEvent_ mouseUpAction
 
-  let _ ← dynWidget elapsedTime fun _ => do
-    let state ← SpiderM.liftIO stateRef.get
+  let allUpdates ← Event.mergeAllListM [keyUpdates, clickUpdates, hoverUpdates, mouseUpUpdates]
+  let state ← foldDyn (fun f s => f s) Demos.Linalg.projectionExplorerInitialState allUpdates
+
+  let _ ← dynWidget state fun s => do
     let containerStyle : BoxStyle := {
       flexItem := some (FlexItem.growing 1)
       width := .percent 1.0
       height := .percent 1.0
     }
     emit (pure (namedColumn projName 0 containerStyle #[
-      Demos.Linalg.projectionExplorerWidget env state
+      Demos.Linalg.projectionExplorerWidget env s
     ]))
   pure ()
 

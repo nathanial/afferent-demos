@@ -59,6 +59,7 @@ structure EasingFunctionGalleryState where
   selected : Nat := 0
   compare : Nat := 1
   compareMode : Bool := false
+  lastTime : Float := 0.0
   deriving Inhabited
 
 

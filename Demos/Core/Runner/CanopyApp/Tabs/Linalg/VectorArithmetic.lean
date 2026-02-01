@@ -18,14 +18,12 @@ open Trellis
 
 namespace Demos
 def vectorArithmeticTabContent (env : DemoEnv) : WidgetM Unit := do
-  let elapsedTime ← useElapsedTime
-  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.vectorArithmeticInitialState)
   let arithName ← registerComponentW "vector-arithmetic"
 
   let clickEvents ← useClickData arithName
-  let clickAction ← Event.mapM (fun data => do
+  let clickUpdates ← Event.mapM (fun data =>
     if data.click.button != 0 then
-      pure ()
+      id
     else
       match data.nameMap.get? arithName with
       | some wid =>
@@ -37,79 +35,73 @@ def vectorArithmeticTabContent (env : DemoEnv) : WidgetM Unit := do
               let origin := (rect.width / 2, rect.height / 2)
               let scale := 50.0 * env.screenScale
               let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
-              let state ← stateRef.get
-              if Demos.Linalg.nearPoint worldPos state.vectorA 0.5 then
-                stateRef.set { state with dragging := some .vectorA }
-              else if Demos.Linalg.nearPoint worldPos state.vectorB 0.5 then
-                stateRef.set { state with dragging := some .vectorB }
-              else
-                pure ()
-          | none => pure ()
-      | none => pure ()
+              fun (state : Demos.Linalg.VectorArithmeticState) =>
+                if Demos.Linalg.nearPoint worldPos state.vectorA 0.5 then
+                  { state with dragging := some .vectorA }
+                else if Demos.Linalg.nearPoint worldPos state.vectorB 0.5 then
+                  { state with dragging := some .vectorB }
+                else
+                  state
+          | none => id
+      | none => id
     ) clickEvents
-  performEvent_ clickAction
 
   let hoverEvents ← useAllHovers
-  let hoverAction ← Event.mapM (fun data => do
-    let state ← stateRef.get
-    match state.dragging with
-    | some target =>
-        match data.nameMap.get? arithName with
-        | some wid =>
-            match data.layouts.get wid with
-            | some layout =>
-                let rect := layout.contentRect
-                let localX := data.x - rect.x
-                let localY := data.y - rect.y
-                let origin := (rect.width / 2, rect.height / 2)
-                let scale := 50.0 * env.screenScale
-                let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
-                let next := match target with
+  let hoverUpdates ← Event.mapM (fun data =>
+    match data.nameMap.get? arithName with
+    | some wid =>
+        match data.layouts.get wid with
+        | some layout =>
+            let rect := layout.contentRect
+            let localX := data.x - rect.x
+            let localY := data.y - rect.y
+            let origin := (rect.width / 2, rect.height / 2)
+            let scale := 50.0 * env.screenScale
+            let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+            fun (state : Demos.Linalg.VectorArithmeticState) =>
+              match state.dragging with
+              | some target =>
+                  match target with
                   | .vectorA => { state with vectorA := worldPos }
                   | .vectorB => { state with vectorB := worldPos }
-                stateRef.set next
-            | none => pure ()
-        | none => pure ()
-    | none => pure ()
+              | none => state
+        | none => id
+    | none => id
     ) hoverEvents
-  performEvent_ hoverAction
 
   let mouseUpEvents ← useAllMouseUp
-  let mouseUpAction ← Event.mapM (fun data => do
-    if data.button == 0 then
-      stateRef.modify fun s => { s with dragging := none }
+  let mouseUpUpdates ← Event.mapM (fun data =>
+    fun (s : Demos.Linalg.VectorArithmeticState) =>
+      if data.button == 0 then { s with dragging := none } else s
     ) mouseUpEvents
-  performEvent_ mouseUpAction
 
   let keyEvents ← useKeyboard
-  let keyAction ← Event.mapM (fun data => do
-    if data.event.isPress then
-      match data.event.key with
-      | .char '1' =>
-          stateRef.modify fun s => { s with operation := .add }
-      | .char '2' =>
-          stateRef.modify fun s => { s with operation := .sub }
-      | .char '3' =>
-          stateRef.modify fun s => { s with operation := .scale }
-      | .char '=' | .char '+' =>
-          stateRef.modify fun s => { s with scaleFactor := s.scaleFactor + 0.1 }
-      | .char '-' =>
-          stateRef.modify fun s =>
+  let keyUpdates ← Event.mapM (fun data =>
+    fun (s : Demos.Linalg.VectorArithmeticState) =>
+      if data.event.isPress then
+        match data.event.key with
+        | .char '1' => { s with operation := .add }
+        | .char '2' => { s with operation := .sub }
+        | .char '3' => { s with operation := .scale }
+        | .char '=' | .char '+' => { s with scaleFactor := s.scaleFactor + 0.1 }
+        | .char '-' =>
             let newScale := if s.scaleFactor > 0.2 then s.scaleFactor - 0.1 else 0.1
             { s with scaleFactor := newScale }
-      | _ => pure ()
+        | _ => s
+      else s
     ) keyEvents
-  performEvent_ keyAction
 
-  let _ ← dynWidget elapsedTime fun _ => do
-    let state ← SpiderM.liftIO stateRef.get
+  let allUpdates ← Event.mergeAllListM [clickUpdates, hoverUpdates, mouseUpUpdates, keyUpdates]
+  let state ← foldDyn (fun f s => f s) Demos.Linalg.vectorArithmeticInitialState allUpdates
+
+  let _ ← dynWidget state fun s => do
     let containerStyle : BoxStyle := {
       flexItem := some (FlexItem.growing 1)
       width := .percent 1.0
       height := .percent 1.0
     }
     emit (pure (namedColumn arithName 0 containerStyle #[
-      Demos.Linalg.vectorArithmeticWidget env state
+      Demos.Linalg.vectorArithmeticWidget env s
     ]))
   pure ()
 

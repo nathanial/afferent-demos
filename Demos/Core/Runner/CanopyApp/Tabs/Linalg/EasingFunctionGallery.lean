@@ -19,18 +19,16 @@ open Trellis
 namespace Demos
 def easingFunctionGalleryTabContent (env : DemoEnv) : WidgetM Unit := do
   let elapsedTime ← useElapsedTime
-  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.easingFunctionGalleryInitialState)
-  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let easingName ← registerComponentW "easing-function-gallery"
 
   let keyEvents ← useKeyboard
-  let keyAction ← Event.mapM (fun data => do
-    if data.event.isPress then
-      let count := Demos.Linalg.easingEntryCount
-      if count == 0 then
-        pure ()
-      else
-        stateRef.modify fun s =>
+  let keyUpdates ← Event.mapM (fun data =>
+    fun (s : Demos.Linalg.EasingFunctionGalleryState) =>
+      if data.event.isPress then
+        let count := Demos.Linalg.easingEntryCount
+        if count == 0 then
+          s
+        else
           let next :=
             match data.event.key with
             | .char 'r' =>
@@ -59,30 +57,36 @@ def easingFunctionGalleryTabContent (env : DemoEnv) : WidgetM Unit := do
             { next with compare := (next.compare + 1) % count }
           else
             next
+      else s
     ) keyEvents
-  performEvent_ keyAction
 
-  let _ ← dynWidget elapsedTime fun t => do
-    let state ← SpiderM.liftIO do
-      let lastT ← lastTimeRef.get
-      let dt := if lastT == 0.0 then 0.0 else max 0.0 (t - lastT)
-      let mut current ← stateRef.get
+  -- Time-based animation updates (track lastTime in state)
+  let timeUpdates ← Event.mapM (fun t =>
+    fun (state : Demos.Linalg.EasingFunctionGalleryState) =>
+      let dt := if state.lastTime == 0.0 then 0.0 else max 0.0 (t - state.lastTime)
       let count := Demos.Linalg.easingEntryCount
-      if current.animating && count > 0 then
-        let newT := current.t + dt * current.speed
-        current := { current with t := if newT > 1.0 then newT - 1.0 else newT }
+      let current := if state.animating && count > 0 then
+        let newT := state.t + dt * state.speed
+        { state with t := if newT > 1.0 then newT - 1.0 else newT, lastTime := t }
+      else
+        { state with lastTime := t }
       if count > 0 && current.compare == current.selected then
-        current := { current with compare := (current.compare + 1) % count }
-      stateRef.set current
-      lastTimeRef.set t
-      pure current
+        { current with compare := (current.compare + 1) % count }
+      else
+        current
+    ) elapsedTime.updated
+
+  let allUpdates ← Event.mergeAllListM [keyUpdates, timeUpdates]
+  let state ← foldDyn (fun f s => f s) Demos.Linalg.easingFunctionGalleryInitialState allUpdates
+
+  let _ ← dynWidget state fun s => do
     let containerStyle : BoxStyle := {
       flexItem := some (FlexItem.growing 1)
       width := .percent 1.0
       height := .percent 1.0
     }
     emit (pure (namedColumn easingName 0 containerStyle #[
-      Demos.Linalg.easingFunctionGalleryWidget env state
+      Demos.Linalg.easingFunctionGalleryWidget env s
     ]))
   pure ()
 

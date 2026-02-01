@@ -18,14 +18,12 @@ open Trellis
 
 namespace Demos
 def vectorProjectionTabContent (env : DemoEnv) : WidgetM Unit := do
-  let elapsedTime ← useElapsedTime
-  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.vectorProjectionInitialState)
   let projName ← registerComponentW "vector-projection"
 
   let clickEvents ← useClickData projName
-  let clickAction ← Event.mapM (fun data => do
+  let clickUpdates ← Event.mapM (fun data =>
     if data.click.button != 0 then
-      pure ()
+      id
     else
       match data.nameMap.get? projName with
       | some wid =>
@@ -37,73 +35,69 @@ def vectorProjectionTabContent (env : DemoEnv) : WidgetM Unit := do
               let origin := (rect.width / 2, rect.height / 2)
               let scale := 50.0 * env.screenScale
               let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
-              let state ← stateRef.get
-              if Demos.Linalg.nearPoint worldPos state.vectorV 0.5 then
-                stateRef.set { state with dragging := some .vectorV }
-              else if Demos.Linalg.nearPoint worldPos state.vectorU 0.5 then
-                stateRef.set { state with dragging := some .vectorU }
-              else
-                pure ()
-          | none => pure ()
-      | none => pure ()
+              fun (state : Demos.Linalg.VectorProjectionState) =>
+                if Demos.Linalg.nearPoint worldPos state.vectorV 0.5 then
+                  { state with dragging := some .vectorV }
+                else if Demos.Linalg.nearPoint worldPos state.vectorU 0.5 then
+                  { state with dragging := some .vectorU }
+                else
+                  state
+          | none => id
+      | none => id
     ) clickEvents
-  performEvent_ clickAction
 
   let hoverEvents ← useAllHovers
-  let hoverAction ← Event.mapM (fun data => do
-    let state ← stateRef.get
-    match state.dragging with
-    | some target =>
-        match data.nameMap.get? projName with
-        | some wid =>
-            match data.layouts.get wid with
-            | some layout =>
-                let rect := layout.contentRect
-                let localX := data.x - rect.x
-                let localY := data.y - rect.y
-                let origin := (rect.width / 2, rect.height / 2)
-                let scale := 50.0 * env.screenScale
-                let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
-                let next := match target with
+  let hoverUpdates ← Event.mapM (fun data =>
+    match data.nameMap.get? projName with
+    | some wid =>
+        match data.layouts.get wid with
+        | some layout =>
+            let rect := layout.contentRect
+            let localX := data.x - rect.x
+            let localY := data.y - rect.y
+            let origin := (rect.width / 2, rect.height / 2)
+            let scale := 50.0 * env.screenScale
+            let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+            fun (state : Demos.Linalg.VectorProjectionState) =>
+              match state.dragging with
+              | some target =>
+                  match target with
                   | .vectorV => { state with vectorV := worldPos }
                   | .vectorU => { state with vectorU := worldPos }
-                stateRef.set next
-            | none => pure ()
-        | none => pure ()
-    | none => pure ()
+              | none => state
+        | none => id
+    | none => id
     ) hoverEvents
-  performEvent_ hoverAction
 
   let mouseUpEvents ← useAllMouseUp
-  let mouseUpAction ← Event.mapM (fun data => do
-    if data.button == 0 then
-      stateRef.modify fun s => { s with dragging := none }
+  let mouseUpUpdates ← Event.mapM (fun data =>
+    fun (s : Demos.Linalg.VectorProjectionState) =>
+      if data.button == 0 then { s with dragging := none } else s
     ) mouseUpEvents
-  performEvent_ mouseUpAction
 
   let keyEvents ← useKeyboard
-  let keyAction ← Event.mapM (fun data => do
-    if data.event.isPress then
-      match data.event.key with
-      | .char 'p' =>
-          stateRef.modify fun s => { s with showMode := .projection }
-      | .char 'r' =>
-          stateRef.modify fun s => { s with showMode := .reflection }
-      | .char 'b' =>
-          stateRef.modify fun s => { s with showMode := .both }
-      | _ => pure ()
+  let keyUpdates ← Event.mapM (fun data =>
+    fun (s : Demos.Linalg.VectorProjectionState) =>
+      if data.event.isPress then
+        match data.event.key with
+        | .char 'p' => { s with showMode := .projection }
+        | .char 'r' => { s with showMode := .reflection }
+        | .char 'b' => { s with showMode := .both }
+        | _ => s
+      else s
     ) keyEvents
-  performEvent_ keyAction
 
-  let _ ← dynWidget elapsedTime fun _ => do
-    let state ← SpiderM.liftIO stateRef.get
+  let allUpdates ← Event.mergeAllListM [clickUpdates, hoverUpdates, mouseUpUpdates, keyUpdates]
+  let state ← foldDyn (fun f s => f s) Demos.Linalg.vectorProjectionInitialState allUpdates
+
+  let _ ← dynWidget state fun s => do
     let containerStyle : BoxStyle := {
       flexItem := some (FlexItem.growing 1)
       width := .percent 1.0
       height := .percent 1.0
     }
     emit (pure (namedColumn projName 0 containerStyle #[
-      Demos.Linalg.vectorProjectionWidget env state
+      Demos.Linalg.vectorProjectionWidget env s
     ]))
   pure ()
 

@@ -19,71 +19,68 @@ open Trellis
 namespace Demos
 def dualQuaternionBlendingTabContent (env : DemoEnv) : WidgetM Unit := do
   let elapsedTime ← useElapsedTime
-  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.dualQuaternionBlendingInitialState)
   let dualName ← registerComponentW "dual-quaternion-blending"
 
   let keyEvents ← useKeyboard
-  let keyAction ← Event.mapM (fun data => do
-    if data.event.isPress then
-      match data.event.key with
-      | .char 'r' =>
-          stateRef.set Demos.Linalg.dualQuaternionBlendingInitialState
-      | .char 't' =>
-          stateRef.modify fun s => { s with twist := s.twist + 0.1 }
-      | .char 'g' =>
-          stateRef.modify fun s => { s with twist := s.twist - 0.1 }
-      | .char 'b' =>
-          stateRef.modify fun s => { s with bend := s.bend + 0.1 }
-      | .char 'v' =>
-          stateRef.modify fun s => { s with bend := s.bend - 0.1 }
-      | _ => pure ()
+  let keyUpdates ← Event.mapM (fun data =>
+    fun (s : Demos.Linalg.DualQuaternionBlendingState) =>
+      if data.event.isPress then
+        match data.event.key with
+        | .char 'r' => Demos.Linalg.dualQuaternionBlendingInitialState
+        | .char 't' => { s with twist := s.twist + 0.1 }
+        | .char 'g' => { s with twist := s.twist - 0.1 }
+        | .char 'b' => { s with bend := s.bend + 0.1 }
+        | .char 'v' => { s with bend := s.bend - 0.1 }
+        | _ => s
+      else s
     ) keyEvents
-  performEvent_ keyAction
 
   let clickEvents ← useClickData dualName
-  let clickAction ← Event.mapM (fun data => do
+  let clickUpdates ← Event.mapM (fun data =>
     if data.click.button != 0 then
-      pure ()
+      id
     else
-      stateRef.modify fun s => { s with dragging := true, lastMouseX := data.click.x, lastMouseY := data.click.y }
+      fun (s : Demos.Linalg.DualQuaternionBlendingState) =>
+        { s with dragging := true, lastMouseX := data.click.x, lastMouseY := data.click.y }
     ) clickEvents
-  performEvent_ clickAction
 
   let hoverEvents ← useAllHovers
-  let hoverAction ← Event.mapM (fun data => do
-    let state ← stateRef.get
-    if !state.dragging then
-      pure ()
-    else
-      let dx := data.x - state.lastMouseX
-      let dy := data.y - state.lastMouseY
-      let newYaw := state.cameraYaw + dx * 0.005
-      let newPitch := state.cameraPitch + dy * 0.005
-      stateRef.set { state with
-        cameraYaw := newYaw
-        cameraPitch := newPitch
-        lastMouseX := data.x
-        lastMouseY := data.y
-      }
+  let hoverUpdates ← Event.mapM (fun data =>
+    fun (state : Demos.Linalg.DualQuaternionBlendingState) =>
+      if state.dragging then
+        let dx := data.x - state.lastMouseX
+        let dy := data.y - state.lastMouseY
+        let newYaw := state.cameraYaw + dx * 0.005
+        let newPitch := state.cameraPitch + dy * 0.005
+        { state with
+          cameraYaw := newYaw
+          cameraPitch := newPitch
+          lastMouseX := data.x
+          lastMouseY := data.y
+        }
+      else
+        state
     ) hoverEvents
-  performEvent_ hoverAction
 
   let mouseUpEvents ← useAllMouseUp
-  let mouseUpAction ← Event.mapM (fun data => do
-    if data.button == 0 then
-      stateRef.modify fun s => { s with dragging := false }
+  let mouseUpUpdates ← Event.mapM (fun data =>
+    fun (s : Demos.Linalg.DualQuaternionBlendingState) =>
+      if data.button == 0 then
+        { s with dragging := false }
+      else s
     ) mouseUpEvents
-  performEvent_ mouseUpAction
 
-  let _ ← dynWidget elapsedTime fun _ => do
-    let state ← SpiderM.liftIO stateRef.get
+  let allUpdates ← Event.mergeAllListM [keyUpdates, clickUpdates, hoverUpdates, mouseUpUpdates]
+  let state ← foldDyn (fun f s => f s) Demos.Linalg.dualQuaternionBlendingInitialState allUpdates
+
+  let _ ← dynWidget state fun s => do
     let containerStyle : BoxStyle := {
       flexItem := some (FlexItem.growing 1)
       width := .percent 1.0
       height := .percent 1.0
     }
     emit (pure (namedColumn dualName 0 containerStyle #[
-      Demos.Linalg.dualQuaternionBlendingWidget env state
+      Demos.Linalg.dualQuaternionBlendingWidget env s
     ]))
   pure ()
 

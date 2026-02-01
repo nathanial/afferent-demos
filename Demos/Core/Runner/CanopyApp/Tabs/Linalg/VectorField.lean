@@ -18,40 +18,36 @@ open Trellis
 
 namespace Demos
 def vectorFieldTabContent (env : DemoEnv) : WidgetM Unit := do
-  let elapsedTime ← useElapsedTime
-  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.vectorFieldInitialState)
   let fieldName ← registerComponentW "vector-field"
-  let keyEvents ← useKeyboard
-  let keyAction ← Event.mapM (fun data => do
-    if data.event.isPress then
-      match data.event.key with
-      | .char '1' =>
-          stateRef.modify fun s => { s with fieldType := .radial }
-      | .char '2' =>
-          stateRef.modify fun s => { s with fieldType := .rotational }
-      | .char '3' =>
-          stateRef.modify fun s => { s with fieldType := .gradient }
-      | .char '4' =>
-          stateRef.modify fun s => { s with fieldType := .saddle }
-      | .char '=' | .char '+' =>
-          stateRef.modify fun s =>
-            { s with gridResolution := Nat.min 24 (s.gridResolution + 2) }
-      | .char '-' =>
-          stateRef.modify fun s =>
-            { s with gridResolution := Nat.max 4 (s.gridResolution - 2) }
-      | _ => pure ()
-    ) keyEvents
-  performEvent_ keyAction
 
-  let _ ← dynWidget elapsedTime fun _ => do
-    let state ← SpiderM.liftIO stateRef.get
+  let keyEvents ← useKeyboard
+  let keyUpdates ← Event.mapM (fun data =>
+    fun (s : Demos.Linalg.VectorFieldState) =>
+      if data.event.isPress then
+        match data.event.key with
+        | .char '1' => { s with fieldType := .radial }
+        | .char '2' => { s with fieldType := .rotational }
+        | .char '3' => { s with fieldType := .gradient }
+        | .char '4' => { s with fieldType := .saddle }
+        | .char '=' | .char '+' =>
+            { s with gridResolution := Nat.min 24 (s.gridResolution + 2) }
+        | .char '-' =>
+            { s with gridResolution := Nat.max 4 (s.gridResolution - 2) }
+        | _ => s
+      else s
+    ) keyEvents
+
+  let allUpdates ← Event.mergeAllListM [keyUpdates]
+  let state ← foldDyn (fun f s => f s) Demos.Linalg.vectorFieldInitialState allUpdates
+
+  let _ ← dynWidget state fun s => do
     let containerStyle : BoxStyle := {
       flexItem := some (FlexItem.growing 1)
       width := .percent 1.0
       height := .percent 1.0
     }
     emit (pure (namedColumn fieldName 0 containerStyle #[
-      Demos.Linalg.vectorFieldWidget env state
+      Demos.Linalg.vectorFieldWidget env s
     ]))
   pure ()
 
