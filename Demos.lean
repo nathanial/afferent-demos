@@ -36,6 +36,10 @@ import Demos.Linalg.ConvexHull2D
 import Demos.Linalg.TransformHierarchy
 import Demos.Linalg.BarycentricCoordinates
 import Demos.Linalg.FrustumCullingDemo
+import Demos.Linalg.QuadtreeVisualizer
+import Demos.Linalg.OctreeViewer3D
+import Demos.Linalg.BVHRayTracer
+import Demos.Linalg.KDTreeNearestNeighbor
 import Demos.Linalg.ParticleIntegrationComparison
 import Demos.Linalg.CollisionResponseDemo
 import Demos.Linalg.RigidBodySimulator

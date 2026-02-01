@@ -21,6 +21,10 @@ import Demos.Core.Runner.CanopyApp.Tabs.Linalg.ConvexHull2D
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.TransformHierarchy
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.BarycentricCoordinates
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.FrustumCullingDemo
+import Demos.Core.Runner.CanopyApp.Tabs.Linalg.QuadtreeVisualizer
+import Demos.Core.Runner.CanopyApp.Tabs.Linalg.OctreeViewer3D
+import Demos.Core.Runner.CanopyApp.Tabs.Linalg.BVHRayTracer
+import Demos.Core.Runner.CanopyApp.Tabs.Linalg.KDTreeNearestNeighbor
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.ParticleIntegrationComparison
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.CollisionResponseDemo
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.RigidBodySimulator
