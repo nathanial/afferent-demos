@@ -29,6 +29,9 @@ import Demos.Linalg.BSplineCurveDemo
 import Demos.Linalg.ArcLengthParameterization
 import Demos.Linalg.BezierPatchSurface
 import Demos.Linalg.EasingFunctionGallery
+import Demos.Linalg.SmoothDampFollower
+import Demos.Linalg.SpringAnimationPlayground
+import Demos.Linalg.NoiseExplorer2D
 import Trellis
 
 open Reactive Reactive.Host
@@ -2259,6 +2262,364 @@ def easingFunctionGalleryTabContent (env : DemoEnv) (elapsedTime : Dynamic Spide
     }
     emit (pure (namedColumn easingName 0 containerStyle #[
       Demos.Linalg.easingFunctionGalleryWidget env state
+    ]))
+  pure ()
+
+def smoothDampFollowerTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
+    (stateRef : IO.Ref Demos.Linalg.SmoothDampFollowerState)
+    (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+  let smoothName ← registerComponentW "smooth-damp-follower"
+
+  let clickEvents ← useClickData smoothName
+  let clickAction ← Event.mapM (fun data => do
+    if data.click.button != 0 then
+      pure ()
+    else
+      match data.nameMap.get? smoothName with
+      | some wid =>
+          match data.layouts.get wid with
+          | some layout =>
+              let rect := layout.contentRect
+              let localX := data.click.x - rect.x
+              let localY := data.click.y - rect.y
+              let layoutSmooth := Demos.Linalg.smoothDampSliderLayout rect.width rect.height env.screenScale 0
+              let layoutMax := Demos.Linalg.smoothDampSliderLayout rect.width rect.height env.screenScale 1
+              let hitSmooth := localX >= layoutSmooth.x && localX <= layoutSmooth.x + layoutSmooth.width
+                && localY >= layoutSmooth.y - 8.0 && localY <= layoutSmooth.y + layoutSmooth.height + 8.0
+              let hitMax := localX >= layoutMax.x && localX <= layoutMax.x + layoutMax.width
+                && localY >= layoutMax.y - 8.0 && localY <= layoutMax.y + layoutMax.height + 8.0
+              if hitSmooth then
+                let t := Linalg.Float.clamp ((localX - layoutSmooth.x) / layoutSmooth.width) 0.0 1.0
+                let value := Demos.Linalg.smoothDampSmoothTimeFrom t
+                stateRef.modify fun s => { s with smoothTime := value, dragging := .slider .smoothTime }
+              else if hitMax then
+                let t := Linalg.Float.clamp ((localX - layoutMax.x) / layoutMax.width) 0.0 1.0
+                let value := Demos.Linalg.smoothDampMaxSpeedFrom t
+                stateRef.modify fun s => { s with maxSpeed := value, dragging := .slider .maxSpeed }
+              else
+                let origin := (rect.width / 2, rect.height / 2)
+                let scale := 70.0 * env.screenScale
+                let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+                let state ← stateRef.get
+                if Demos.Linalg.nearPoint worldPos state.target 0.45 then
+                  stateRef.set { state with dragging := .target }
+                else
+                  stateRef.set { state with target := worldPos, dragging := .target }
+          | none => pure ()
+      | none => pure ()
+    ) clickEvents
+  performEvent_ clickAction
+
+  let hoverEvents ← useAllHovers
+  let hoverAction ← Event.mapM (fun data => do
+    let state ← stateRef.get
+    match state.dragging with
+    | .none => pure ()
+    | .target =>
+        match data.nameMap.get? smoothName with
+        | some wid =>
+            match data.layouts.get wid with
+            | some layout =>
+                let rect := layout.contentRect
+                let localX := data.x - rect.x
+                let localY := data.y - rect.y
+                let origin := (rect.width / 2, rect.height / 2)
+                let scale := 70.0 * env.screenScale
+                let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+                stateRef.set { state with target := worldPos }
+            | none => pure ()
+        | none => pure ()
+    | .slider which =>
+        let localX := data.x
+        match data.nameMap.get? smoothName with
+        | some wid =>
+            match data.layouts.get wid with
+            | some layout =>
+                let rect := layout.contentRect
+                let lx := localX - rect.x
+                match which with
+                | .smoothTime =>
+                    let layout := Demos.Linalg.smoothDampSliderLayout rect.width rect.height env.screenScale 0
+                    let t := Linalg.Float.clamp ((lx - layout.x) / layout.width) 0.0 1.0
+                    stateRef.set { state with smoothTime := Demos.Linalg.smoothDampSmoothTimeFrom t }
+                | .maxSpeed =>
+                    let layout := Demos.Linalg.smoothDampSliderLayout rect.width rect.height env.screenScale 1
+                    let t := Linalg.Float.clamp ((lx - layout.x) / layout.width) 0.0 1.0
+                    stateRef.set { state with maxSpeed := Demos.Linalg.smoothDampMaxSpeedFrom t }
+            | none => pure ()
+        | none => pure ()
+    ) hoverEvents
+  performEvent_ hoverAction
+
+  let mouseUpEvents ← useAllMouseUp
+  let mouseUpAction ← Event.mapM (fun _ => do
+    stateRef.modify fun s => { s with dragging := .none }
+    ) mouseUpEvents
+  performEvent_ mouseUpAction
+
+  let keyEvents ← useKeyboard
+  let keyAction ← Event.mapM (fun data => do
+    if data.event.isPress then
+      match data.event.key with
+      | .char 'r' =>
+          stateRef.set Demos.Linalg.smoothDampFollowerInitialState
+      | .space =>
+          stateRef.modify fun s => { s with animating := !s.animating }
+      | _ => pure ()
+    ) keyEvents
+  performEvent_ keyAction
+
+  let _ ← dynWidget elapsedTime fun t => do
+    let state ← SpiderM.liftIO do
+      let lastT ← lastTimeRef.get
+      let dt := if lastT == 0.0 then 0.0 else max 0.0 (t - lastT)
+      let mut current ← stateRef.get
+      if current.animating then
+        let (_newPos, newState) := Linalg.SmoothDampState2.step
+          current.dampState current.target current.smoothTime dt current.maxSpeed
+        let speed := newState.velocity.length
+        let mut history := current.history.push speed
+        if history.size > 120 then
+          history := history.eraseIdxIfInBounds 0
+        current := { current with dampState := newState, history := history }
+        stateRef.set current
+      lastTimeRef.set t
+      pure current
+    let containerStyle : BoxStyle := {
+      flexItem := some (FlexItem.growing 1)
+      width := .percent 1.0
+      height := .percent 1.0
+    }
+    emit (pure (namedColumn smoothName 0 containerStyle #[
+      Demos.Linalg.smoothDampFollowerWidget env state
+    ]))
+  pure ()
+
+def springAnimationPlaygroundTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
+    (stateRef : IO.Ref Demos.Linalg.SpringAnimationPlaygroundState)
+    (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+  let springName ← registerComponentW "spring-animation-playground"
+
+  let clickEvents ← useClickData springName
+  let clickAction ← Event.mapM (fun data => do
+    if data.click.button != 0 then
+      pure ()
+    else
+      match data.nameMap.get? springName with
+      | some wid =>
+          match data.layouts.get wid with
+          | some layout =>
+              let rect := layout.contentRect
+              let localX := data.click.x - rect.x
+              let localY := data.click.y - rect.y
+              let layoutDamp := Demos.Linalg.springSliderLayout rect.width rect.height env.screenScale 0
+              let layoutFreq := Demos.Linalg.springSliderLayout rect.width rect.height env.screenScale 1
+              let hitDamp := localX >= layoutDamp.x && localX <= layoutDamp.x + layoutDamp.width
+                && localY >= layoutDamp.y - 8.0 && localY <= layoutDamp.y + layoutDamp.height + 8.0
+              let hitFreq := localX >= layoutFreq.x && localX <= layoutFreq.x + layoutFreq.width
+                && localY >= layoutFreq.y - 8.0 && localY <= layoutFreq.y + layoutFreq.height + 8.0
+              if hitDamp then
+                let t := Linalg.Float.clamp ((localX - layoutDamp.x) / layoutDamp.width) 0.0 1.0
+                stateRef.modify fun s => { s with dampingRatio := Demos.Linalg.springDampingFrom t, dragging := .sliderDamping }
+              else if hitFreq then
+                let t := Linalg.Float.clamp ((localX - layoutFreq.x) / layoutFreq.width) 0.0 1.0
+                stateRef.modify fun s => { s with frequency := Demos.Linalg.springFrequencyFrom t, dragging := .sliderFrequency }
+              else
+                pure ()
+          | none => pure ()
+      | none => pure ()
+    ) clickEvents
+  performEvent_ clickAction
+
+  let hoverEvents ← useAllHovers
+  let hoverAction ← Event.mapM (fun data => do
+    let state ← stateRef.get
+    let localX := data.x
+    match state.dragging with
+    | .sliderDamping =>
+        match data.nameMap.get? springName with
+        | some wid =>
+            match data.layouts.get wid with
+            | some layout =>
+                let rect := layout.contentRect
+                let lx := localX - rect.x
+                let layout := Demos.Linalg.springSliderLayout rect.width rect.height env.screenScale 0
+                let t := Linalg.Float.clamp ((lx - layout.x) / layout.width) 0.0 1.0
+                stateRef.set { state with dampingRatio := Demos.Linalg.springDampingFrom t }
+            | none => pure ()
+        | none => pure ()
+    | .sliderFrequency =>
+        match data.nameMap.get? springName with
+        | some wid =>
+            match data.layouts.get wid with
+            | some layout =>
+                let rect := layout.contentRect
+                let lx := localX - rect.x
+                let layout := Demos.Linalg.springSliderLayout rect.width rect.height env.screenScale 1
+                let t := Linalg.Float.clamp ((lx - layout.x) / layout.width) 0.0 1.0
+                stateRef.set { state with frequency := Demos.Linalg.springFrequencyFrom t }
+            | none => pure ()
+        | none => pure ()
+    | .none => pure ()
+    ) hoverEvents
+  performEvent_ hoverAction
+
+  let mouseUpEvents ← useAllMouseUp
+  let mouseUpAction ← Event.mapM (fun _ => do
+    stateRef.modify fun s => { s with dragging := .none }
+    ) mouseUpEvents
+  performEvent_ mouseUpAction
+
+  let keyEvents ← useKeyboard
+  let keyAction ← Event.mapM (fun data => do
+    if data.event.isPress then
+      match data.event.key with
+      | .char 'r' =>
+          stateRef.set Demos.Linalg.springAnimationPlaygroundInitialState
+      | .space =>
+          stateRef.modify fun s => { s with animating := !s.animating }
+      | _ => pure ()
+    ) keyEvents
+  performEvent_ keyAction
+
+  let _ ← dynWidget elapsedTime fun t => do
+    let state ← SpiderM.liftIO do
+      let lastT ← lastTimeRef.get
+      let dt := if lastT == 0.0 then 0.0 else max 0.0 (t - lastT)
+      let mut current ← stateRef.get
+      if current.animating then
+        let newTime := current.time + dt
+        let time := if newTime > 4.0 then newTime - 4.0 else newTime
+        let ω := 2.0 * Linalg.Float.pi * current.frequency
+        let x := Demos.Linalg.springResponse time current.dampingRatio ω
+        let v := Demos.Linalg.springVelocity time current.dampingRatio ω
+        let energy := 0.5 * (x * x + (v / ω) * (v / ω))
+        let mut history := current.energyHistory.push energy
+        if history.size > 140 then
+          history := history.eraseIdxIfInBounds 0
+        current := { current with time := time, energyHistory := history }
+        stateRef.set current
+      lastTimeRef.set t
+      pure current
+    let containerStyle : BoxStyle := {
+      flexItem := some (FlexItem.growing 1)
+      width := .percent 1.0
+      height := .percent 1.0
+    }
+    emit (pure (namedColumn springName 0 containerStyle #[
+      Demos.Linalg.springAnimationPlaygroundWidget env state
+    ]))
+  pure ()
+
+def noiseExplorer2DTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
+    (stateRef : IO.Ref Demos.Linalg.NoiseExplorerState) : WidgetM Unit := do
+  let noiseName ← registerComponentW "noise-explorer-2d"
+
+  let clickEvents ← useClickData noiseName
+  let clickAction ← Event.mapM (fun data => do
+    if data.click.button != 0 then
+      pure ()
+    else
+      match data.nameMap.get? noiseName with
+      | some wid =>
+          match data.layouts.get wid with
+          | some layout =>
+              let rect := layout.contentRect
+              let localX := data.click.x - rect.x
+              let localY := data.click.y - rect.y
+              let drop := Demos.Linalg.noiseExplorerDropdownLayout rect.width rect.height env.screenScale
+              let inDrop := localX >= drop.x && localX <= drop.x + drop.width
+                && localY >= drop.y && localY <= drop.y + drop.height
+              let state ← stateRef.get
+              if inDrop then
+                stateRef.set { state with dropdownOpen := !state.dropdownOpen }
+              else if state.dropdownOpen then
+                let mut selected : Option Demos.Linalg.NoiseType := none
+                for i in [:Demos.Linalg.noiseExplorerOptions.size] do
+                  let optLayout := Demos.Linalg.noiseExplorerDropdownOptionLayout drop i
+                  if localX >= optLayout.x && localX <= optLayout.x + optLayout.width
+                      && localY >= optLayout.y && localY <= optLayout.y + optLayout.height then
+                    selected := some (Demos.Linalg.noiseExplorerOptions.getD i .perlin)
+                match selected with
+                | some opt => stateRef.set { state with noiseType := opt, dropdownOpen := false }
+                | none => stateRef.set { state with dropdownOpen := false }
+              else
+                let toggle := Demos.Linalg.noiseExplorerFbmToggleLayout rect.width rect.height env.screenScale
+                let inToggle := localX >= toggle.x && localX <= toggle.x + toggle.size
+                  && localY >= toggle.y && localY <= toggle.y + toggle.size
+                if inToggle then
+                  stateRef.set { state with useFbm := !state.useFbm }
+                else
+                  let sliders : Array Demos.Linalg.NoiseExplorerSlider :=
+                    #[.scale, .offsetX, .offsetY, .octaves, .lacunarity, .persistence, .jitter]
+                  let mut hit : Option Demos.Linalg.NoiseExplorerSlider := none
+                  for i in [:sliders.size] do
+                    let layout := Demos.Linalg.noiseExplorerSliderLayout rect.width rect.height env.screenScale i
+                    let within := localX >= layout.x && localX <= layout.x + layout.width
+                      && localY >= layout.y - 10.0 && localY <= layout.y + layout.height + 10.0
+                    if within then
+                      hit := some (sliders.getD i .scale)
+                  match hit with
+                  | some which =>
+                      let idx := sliders.findIdx? (fun s => s == which) |>.getD 0
+                      let layout := Demos.Linalg.noiseExplorerSliderLayout rect.width rect.height env.screenScale idx
+                      let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+                      let newState := Demos.Linalg.noiseExplorerApplySlider state which t
+                      stateRef.set { newState with dragging := .slider which }
+                  | none => pure ()
+          | none => pure ()
+      | none => pure ()
+    ) clickEvents
+  performEvent_ clickAction
+
+  let hoverEvents ← useAllHovers
+  let hoverAction ← Event.mapM (fun data => do
+    let state ← stateRef.get
+    match state.dragging with
+    | .slider which =>
+        match data.nameMap.get? noiseName with
+        | some wid =>
+            match data.layouts.get wid with
+            | some layout =>
+                let rect := layout.contentRect
+                let localX := data.x - rect.x
+                let sliders : Array Demos.Linalg.NoiseExplorerSlider :=
+                  #[.scale, .offsetX, .offsetY, .octaves, .lacunarity, .persistence, .jitter]
+                let idx := sliders.findIdx? (fun s => s == which) |>.getD 0
+                let layout := Demos.Linalg.noiseExplorerSliderLayout rect.width rect.height env.screenScale idx
+                let t := Linalg.Float.clamp ((localX - layout.x) / layout.width) 0.0 1.0
+                stateRef.set (Demos.Linalg.noiseExplorerApplySlider state which t)
+            | none => pure ()
+        | none => pure ()
+    | .none => pure ()
+    ) hoverEvents
+  performEvent_ hoverAction
+
+  let mouseUpEvents ← useAllMouseUp
+  let mouseUpAction ← Event.mapM (fun _ => do
+    stateRef.modify fun s => { s with dragging := .none }
+    ) mouseUpEvents
+  performEvent_ mouseUpAction
+
+  let keyEvents ← useKeyboard
+  let keyAction ← Event.mapM (fun data => do
+    if data.event.isPress then
+      match data.event.key with
+      | .char 'r' =>
+          stateRef.set Demos.Linalg.noiseExplorer2DInitialState
+      | _ => pure ()
+    ) keyEvents
+  performEvent_ keyAction
+
+  let _ ← dynWidget elapsedTime fun _ => do
+    let state ← SpiderM.liftIO stateRef.get
+    let containerStyle : BoxStyle := {
+      flexItem := some (FlexItem.growing 1)
+      width := .percent 1.0
+      height := .percent 1.0
+    }
+    emit (pure (namedColumn noiseName 0 containerStyle #[
+      Demos.Linalg.noiseExplorer2DWidget env state
     ]))
   pure ()
 

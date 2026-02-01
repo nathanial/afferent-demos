@@ -76,6 +76,11 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
   let bezierPatchSurfaceRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.bezierPatchSurfaceInitialState)
   let easingFunctionGalleryRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.easingFunctionGalleryInitialState)
   let easingTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
+  let smoothDampFollowerRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.smoothDampFollowerInitialState)
+  let smoothDampTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
+  let springAnimationPlaygroundRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.springAnimationPlaygroundInitialState)
+  let springTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
+  let noiseExplorer2DRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.noiseExplorer2DInitialState)
   let worldmapStateRef ← SpiderM.liftIO do
     let config : Worldmap.MapStateConfig := {
       lat := 37.7749
@@ -164,6 +169,12 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
           bezierPatchSurfaceTabContent env elapsedTime bezierPatchSurfaceRef
       | .easingFunctionGallery =>
           easingFunctionGalleryTabContent env elapsedTime easingFunctionGalleryRef easingTimeRef
+      | .smoothDampFollower =>
+          smoothDampFollowerTabContent env elapsedTime smoothDampFollowerRef smoothDampTimeRef
+      | .springAnimationPlayground =>
+          springAnimationPlaygroundTabContent env elapsedTime springAnimationPlaygroundRef springTimeRef
+      | .noiseExplorer2D =>
+          noiseExplorer2DTabContent env elapsedTime noiseExplorer2DRef
       | _ => demoStubContent id
   }
 
