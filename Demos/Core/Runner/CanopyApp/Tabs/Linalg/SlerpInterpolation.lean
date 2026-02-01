@@ -18,8 +18,7 @@ open Trellis
 
 namespace Demos
 def slerpInterpolationTabContent (env : DemoEnv) : WidgetM Unit := do
-  let elapsedTime ← useElapsedTime
-  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
+  let animFrame ← useAnimationFrame
   let slerpName ← registerComponentW "slerp-interpolation"
 
   let clickEvents ← useClickData slerpName
@@ -63,29 +62,25 @@ def slerpInterpolationTabContent (env : DemoEnv) : WidgetM Unit := do
       else s
     ) keyEvents
 
-  let allUpdates ← Event.mergeAllListM [clickUpdates, hoverUpdates, mouseUpUpdates, keyUpdates]
-  let state ← foldDyn (fun f s => f s) Demos.Linalg.slerpInterpolationInitialState allUpdates
-
-  let _ ← dynWidget elapsedTime fun t => do
-    let currentState ← SpiderM.liftIO do
-      let lastT ← lastTimeRef.get
-      let dt := if lastT == 0.0 then 0.0 else max 0.0 (t - lastT)
-      lastTimeRef.set t
-      pure (dt, lastT)
-    let (dt, _) := currentState
-    let s ← SpiderM.liftIO state.sample
-    let finalState :=
+  let dtUpdates ← Event.mapM (fun dt =>
+    fun (s : Demos.Linalg.SlerpInterpolationState) =>
       if s.animating then
         let newT := s.t + dt * 0.35
         { s with t := if newT > 1.0 then newT - 1.0 else newT }
       else s
+    ) animFrame
+
+  let allUpdates ← Event.mergeAllListM [clickUpdates, hoverUpdates, mouseUpUpdates, keyUpdates, dtUpdates]
+  let state ← foldDyn (fun f s => f s) Demos.Linalg.slerpInterpolationInitialState allUpdates
+
+  let _ ← dynWidget state fun s => do
     let containerStyle : BoxStyle := {
       flexItem := some (FlexItem.growing 1)
       width := .percent 1.0
       height := .percent 1.0
     }
     emit (pure (namedColumn slerpName 0 containerStyle #[
-      Demos.Linalg.slerpInterpolationWidget env finalState
+      Demos.Linalg.slerpInterpolationWidget env s
     ]))
   pure ()
 

@@ -18,8 +18,7 @@ open Trellis
 
 namespace Demos
 def springAnimationPlaygroundTabContent (env : DemoEnv) : WidgetM Unit := do
-  let elapsedTime ← useElapsedTime
-  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
+  let animFrame ← useAnimationFrame
   let springName ← registerComponentW "spring-animation-playground"
 
   let clickEvents ← useClickData springName
@@ -92,18 +91,8 @@ def springAnimationPlaygroundTabContent (env : DemoEnv) : WidgetM Unit := do
       else s
     ) keyEvents
 
-  let allUpdates ← Event.mergeAllListM [clickUpdates, hoverUpdates, mouseUpUpdates, keyUpdates]
-  let state ← foldDyn (fun f s => f s) Demos.Linalg.springAnimationPlaygroundInitialState allUpdates
-
-  let _ ← dynWidget elapsedTime fun t => do
-    let currentState ← SpiderM.liftIO do
-      let lastT ← lastTimeRef.get
-      let dt := if lastT == 0.0 then 0.0 else max 0.0 (t - lastT)
-      lastTimeRef.set t
-      pure dt
-    let dt := currentState
-    let s ← SpiderM.liftIO state.sample
-    let finalState :=
+  let dtUpdates ← Event.mapM (fun dt =>
+    fun (s : Demos.Linalg.SpringAnimationPlaygroundState) =>
       if s.animating then
         let newTime := s.time + dt
         let time := if newTime > 4.0 then newTime - 4.0 else newTime
@@ -115,13 +104,19 @@ def springAnimationPlaygroundTabContent (env : DemoEnv) : WidgetM Unit := do
         let history := if history.size > 140 then history.eraseIdxIfInBounds 0 else history
         { s with time := time, energyHistory := history }
       else s
+    ) animFrame
+
+  let allUpdates ← Event.mergeAllListM [clickUpdates, hoverUpdates, mouseUpUpdates, keyUpdates, dtUpdates]
+  let state ← foldDyn (fun f s => f s) Demos.Linalg.springAnimationPlaygroundInitialState allUpdates
+
+  let _ ← dynWidget state fun s => do
     let containerStyle : BoxStyle := {
       flexItem := some (FlexItem.growing 1)
       width := .percent 1.0
       height := .percent 1.0
     }
     emit (pure (namedColumn springName 0 containerStyle #[
-      Demos.Linalg.springAnimationPlaygroundWidget env finalState
+      Demos.Linalg.springAnimationPlaygroundWidget env s
     ]))
   pure ()
 

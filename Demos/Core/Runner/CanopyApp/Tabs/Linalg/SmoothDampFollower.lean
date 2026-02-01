@@ -18,8 +18,7 @@ open Trellis
 
 namespace Demos
 def smoothDampFollowerTabContent (env : DemoEnv) : WidgetM Unit := do
-  let elapsedTime ← useElapsedTime
-  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
+  let animFrame ← useAnimationFrame
   let smoothName ← registerComponentW "smooth-damp-follower"
 
   let clickEvents ← useClickData smoothName
@@ -107,18 +106,8 @@ def smoothDampFollowerTabContent (env : DemoEnv) : WidgetM Unit := do
       else s
     ) keyEvents
 
-  let allUpdates ← Event.mergeAllListM [clickUpdates, hoverUpdates, mouseUpUpdates, keyUpdates]
-  let state ← foldDyn (fun f s => f s) Demos.Linalg.smoothDampFollowerInitialState allUpdates
-
-  let _ ← dynWidget elapsedTime fun t => do
-    let currentState ← SpiderM.liftIO do
-      let lastT ← lastTimeRef.get
-      let dt := if lastT == 0.0 then 0.0 else max 0.0 (t - lastT)
-      lastTimeRef.set t
-      pure dt
-    let dt := currentState
-    let s ← SpiderM.liftIO state.sample
-    let finalState :=
+  let dtUpdates ← Event.mapM (fun dt =>
+    fun (s : Demos.Linalg.SmoothDampFollowerState) =>
       if s.animating then
         let (_newPos, newState) := Linalg.SmoothDampState2.step
           s.dampState s.target s.smoothTime dt s.maxSpeed
@@ -127,13 +116,19 @@ def smoothDampFollowerTabContent (env : DemoEnv) : WidgetM Unit := do
         let history := if history.size > 120 then history.eraseIdxIfInBounds 0 else history
         { s with dampState := newState, history := history }
       else s
+    ) animFrame
+
+  let allUpdates ← Event.mergeAllListM [clickUpdates, hoverUpdates, mouseUpUpdates, keyUpdates, dtUpdates]
+  let state ← foldDyn (fun f s => f s) Demos.Linalg.smoothDampFollowerInitialState allUpdates
+
+  let _ ← dynWidget state fun s => do
     let containerStyle : BoxStyle := {
       flexItem := some (FlexItem.growing 1)
       width := .percent 1.0
       height := .percent 1.0
     }
     emit (pure (namedColumn smoothName 0 containerStyle #[
-      Demos.Linalg.smoothDampFollowerWidget env finalState
+      Demos.Linalg.smoothDampFollowerWidget env s
     ]))
   pure ()
 
