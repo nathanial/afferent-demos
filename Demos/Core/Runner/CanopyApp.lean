@@ -71,6 +71,11 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
   let catmullRomSplineEditorRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.catmullRomSplineEditorInitialState)
   let catmullRomSplineTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let bSplineCurveDemoRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.bSplineCurveDemoInitialState)
+  let arcLengthParameterizationRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.arcLengthParameterizationInitialState)
+  let arcLengthTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
+  let bezierPatchSurfaceRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.bezierPatchSurfaceInitialState)
+  let easingFunctionGalleryRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.easingFunctionGalleryInitialState)
+  let easingTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let worldmapStateRef ← SpiderM.liftIO do
     let config : Worldmap.MapStateConfig := {
       lat := 37.7749
@@ -153,6 +158,12 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
           catmullRomSplineEditorTabContent env elapsedTime catmullRomSplineEditorRef catmullRomSplineTimeRef
       | .bSplineCurveDemo =>
           bSplineCurveDemoTabContent env elapsedTime bSplineCurveDemoRef
+      | .arcLengthParameterization =>
+          arcLengthParameterizationTabContent env elapsedTime arcLengthParameterizationRef arcLengthTimeRef
+      | .bezierPatchSurface =>
+          bezierPatchSurfaceTabContent env elapsedTime bezierPatchSurfaceRef
+      | .easingFunctionGallery =>
+          easingFunctionGalleryTabContent env elapsedTime easingFunctionGalleryRef easingTimeRef
       | _ => demoStubContent id
   }
 

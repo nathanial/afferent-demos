@@ -26,6 +26,9 @@ import Demos.Linalg.FrustumCullingDemo
 import Demos.Linalg.BezierCurveEditor
 import Demos.Linalg.CatmullRomSplineEditor
 import Demos.Linalg.BSplineCurveDemo
+import Demos.Linalg.ArcLengthParameterization
+import Demos.Linalg.BezierPatchSurface
+import Demos.Linalg.EasingFunctionGallery
 import Trellis
 
 open Reactive Reactive.Host
@@ -1923,6 +1926,339 @@ def bSplineCurveDemoTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Flo
     }
     emit (pure (namedColumn splineName 0 containerStyle #[
       Demos.Linalg.bSplineCurveDemoWidget env state
+    ]))
+  pure ()
+
+def arcLengthParameterizationTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
+    (stateRef : IO.Ref Demos.Linalg.ArcLengthParameterizationState)
+    (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+  let arcName ← registerComponentW "arc-length-parameterization"
+
+  let clickEvents ← useClickData arcName
+  let clickAction ← Event.mapM (fun data => do
+    if data.click.button != 0 then
+      pure ()
+    else
+      match data.nameMap.get? arcName with
+      | some wid =>
+          match data.layouts.get wid with
+          | some layout =>
+              let rect := layout.contentRect
+              let localX := data.click.x - rect.x
+              let localY := data.click.y - rect.y
+              let sliderX := rect.width - 260.0 * env.screenScale
+              let sliderY := 95.0 * env.screenScale
+              let sliderW := 190.0 * env.screenScale
+              let sliderH := 8.0 * env.screenScale
+              let hitSlider := localX >= sliderX && localX <= sliderX + sliderW
+                && localY >= sliderY - 8.0 && localY <= sliderY + sliderH + 8.0
+              if hitSlider then
+                let t := Linalg.Float.clamp ((localX - sliderX) / sliderW) 0.0 1.0
+                let speed := 0.2 + t * 3.8
+                stateRef.modify fun s => { s with speed := speed, dragging := .slider }
+              else
+                let origin := (rect.width / 2, rect.height / 2)
+                let scale := 70.0 * env.screenScale
+                let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+                let state ← stateRef.get
+                let mut hit : Option Nat := none
+                for i in [:state.controlPoints.size] do
+                  let p := state.controlPoints.getD i Linalg.Vec2.zero
+                  if Demos.Linalg.nearPoint worldPos p 0.45 then
+                    hit := some i
+                match hit with
+                | some idx => stateRef.set { state with dragging := .point idx }
+                | none => pure ()
+          | none => pure ()
+      | none => pure ()
+    ) clickEvents
+  performEvent_ clickAction
+
+  let hoverEvents ← useAllHovers
+  let hoverAction ← Event.mapM (fun data => do
+    let state ← stateRef.get
+    match state.dragging with
+    | .none => pure ()
+    | .slider =>
+        match data.nameMap.get? arcName with
+        | some wid =>
+            match data.layouts.get wid with
+            | some layout =>
+                let rect := layout.contentRect
+                let localX := data.x - rect.x
+                let sliderX := rect.width - 260.0 * env.screenScale
+                let sliderW := 190.0 * env.screenScale
+                let t := Linalg.Float.clamp ((localX - sliderX) / sliderW) 0.0 1.0
+                let speed := 0.2 + t * 3.8
+                stateRef.set { state with speed := speed }
+            | none => pure ()
+        | none => pure ()
+    | .point idx =>
+        match data.nameMap.get? arcName with
+        | some wid =>
+            match data.layouts.get wid with
+            | some layout =>
+                let rect := layout.contentRect
+                let localX := data.x - rect.x
+                let localY := data.y - rect.y
+                let origin := (rect.width / 2, rect.height / 2)
+                let scale := 70.0 * env.screenScale
+                let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+                if idx < state.controlPoints.size then
+                  stateRef.set { state with controlPoints := state.controlPoints.set! idx worldPos }
+                else
+                  pure ()
+            | none => pure ()
+        | none => pure ()
+    ) hoverEvents
+  performEvent_ hoverAction
+
+  let mouseUpEvents ← useAllMouseUp
+  let mouseUpAction ← Event.mapM (fun _ => do
+    stateRef.modify fun s => { s with dragging := .none }
+    ) mouseUpEvents
+  performEvent_ mouseUpAction
+
+  let keyEvents ← useKeyboard
+  let keyAction ← Event.mapM (fun data => do
+    if data.event.isPress then
+      match data.event.key with
+      | .char 'r' =>
+          stateRef.set Demos.Linalg.arcLengthParameterizationInitialState
+      | .space =>
+          stateRef.modify fun s => { s with animating := !s.animating }
+      | _ => pure ()
+    ) keyEvents
+  performEvent_ keyAction
+
+  let _ ← dynWidget elapsedTime fun t => do
+    let state ← SpiderM.liftIO do
+      let lastT ← lastTimeRef.get
+      let dt := if lastT == 0.0 then 0.0 else max 0.0 (t - lastT)
+      let mut current ← stateRef.get
+      if current.animating then
+        let p0 := current.controlPoints.getD 0 Linalg.Vec2.zero
+        let p1 := current.controlPoints.getD 1 Linalg.Vec2.zero
+        let p2 := current.controlPoints.getD 2 Linalg.Vec2.zero
+        let p3 := current.controlPoints.getD 3 Linalg.Vec2.zero
+        let curve := Linalg.Bezier3.mk p0 p1 p2 p3
+        let evalFn := fun t => Linalg.Bezier3.evalVec2 curve t
+        let table := Linalg.ArcLengthTable.build evalFn 120
+        let newT := current.t + dt * 0.2
+        let newS := current.s + current.speed * dt
+        let wrappedS := if table.totalLength > Linalg.Float.epsilon then
+          if newS > table.totalLength then newS - table.totalLength else newS
+        else 0.0
+        current := { current with t := (if newT > 1.0 then newT - 1.0 else newT), s := wrappedS }
+        stateRef.set current
+      lastTimeRef.set t
+      pure current
+    let containerStyle : BoxStyle := {
+      flexItem := some (FlexItem.growing 1)
+      width := .percent 1.0
+      height := .percent 1.0
+    }
+    emit (pure (namedColumn arcName 0 containerStyle #[
+      Demos.Linalg.arcLengthParameterizationWidget env state
+    ]))
+  pure ()
+
+def bezierPatchSurfaceTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
+    (stateRef : IO.Ref Demos.Linalg.BezierPatchSurfaceState) : WidgetM Unit := do
+  let patchName ← registerComponentW "bezier-patch-surface"
+
+  let clickEvents ← useClickData patchName
+  let clickAction ← Event.mapM (fun data => do
+    match data.click.button with
+    | 1 =>
+        stateRef.modify fun s =>
+          { s with dragging := .camera, lastMouseX := data.click.x, lastMouseY := data.click.y }
+    | 0 =>
+        match data.nameMap.get? patchName with
+        | some wid =>
+            match data.layouts.get wid with
+            | some layout =>
+                let rect := layout.contentRect
+                let localX := data.click.x - rect.x
+                let localY := data.click.y - rect.y
+                let rectX := rect.width - 260.0 * env.screenScale
+                let rectY := 110.0 * env.screenScale
+                let rectW := 220.0 * env.screenScale
+                let rectH := 220.0 * env.screenScale
+                let withinMini := localX >= rectX && localX <= rectX + rectW
+                  && localY >= rectY && localY <= rectY + rectH
+                if withinMini then
+                  let origin := (rectX + rectW / 2, rectY + rectH / 2)
+                  let scale := rectW / 5.8
+                  let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+                  let state ← stateRef.get
+                  let mut hit : Option Nat := none
+                  for idx in [:16] do
+                    let row := idx / 4
+                    let col := idx % 4
+                    let p := state.patch.getPoint row col
+                    let p2 := Linalg.Vec2.mk p.x p.y
+                    if Demos.Linalg.nearPoint worldPos p2 0.35 then
+                      hit := some idx
+                  match hit with
+                  | some idx => stateRef.set { state with selected := some idx, dragging := .point idx }
+                  | none => pure ()
+            | none => pure ()
+        | none => pure ()
+    | _ => pure ()
+    ) clickEvents
+  performEvent_ clickAction
+
+  let hoverEvents ← useAllHovers
+  let hoverAction ← Event.mapM (fun data => do
+    let state ← stateRef.get
+    match state.dragging with
+    | .none => pure ()
+    | .camera =>
+        let dx := data.x - state.lastMouseX
+        let dy := data.y - state.lastMouseY
+        let yaw := state.cameraYaw + dx * 0.005
+        let pitch := state.cameraPitch + dy * 0.005
+        stateRef.set { state with cameraYaw := yaw, cameraPitch := pitch, lastMouseX := data.x, lastMouseY := data.y }
+    | .point idx =>
+        match data.nameMap.get? patchName with
+        | some wid =>
+            match data.layouts.get wid with
+            | some layout =>
+                let rect := layout.contentRect
+                let localX := data.x - rect.x
+                let localY := data.y - rect.y
+                let rectX := rect.width - 260.0 * env.screenScale
+                let rectY := 110.0 * env.screenScale
+                let rectW := 220.0 * env.screenScale
+                let rectH := 220.0 * env.screenScale
+                let origin := (rectX + rectW / 2, rectY + rectH / 2)
+                let scale := rectW / 5.8
+                let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+                let row := idx / 4
+                let col := idx % 4
+                let p := state.patch.getPoint row col
+                let patch := state.patch.setPoint row col (Linalg.Vec3.mk worldPos.x worldPos.y p.z)
+                stateRef.set { state with patch := patch }
+            | none => pure ()
+        | none => pure ()
+    ) hoverEvents
+  performEvent_ hoverAction
+
+  let mouseUpEvents ← useAllMouseUp
+  let mouseUpAction ← Event.mapM (fun _ => do
+    stateRef.modify fun s => { s with dragging := .none }
+    ) mouseUpEvents
+  performEvent_ mouseUpAction
+
+  let keyEvents ← useKeyboard
+  let keyAction ← Event.mapM (fun data => do
+    if data.event.isPress then
+      match data.event.key with
+      | .char 'r' =>
+          stateRef.set Demos.Linalg.bezierPatchSurfaceInitialState
+      | .char 'n' =>
+          stateRef.modify fun s => { s with showNormals := !s.showNormals }
+      | .left =>
+          stateRef.modify fun s =>
+            let newTess := if s.tessellation > 2 then s.tessellation - 1 else 2
+            { s with tessellation := newTess }
+      | .right =>
+          stateRef.modify fun s =>
+            let newTess := if s.tessellation < 18 then s.tessellation + 1 else 18
+            { s with tessellation := newTess }
+      | .up | .down =>
+          stateRef.modify fun s =>
+            let delta := if data.event.key == .up then 0.2 else -0.2
+            match s.selected with
+            | some idx =>
+                let row := idx / 4
+                let col := idx % 4
+                let p := s.patch.getPoint row col
+                let patch := s.patch.setPoint row col (Linalg.Vec3.mk p.x p.y (p.z + delta))
+                { s with patch := patch }
+            | none => s
+      | _ => pure ()
+    ) keyEvents
+  performEvent_ keyAction
+
+  let _ ← dynWidget elapsedTime fun _ => do
+    let state ← SpiderM.liftIO stateRef.get
+    let containerStyle : BoxStyle := {
+      flexItem := some (FlexItem.growing 1)
+      width := .percent 1.0
+      height := .percent 1.0
+    }
+    emit (pure (namedColumn patchName 0 containerStyle #[
+      Demos.Linalg.bezierPatchSurfaceWidget env state
+    ]))
+  pure ()
+
+def easingFunctionGalleryTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
+    (stateRef : IO.Ref Demos.Linalg.EasingFunctionGalleryState)
+    (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+  let easingName ← registerComponentW "easing-function-gallery"
+
+  let keyEvents ← useKeyboard
+  let keyAction ← Event.mapM (fun data => do
+    if data.event.isPress then
+      let count := Demos.Linalg.easingEntryCount
+      if count == 0 then
+        pure ()
+      else
+        stateRef.modify fun s =>
+          let next :=
+            match data.event.key with
+            | .char 'r' =>
+                Demos.Linalg.easingFunctionGalleryInitialState
+            | .space =>
+                { s with animating := !s.animating }
+            | .char 'c' =>
+                { s with compareMode := !s.compareMode }
+            | .char 'x' =>
+                { s with compare := (s.compare + 1) % count }
+            | .tab =>
+                if data.event.modifiers.shift then
+                  { s with selected := (s.selected + count - 1) % count }
+                else
+                  { s with selected := (s.selected + 1) % count }
+            | .left =>
+                { s with selected := (s.selected + count - 1) % count }
+            | .right =>
+                { s with selected := (s.selected + 1) % count }
+            | .up =>
+                { s with speed := Linalg.Float.clamp (s.speed + 0.1) 0.1 3.0 }
+            | .down =>
+                { s with speed := Linalg.Float.clamp (s.speed - 0.1) 0.1 3.0 }
+            | _ => s
+          if next.compare == next.selected then
+            { next with compare := (next.compare + 1) % count }
+          else
+            next
+    ) keyEvents
+  performEvent_ keyAction
+
+  let _ ← dynWidget elapsedTime fun t => do
+    let state ← SpiderM.liftIO do
+      let lastT ← lastTimeRef.get
+      let dt := if lastT == 0.0 then 0.0 else max 0.0 (t - lastT)
+      let mut current ← stateRef.get
+      let count := Demos.Linalg.easingEntryCount
+      if current.animating && count > 0 then
+        let newT := current.t + dt * current.speed
+        current := { current with t := if newT > 1.0 then newT - 1.0 else newT }
+      if count > 0 && current.compare == current.selected then
+        current := { current with compare := (current.compare + 1) % count }
+      stateRef.set current
+      lastTimeRef.set t
+      pure current
+    let containerStyle : BoxStyle := {
+      flexItem := some (FlexItem.growing 1)
+      width := .percent 1.0
+      height := .percent 1.0
+    }
+    emit (pure (namedColumn easingName 0 containerStyle #[
+      Demos.Linalg.easingFunctionGalleryWidget env state
     ]))
   pure ()
 
