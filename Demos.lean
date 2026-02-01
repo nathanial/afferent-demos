@@ -36,6 +36,12 @@ import Demos.Linalg.ConvexHull2D
 import Demos.Linalg.TransformHierarchy
 import Demos.Linalg.BarycentricCoordinates
 import Demos.Linalg.FrustumCullingDemo
+import Demos.Linalg.ParticleIntegrationComparison
+import Demos.Linalg.CollisionResponseDemo
+import Demos.Linalg.RigidBodySimulator
+import Demos.Linalg.InertiaTensorVisualizer
+import Demos.Linalg.SweptCollisionDemo
+import Demos.Linalg.ConstraintSolver
 import Demos.Linalg.BezierCurveEditor
 import Demos.Linalg.CatmullRomSplineEditor
 import Demos.Linalg.BSplineCurveDemo

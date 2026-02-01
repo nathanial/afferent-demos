@@ -21,6 +21,12 @@ import Demos.Core.Runner.CanopyApp.Tabs.Linalg.ConvexHull2D
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.TransformHierarchy
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.BarycentricCoordinates
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.FrustumCullingDemo
+import Demos.Core.Runner.CanopyApp.Tabs.Linalg.ParticleIntegrationComparison
+import Demos.Core.Runner.CanopyApp.Tabs.Linalg.CollisionResponseDemo
+import Demos.Core.Runner.CanopyApp.Tabs.Linalg.RigidBodySimulator
+import Demos.Core.Runner.CanopyApp.Tabs.Linalg.InertiaTensorVisualizer
+import Demos.Core.Runner.CanopyApp.Tabs.Linalg.SweptCollisionDemo
+import Demos.Core.Runner.CanopyApp.Tabs.Linalg.ConstraintSolver
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.BezierCurveEditor
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.CatmullRomSplineEditor
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.BSplineCurveDemo
