@@ -70,6 +70,7 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
   let bezierCurveEditorRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.bezierCurveEditorInitialState)
   let catmullRomSplineEditorRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.catmullRomSplineEditorInitialState)
   let catmullRomSplineTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
+  let bSplineCurveDemoRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.bSplineCurveDemoInitialState)
   let worldmapStateRef ← SpiderM.liftIO do
     let config : Worldmap.MapStateConfig := {
       lat := 37.7749
@@ -150,6 +151,8 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
           bezierCurveEditorTabContent env elapsedTime bezierCurveEditorRef
       | .catmullRomSplineEditor =>
           catmullRomSplineEditorTabContent env elapsedTime catmullRomSplineEditorRef catmullRomSplineTimeRef
+      | .bSplineCurveDemo =>
+          bSplineCurveDemoTabContent env elapsedTime bSplineCurveDemoRef
       | _ => demoStubContent id
   }
 
