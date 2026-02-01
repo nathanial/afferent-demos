@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def fbmTerrainGeneratorTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.FBMTerrainState) : WidgetM Unit := do
+def fbmTerrainGeneratorTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.fbmTerrainInitialState)
   let terrainName ← registerComponentW "fbm-terrain-generator"
 
   let clickEvents ← useClickData terrainName

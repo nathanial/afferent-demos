@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def primitiveOverlapTesterTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.PrimitiveOverlapTesterState) : WidgetM Unit := do
+def primitiveOverlapTesterTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.primitiveOverlapTesterInitialState)
   let overlapName ← registerComponentW "primitive-overlap-tester"
 
   let keyEvents ← useKeyboard

@@ -198,6 +198,7 @@ private structure BenchApp where
   render : ComponentRender
   inputs : ReactiveInputs
   spiderEnv : Reactive.Host.SpiderEnv
+  shutdown : IO Unit
 
 private def initBenchApp (assets : BenchAssets) (selected : WidgetType) : IO BenchApp := do
   let spiderEnv ← Reactive.Host.SpiderEnv.new Reactive.Host.defaultErrorHandler
@@ -208,7 +209,7 @@ private def initBenchApp (assets : BenchAssets) (selected : WidgetType) : IO Ben
     pure (render, inputs)
   ).run spiderEnv
   spiderEnv.postBuildTrigger ()
-  pure { render, inputs, spiderEnv }
+  pure { render, inputs, spiderEnv, shutdown := spiderEnv.currentScope.dispose }
 
 private structure BenchFrameCache where
   widget : Widget
@@ -346,32 +347,35 @@ test "switch pipeline baseline vs hover" := do
   let baseConfig : BenchConfig := { withHover := false }
   let hoverConfig : BenchConfig := { withHover := true }
 
-  HoverMetrics.reset hoverMetrics
-  DynWidgetMetrics.reset dynMetrics
-  let baseline ← runBench appBaseline.render appBaseline.inputs assets.registry baseConfig "switch-"
+  try
+    HoverMetrics.reset hoverMetrics
+    DynWidgetMetrics.reset dynMetrics
+    let baseline ← runBench appBaseline.render appBaseline.inputs assets.registry baseConfig "switch-"
 
-  HoverMetrics.reset hoverMetrics
-  DynWidgetMetrics.reset dynMetrics
-  let hover ← runBench appHover.render appHover.inputs assets.registry hoverConfig "switch-"
-  let delta := BenchResult.diff baseline hover
-  let hoverSnap ← HoverMetrics.snapshot hoverMetrics
-  let dynSnap ← DynWidgetMetrics.snapshot dynMetrics
+    HoverMetrics.reset hoverMetrics
+    DynWidgetMetrics.reset dynMetrics
+    let hover ← runBench appHover.render appHover.inputs assets.registry hoverConfig "switch-"
+    let delta := BenchResult.diff baseline hover
+    let hoverSnap ← HoverMetrics.snapshot hoverMetrics
+    let dynSnap ← DynWidgetMetrics.snapshot dynMetrics
 
-  IO.println (BenchResult.format "baseline" baseline)
-  IO.println (BenchResult.format "hover" hover)
-  IO.println (BenchResult.format "delta(hover-baseline)" delta)
-  IO.println s!"hover map: total={fmtNanosMs hoverSnap.mapNanos}ms, avg={fmtAvgNanosMs hoverSnap.mapNanos hoverSnap.mapCount}ms, count={hoverSnap.mapCount}"
-  IO.println s!"hover map (switch): total={fmtNanosMs hoverSnap.mapSwitchNanos}ms, avg={fmtAvgNanosMs hoverSnap.mapSwitchNanos hoverSnap.mapSwitchCount}ms, count={hoverSnap.mapSwitchCount}"
-  IO.println s!"hover update: total={fmtNanosMs hoverSnap.holdNanos}ms, avg={fmtAvgNanosMs hoverSnap.holdNanos hoverSnap.holdCount}ms, count={hoverSnap.holdCount}"
-  IO.println s!"hover update (switch): total={fmtNanosMs hoverSnap.holdSwitchNanos}ms, avg={fmtAvgNanosMs hoverSnap.holdSwitchNanos hoverSnap.holdSwitchCount}ms, count={hoverSnap.holdSwitchCount}"
-  IO.println s!"dynWidget rebuild: total={fmtNanosMs dynSnap.rebuildNanos}ms, avg={fmtAvgNanosMs dynSnap.rebuildNanos dynSnap.rebuildCount}ms, count={dynSnap.rebuildCount}"
+    IO.println (BenchResult.format "baseline" baseline)
+    IO.println (BenchResult.format "hover" hover)
+    IO.println (BenchResult.format "delta(hover-baseline)" delta)
+    IO.println s!"hover map: total={fmtNanosMs hoverSnap.mapNanos}ms, avg={fmtAvgNanosMs hoverSnap.mapNanos hoverSnap.mapCount}ms, count={hoverSnap.mapCount}"
+    IO.println s!"hover map (switch): total={fmtNanosMs hoverSnap.mapSwitchNanos}ms, avg={fmtAvgNanosMs hoverSnap.mapSwitchNanos hoverSnap.mapSwitchCount}ms, count={hoverSnap.mapSwitchCount}"
+    IO.println s!"hover update: total={fmtNanosMs hoverSnap.holdNanos}ms, avg={fmtAvgNanosMs hoverSnap.holdNanos hoverSnap.holdCount}ms, count={hoverSnap.holdCount}"
+    IO.println s!"hover update (switch): total={fmtNanosMs hoverSnap.holdSwitchNanos}ms, avg={fmtAvgNanosMs hoverSnap.holdSwitchNanos hoverSnap.holdSwitchCount}ms, count={hoverSnap.holdSwitchCount}"
+    IO.println s!"dynWidget rebuild: total={fmtNanosMs dynSnap.rebuildNanos}ms, avg={fmtAvgNanosMs dynSnap.rebuildNanos dynSnap.rebuildCount}ms, count={dynSnap.rebuildCount}"
 
-  ensure (hover.targetCount == 1000)
-    s!"Expected 1000 switch widgets, got {hover.targetCount}"
-
-  Afferent.Canopy.Reactive.disableHoverMetrics
-  Afferent.Canopy.Reactive.disableDynWidgetMetrics
-  destroyBenchAssets assets
+    ensure (hover.targetCount == 1000)
+      s!"Expected 1000 switch widgets, got {hover.targetCount}"
+  finally
+    appBaseline.shutdown
+    appHover.shutdown
+    Afferent.Canopy.Reactive.disableHoverMetrics
+    Afferent.Canopy.Reactive.disableDynWidgetMetrics
+    destroyBenchAssets assets
 
 test "dropdown pipeline baseline vs hover" := do
   let assets ← loadBenchAssets
@@ -381,18 +385,21 @@ test "dropdown pipeline baseline vs hover" := do
   let baseConfig : BenchConfig := { withHover := false }
   let hoverConfig : BenchConfig := { withHover := true }
 
-  let baseline ← runBench appBaseline.render appBaseline.inputs assets.registry baseConfig "dropdown-trigger-"
-  let hover ← runBench appHover.render appHover.inputs assets.registry hoverConfig "dropdown-trigger-"
-  let delta := BenchResult.diff baseline hover
+  try
+    let baseline ← runBench appBaseline.render appBaseline.inputs assets.registry baseConfig "dropdown-trigger-"
+    let hover ← runBench appHover.render appHover.inputs assets.registry hoverConfig "dropdown-trigger-"
+    let delta := BenchResult.diff baseline hover
 
-  IO.println (BenchResult.format "baseline (dropdown)" baseline)
-  IO.println (BenchResult.format "hover (dropdown)" hover)
-  IO.println (BenchResult.format "delta(hover-baseline) (dropdown)" delta)
+    IO.println (BenchResult.format "baseline (dropdown)" baseline)
+    IO.println (BenchResult.format "hover (dropdown)" hover)
+    IO.println (BenchResult.format "delta(hover-baseline) (dropdown)" delta)
 
-  ensure (hover.targetCount == 1000)
-    s!"Expected 1000 dropdown triggers, got {hover.targetCount}"
-
-  destroyBenchAssets assets
+    ensure (hover.targetCount == 1000)
+      s!"Expected 1000 dropdown triggers, got {hover.targetCount}"
+  finally
+    appBaseline.shutdown
+    appHover.shutdown
+    destroyBenchAssets assets
 
 test "stepper pipeline baseline vs hover" := do
   let assets ← loadBenchAssets
@@ -402,18 +409,21 @@ test "stepper pipeline baseline vs hover" := do
   let baseConfig : BenchConfig := { withHover := false }
   let hoverConfig : BenchConfig := { withHover := true }
 
-  let baseline ← runBench appBaseline.render appBaseline.inputs assets.registry baseConfig "stepper-dec"
-  let hover ← runBench appHover.render appHover.inputs assets.registry hoverConfig "stepper-dec"
-  let delta := BenchResult.diff baseline hover
+  try
+    let baseline ← runBench appBaseline.render appBaseline.inputs assets.registry baseConfig "stepper-dec"
+    let hover ← runBench appHover.render appHover.inputs assets.registry hoverConfig "stepper-dec"
+    let delta := BenchResult.diff baseline hover
 
-  IO.println (BenchResult.format "baseline (stepper)" baseline)
-  IO.println (BenchResult.format "hover (stepper)" hover)
-  IO.println (BenchResult.format "delta(hover-baseline) (stepper)" delta)
+    IO.println (BenchResult.format "baseline (stepper)" baseline)
+    IO.println (BenchResult.format "hover (stepper)" hover)
+    IO.println (BenchResult.format "delta(hover-baseline) (stepper)" delta)
 
-  ensure (hover.targetCount == 1000)
-    s!"Expected 1000 stepper buttons, got {hover.targetCount}"
-
-  destroyBenchAssets assets
+    ensure (hover.targetCount == 1000)
+      s!"Expected 1000 stepper buttons, got {hover.targetCount}"
+  finally
+    appBaseline.shutdown
+    appHover.shutdown
+    destroyBenchAssets assets
 
 
 

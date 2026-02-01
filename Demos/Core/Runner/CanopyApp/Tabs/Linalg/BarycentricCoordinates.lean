@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def barycentricCoordinatesTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.BarycentricCoordinatesState) : WidgetM Unit := do
+def barycentricCoordinatesTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.barycentricCoordinatesInitialState)
   let baryName ← registerComponentW "barycentric-coordinates"
 
   let keyEvents ← useKeyboard

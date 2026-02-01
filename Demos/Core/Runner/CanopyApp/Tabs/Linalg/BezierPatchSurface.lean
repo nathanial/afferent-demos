@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def bezierPatchSurfaceTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.BezierPatchSurfaceState) : WidgetM Unit := do
+def bezierPatchSurfaceTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.bezierPatchSurfaceInitialState)
   let patchName ← registerComponentW "bezier-patch-surface"
 
   let clickEvents ← useClickData patchName

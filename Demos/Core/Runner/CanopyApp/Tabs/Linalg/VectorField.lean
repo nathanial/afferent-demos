@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def vectorFieldTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.VectorFieldState) : WidgetM Unit := do
+def vectorFieldTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.vectorFieldInitialState)
   let fieldName ← registerComponentW "vector-field"
   let keyEvents ← useKeyboard
   let keyAction ← Event.mapM (fun data => do

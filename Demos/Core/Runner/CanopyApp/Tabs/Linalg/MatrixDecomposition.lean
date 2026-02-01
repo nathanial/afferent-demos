@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def matrixDecompositionTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.MatrixDecompositionState) : WidgetM Unit := do
+def matrixDecompositionTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.matrixDecompositionInitialState)
   let decompName ← registerComponentW "matrix-decomposition"
   let keyEvents ← useKeyboard
   let keyAction ← Event.mapM (fun data => do

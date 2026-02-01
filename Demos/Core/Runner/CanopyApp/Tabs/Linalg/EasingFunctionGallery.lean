@@ -17,9 +17,10 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def easingFunctionGalleryTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.EasingFunctionGalleryState)
-    (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+def easingFunctionGalleryTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.easingFunctionGalleryInitialState)
+  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let easingName ← registerComponentW "easing-function-gallery"
 
   let keyEvents ← useKeyboard

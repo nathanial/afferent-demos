@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def noiseExplorer2DTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.NoiseExplorerState) : WidgetM Unit := do
+def noiseExplorer2DTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.noiseExplorer2DInitialState)
   let noiseName ← registerComponentW "noise-explorer-2d"
 
   let clickEvents ← useClickData noiseName

@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def worleyCellularNoiseTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.WorleyCellularState) : WidgetM Unit := do
+def worleyCellularNoiseTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.worleyCellularInitialState)
   let worleyName ← registerComponentW "worley-cellular-noise"
 
   let clickEvents ← useClickData worleyName

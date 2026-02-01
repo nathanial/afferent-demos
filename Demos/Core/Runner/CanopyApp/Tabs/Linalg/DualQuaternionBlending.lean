@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def dualQuaternionBlendingTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.DualQuaternionBlendingState) : WidgetM Unit := do
+def dualQuaternionBlendingTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.dualQuaternionBlendingInitialState)
   let dualName ← registerComponentW "dual-quaternion-blending"
 
   let keyEvents ← useKeyboard

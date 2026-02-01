@@ -17,7 +17,8 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def textureMatrixTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+def textureMatrixTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
   let _ ← dynWidget elapsedTime fun t => do
     emit (pure (textureMatrixWidget t env.screenScale env.windowWidthF env.windowHeightF
       env.fontMedium env.fontSmall env.spriteTexture))

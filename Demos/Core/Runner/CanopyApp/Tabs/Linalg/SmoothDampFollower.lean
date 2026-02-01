@@ -17,9 +17,10 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def smoothDampFollowerTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.SmoothDampFollowerState)
-    (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+def smoothDampFollowerTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.smoothDampFollowerInitialState)
+  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let smoothName ← registerComponentW "smooth-damp-follower"
 
   let clickEvents ← useClickData smoothName

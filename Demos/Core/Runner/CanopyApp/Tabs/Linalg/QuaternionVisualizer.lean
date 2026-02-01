@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def quaternionVisualizerTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.QuaternionVisualizerState) : WidgetM Unit := do
+def quaternionVisualizerTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.quaternionVisualizerInitialState)
   let quatName ← registerComponentW "quaternion-visualizer"
 
   let clickEvents ← useClickData quatName

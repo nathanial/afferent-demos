@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def bSplineCurveDemoTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.BSplineCurveDemoState) : WidgetM Unit := do
+def bSplineCurveDemoTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.bSplineCurveDemoInitialState)
   let splineName ← registerComponentW "b-spline-curve-demo"
 
   let clickEvents ← useClickData splineName

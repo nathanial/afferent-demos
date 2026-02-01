@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def vectorProjectionTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.VectorProjectionState) : WidgetM Unit := do
+def vectorProjectionTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.vectorProjectionInitialState)
   let projName ← registerComponentW "vector-projection"
 
   let clickEvents ← useClickData projName

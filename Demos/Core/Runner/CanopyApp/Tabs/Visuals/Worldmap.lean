@@ -19,8 +19,23 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def worldmapTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Worldmap.MapState) (tileManager : Tileset.TileManager) : WidgetM Unit := do
+def worldmapTabContent (env : DemoEnv) (manager : Tileset.TileManager) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let config : Worldmap.MapStateConfig := {
+    lat := 37.7749
+    lon := -122.4194
+    zoom := 12
+    width := env.physWidth.toNat
+    height := env.physHeight.toNat
+    provider := Tileset.TileProvider.cartoDarkRetina
+    fallbackParentDepth := 3
+    fallbackChildDepth := 2
+    fadeFrames := 12
+    persistentFallbackZoom := some 1
+  }
+  let stateRef ← SpiderM.liftIO do
+    let state ← Worldmap.MapState.init config
+    IO.mkRef state
   let mapName ← registerComponentW "worldmap-map"
   let sidebarName ← registerComponentW "worldmap-sidebar" (isInteractive := false)
   let layoutRef ← SpiderM.liftIO (IO.mkRef (none : Option Trellis.ComputedLayout))
@@ -188,8 +203,8 @@ def worldmapTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
     let mut state ← SpiderM.liftIO stateRef.get
     if let some layout ← SpiderM.liftIO layoutRef.get then
       state := updateScreenSize state layout
-    state ← requestWorldmapTiles state tileManager
-    state ← SpiderM.liftIO (Worldmap.updateFrame state tileManager)
+    state ← requestWorldmapTiles state manager
+    state ← SpiderM.liftIO (Worldmap.updateFrame state manager)
     SpiderM.liftIO (stateRef.set state)
     let (windowW, windowH) ← SpiderM.liftIO do
       let (w, h) ← FFI.Window.getSize env.window

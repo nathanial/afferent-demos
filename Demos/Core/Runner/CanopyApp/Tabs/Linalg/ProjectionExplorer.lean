@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def projectionExplorerTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.ProjectionExplorerState) : WidgetM Unit := do
+def projectionExplorerTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.projectionExplorerInitialState)
   let projName ← registerComponentW "projection-explorer"
 
   let keyEvents ← useKeyboard

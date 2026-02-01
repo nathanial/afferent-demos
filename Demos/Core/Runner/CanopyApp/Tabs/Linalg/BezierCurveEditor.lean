@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def bezierCurveEditorTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.BezierCurveEditorState) : WidgetM Unit := do
+def bezierCurveEditorTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.bezierCurveEditorInitialState)
   let bezierName ← registerComponentW "bezier-curve-editor"
 
   let clickEvents ← useClickData bezierName

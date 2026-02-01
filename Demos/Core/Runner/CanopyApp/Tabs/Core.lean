@@ -37,16 +37,20 @@ private def demoFontsFromEnv (env : DemoEnv) : DemoFonts := {
   huge := env.fontHugeId
 }
 
-def overviewTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+def overviewTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
   let demoFonts := demoFontsFromEnv env
   let cubes := spinningCubesInitialState
   let _ ← dynWidget elapsedTime fun t => do
     emit (pure (demoGridWidget env.screenScale t demoFonts cubes env.windowWidthF env.windowHeightF))
   pure ()
 
-def circlesTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (particlesRef : IO.Ref Render.Dynamic.ParticleState)
-    (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+def circlesTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let particlesRef ← SpiderM.liftIO do
+    let particles := Render.Dynamic.ParticleState.create 1000000 env.physWidthF env.physHeightF 42
+    IO.mkRef particles
+  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let _ ← dynWidget elapsedTime fun t => do
     let particles ← SpiderM.liftIO do
       let lastT ← lastTimeRef.get
@@ -59,9 +63,12 @@ def circlesTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
     emit (pure (circlesPerfWidget t env.fontMedium particles env.circleRadius))
   pure ()
 
-def spritesTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (particlesRef : IO.Ref Render.Dynamic.ParticleState)
-    (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+def spritesTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let particlesRef ← SpiderM.liftIO do
+    let particles := Render.Dynamic.ParticleState.create 1000000 env.physWidthF env.physHeightF 123
+    IO.mkRef particles
+  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let _ ← dynWidget elapsedTime fun t => do
     let particles ← SpiderM.liftIO do
       let lastT ← lastTimeRef.get
@@ -74,18 +81,21 @@ def spritesTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
     emit (pure (spritesPerfWidget env.screenScale env.fontMedium env.spriteTexture particles env.spriteHalfSize))
   pure ()
 
-def linesPerfTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+def linesPerfTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
   let _ ← dynWidget elapsedTime fun t => do
     emit (pure (linesPerfWidget t env.lineBuffer env.lineCount env.lineWidth
       env.fontMedium env.windowWidthF env.windowHeightF))
   pure ()
 
-def layoutTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+def layoutTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
   let _ ← dynWidget elapsedTime fun _ => do
     emit (pure (layoutWidgetFlex env.fontMediumId env.fontSmallId env.screenScale))
   pure ()
 
-def cssGridTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+def cssGridTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
   let _ ← dynWidget elapsedTime fun _ => do
     emit (pure (cssGridWidget env.fontMediumId env.fontSmallId env.screenScale))
   pure ()
@@ -96,7 +106,8 @@ def reactiveShowcaseTabContent (appState : ReactiveShowcase.AppState) : WidgetM 
 def widgetPerfTabContent (appState : WidgetPerf.AppState) : WidgetM Unit := do
   emit appState.render
 
-def fontShowcaseTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+def fontShowcaseTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
   let _ ← dynWidget elapsedTime fun _ => do
     emit (pure (fontShowcaseWidget env.showcaseFonts env.fontMediumId env.screenScale))
   pure ()

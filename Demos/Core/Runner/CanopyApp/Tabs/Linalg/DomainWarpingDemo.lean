@@ -17,9 +17,10 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def domainWarpingDemoTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.DomainWarpingState)
-    (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+def domainWarpingDemoTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.domainWarpingInitialState)
+  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let warpName ← registerComponentW "domain-warping-demo"
 
   let clickEvents ← useClickData warpName

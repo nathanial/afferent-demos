@@ -17,7 +17,8 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def dashedLinesTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+def dashedLinesTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
   let _ ← dynWidget elapsedTime fun _ => do
     emit (pure (dashedLinesWidget env.screenScale env.fontSmall env.fontMedium))
   pure ()

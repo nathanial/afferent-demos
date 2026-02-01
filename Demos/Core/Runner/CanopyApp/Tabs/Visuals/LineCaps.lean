@@ -17,7 +17,8 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def lineCapsTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+def lineCapsTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
   let _ ← dynWidget elapsedTime fun _ => do
     emit (pure (lineCapsWidget env.screenScale env.fontSmall env.fontMedium))
   pure ()

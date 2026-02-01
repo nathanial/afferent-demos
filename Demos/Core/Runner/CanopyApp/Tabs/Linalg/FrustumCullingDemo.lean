@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def frustumCullingDemoTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.FrustumCullingDemoState) : WidgetM Unit := do
+def frustumCullingDemoTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.frustumCullingDemoInitialState)
   let frustumName ← registerComponentW "frustum-culling-demo"
 
   let keyEvents ← useKeyboard

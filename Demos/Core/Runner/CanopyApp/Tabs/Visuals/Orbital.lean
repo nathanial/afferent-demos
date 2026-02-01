@@ -17,7 +17,8 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def orbitalInstancedTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+def orbitalInstancedTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
   let _ ← dynWidget elapsedTime fun t => do
     emit (pure (orbitalInstancedWidget t env.screenScale env.windowWidthF env.windowHeightF
       env.fontMedium env.orbitalCount env.orbitalParams env.orbitalBuffer))

@@ -26,10 +26,13 @@ structure SeascapeInputState where
   e : Bool := false
   deriving Inhabited
 
-def seascapeTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref SeascapeState) (lastTimeRef : IO.Ref Float)
-    (keysRef : IO.Ref SeascapeInputState) (lockRef : IO.Ref Bool)
-    (deltaRef : IO.Ref Afferent.Canopy.Reactive.MouseDeltaData) : WidgetM Unit := do
+def seascapeTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef { camera := seascapeCamera })
+  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
+  let keysRef ← SpiderM.liftIO (IO.mkRef ({} : SeascapeInputState))
+  let lockRef ← SpiderM.liftIO (IO.mkRef false)
+  let deltaRef ← SpiderM.liftIO (IO.mkRef { dx := 0.0, dy := 0.0 })
   let seascapeName ← registerComponentW "seascape"
   let clickEvents ← useClick seascapeName
   let clickAction ← Event.mapM (fun _ => do

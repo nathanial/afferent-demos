@@ -17,9 +17,10 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def slerpInterpolationTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.SlerpInterpolationState)
-    (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+def slerpInterpolationTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.slerpInterpolationInitialState)
+  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let slerpName ← registerComponentW "slerp-interpolation"
 
   let clickEvents ← useClickData slerpName

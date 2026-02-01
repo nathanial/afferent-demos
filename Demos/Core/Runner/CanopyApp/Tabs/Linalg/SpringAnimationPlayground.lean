@@ -17,9 +17,10 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def springAnimationPlaygroundTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.SpringAnimationPlaygroundState)
-    (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+def springAnimationPlaygroundTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.springAnimationPlaygroundInitialState)
+  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let springName ← registerComponentW "spring-animation-playground"
 
   let clickEvents ← useClickData springName

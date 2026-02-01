@@ -17,9 +17,10 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def vectorInterpolationTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.VectorInterpolationState)
-    (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+def vectorInterpolationTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.vectorInterpolationInitialState)
+  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let interpName ← registerComponentW "vector-interpolation"
 
   let clickEvents ← useClickData interpName

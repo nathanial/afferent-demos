@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def shapeGalleryTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (indexRef : IO.Ref Nat) : WidgetM Unit := do
+def shapeGalleryTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let indexRef ← SpiderM.liftIO (IO.mkRef 0)
   let keyEvents ← useKeyboard
   let keyAction ← Event.mapM (fun data => do
     let total := shapeGalleryCount

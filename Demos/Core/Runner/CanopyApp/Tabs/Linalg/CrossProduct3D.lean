@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def crossProduct3DTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.CrossProduct3DState) : WidgetM Unit := do
+def crossProduct3DTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.crossProduct3DInitialState)
   let crossName ← registerComponentW "cross-product-3d"
 
   let clickEvents ← useClickData crossName

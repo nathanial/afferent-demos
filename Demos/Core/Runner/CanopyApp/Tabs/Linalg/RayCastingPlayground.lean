@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def rayCastingPlaygroundTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.RayCastingPlaygroundState) : WidgetM Unit := do
+def rayCastingPlaygroundTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.rayCastingPlaygroundInitialState)
   let rayName ← registerComponentW "ray-casting-playground"
 
   let keyEvents ← useKeyboard

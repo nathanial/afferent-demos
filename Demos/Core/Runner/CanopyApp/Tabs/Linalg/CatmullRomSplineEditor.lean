@@ -17,9 +17,10 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def catmullRomSplineEditorTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.CatmullRomSplineEditorState)
-    (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+def catmullRomSplineEditorTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.catmullRomSplineEditorInitialState)
+  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let catmullName ← registerComponentW "catmull-rom-spline-editor"
 
   let clickEvents ← useClickData catmullName

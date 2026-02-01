@@ -17,9 +17,10 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def matrix2DTransformTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.Matrix2DTransformState)
-    (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+def matrix2DTransformTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.matrix2DTransformInitialState)
+  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let mat2dName ← registerComponentW "matrix-2d-transform"
   let keyEvents ← useKeyboard
   let keyAction ← Event.mapM (fun data => do

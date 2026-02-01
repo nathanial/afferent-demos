@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def eulerGimbalLockTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.EulerGimbalLockState) : WidgetM Unit := do
+def eulerGimbalLockTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.eulerGimbalLockInitialState)
   let gimbalName ← registerComponentW "euler-gimbal-lock"
 
   let keyEvents ← useKeyboard

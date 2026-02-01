@@ -17,8 +17,9 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def vectorArithmeticTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.VectorArithmeticState) : WidgetM Unit := do
+def vectorArithmeticTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.vectorArithmeticInitialState)
   let arithName ← registerComponentW "vector-arithmetic"
 
   let clickEvents ← useClickData arithName

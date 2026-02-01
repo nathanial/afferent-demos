@@ -17,9 +17,10 @@ open Afferent.Canopy.Reactive
 open Trellis
 
 namespace Demos
-def arcLengthParameterizationTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
-    (stateRef : IO.Ref Demos.Linalg.ArcLengthParameterizationState)
-    (lastTimeRef : IO.Ref Float) : WidgetM Unit := do
+def arcLengthParameterizationTabContent (env : DemoEnv) : WidgetM Unit := do
+  let elapsedTime ← useElapsedTime
+  let stateRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.arcLengthParameterizationInitialState)
+  let lastTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let arcName ← registerComponentW "arc-length-parameterization"
 
   let clickEvents ← useClickData arcName
