@@ -31,6 +31,9 @@ import Demos.Linalg.EulerGimbalLock
 import Demos.Linalg.DualQuaternionBlending
 import Demos.Linalg.RayCastingPlayground
 import Demos.Linalg.PrimitiveOverlapTester
+import Demos.Linalg.VoronoiDelaunayDual
+import Demos.Linalg.ConvexHull2D
+import Demos.Linalg.TransformHierarchy
 import Demos.Linalg.BarycentricCoordinates
 import Demos.Linalg.FrustumCullingDemo
 import Demos.Linalg.BezierCurveEditor

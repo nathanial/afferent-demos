@@ -16,7 +16,7 @@ The build script sets `LEAN_CC=/usr/bin/clang` for proper macOS framework linkin
 
 ```bash
 ./build.sh afferent_demos_tests
-lake test
+./test.sh
 ```
 
 ## Project Structure
