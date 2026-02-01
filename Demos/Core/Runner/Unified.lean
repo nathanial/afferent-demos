@@ -122,6 +122,7 @@ def unifiedDemo : IO Unit := do
                   events := events
                   inputs := inputs
                   spiderEnv := spiderEnv
+                  shutdown := appState.shutdown
                   cachedWidget := initialWidget
                 }
             | none =>
@@ -332,6 +333,7 @@ def unifiedDemo : IO Unit := do
   match state with
   | .loading ls => cleanupLoading ls
   | .running rs =>
+      rs.shutdown
       rs.spiderEnv.currentScope.dispose
       cleanupAssets rs.assets
   c.destroy

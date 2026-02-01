@@ -83,6 +83,7 @@ structure RunningState where
   events : Afferent.Canopy.Reactive.ReactiveEvents
   inputs : Afferent.Canopy.Reactive.ReactiveInputs
   spiderEnv : Reactive.Host.SpiderEnv
+  shutdown : IO Unit
   cachedWidget : Afferent.Arbor.WidgetBuilder
   frameCache : Option FrameCache := none
   lastMouseX : Float := 0.0

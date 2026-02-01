@@ -25,6 +25,8 @@ namespace Demos
 
 structure CanopyAppState where
   render : ComponentRender
+  /-- Cleanup resources allocated by the app (e.g., tile manager workers). -/
+  shutdown : IO Unit
 
 /-- Create the demo shell as a single Canopy widget tree. -/
 def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
@@ -186,6 +188,6 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
         pure ()
       statsFooter env elapsedTime
 
-  pure { render := render }
+  pure { render := render, shutdown := Tileset.TileManager.shutdown worldmapManager }
 
 end Demos
