@@ -6,7 +6,6 @@ import Afferent
 import Afferent.Canopy
 import Afferent.Canopy.Reactive
 import Demos.Core.Demo
-import Demos.Core.DemoRegistry
 import Demos.Core.Runner.CanopyApp.Support
 import Demos.Core.Runner.CanopyApp.Tabs.Core
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg
@@ -106,86 +105,63 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
     diskCacheMaxSize := 500 * 1024 * 1024
   }
   let worldmapManager ← Tileset.TileManager.new worldmapTileConfig
-  let tabs : Array TabDef := demoIds.map fun id => {
-    label := (demoInstance id).shortName
-    content := match id with
-      | .demoGrid => overviewTabContent env elapsedTime
-      | .circlesPerf => circlesTabContent env elapsedTime circlesRef circlesTimeRef
-      | .spritesPerf => spritesTabContent env elapsedTime spritesRef spritesTimeRef
-      | .linesPerf => linesPerfTabContent env elapsedTime
-      | .layout => layoutTabContent env elapsedTime
-      | .cssGrid => cssGridTabContent env elapsedTime
-      | .reactiveShowcase => reactiveShowcaseTabContent reactiveShowcaseApp
-      | .widgetPerf => widgetPerfTabContent widgetPerfApp
-      | .seascape => seascapeTabContent env elapsedTime seascapeRef seascapeTimeRef
-          seascapeKeysRef seascapeLockRef seascapeDeltaRef
-      | .shapeGallery => shapeGalleryTabContent env elapsedTime shapeGalleryIndexRef
-      | .worldmap => worldmapTabContent env elapsedTime worldmapStateRef worldmapManager
-      | .lineCaps => lineCapsTabContent env elapsedTime
-      | .dashedLines => dashedLinesTabContent env elapsedTime
-      | .textureMatrix => textureMatrixTabContent env elapsedTime
-      | .orbitalInstanced => orbitalInstancedTabContent env elapsedTime
-      | .fontShowcase => fontShowcaseTabContent env elapsedTime
-      | .chatDemo => chatDemoTabContent chatDemoApp
-      | .vectorInterpolation =>
-          vectorInterpolationTabContent env elapsedTime vectorInterpolationRef vectorInterpolationTimeRef
-      | .vectorArithmetic =>
-          vectorArithmeticTabContent env elapsedTime vectorArithmeticRef
-      | .vectorProjection =>
-          vectorProjectionTabContent env elapsedTime vectorProjectionRef
-      | .vectorField =>
-          vectorFieldTabContent env elapsedTime vectorFieldRef
-      | .crossProduct3D =>
-          crossProduct3DTabContent env elapsedTime crossProduct3DRef
-      | .matrix2DTransform =>
-          matrix2DTransformTabContent env elapsedTime matrix2DTransformRef matrix2DTransformTimeRef
-      | .matrix3DTransform =>
-          matrix3DTransformTabContent env elapsedTime matrix3DTransformRef
-      | .projectionExplorer =>
-          projectionExplorerTabContent env elapsedTime projectionExplorerRef
-      | .matrixDecomposition =>
-          matrixDecompositionTabContent env elapsedTime matrixDecompositionRef
-      | .quaternionVisualizer =>
-          quaternionVisualizerTabContent env elapsedTime quaternionVisualizerRef
-      | .slerpInterpolation =>
-          slerpInterpolationTabContent env elapsedTime slerpInterpolationRef slerpInterpolationTimeRef
-      | .eulerGimbalLock =>
-          eulerGimbalLockTabContent env elapsedTime eulerGimbalLockRef
-      | .dualQuaternionBlending =>
-          dualQuaternionBlendingTabContent env elapsedTime dualQuaternionBlendingRef
-      | .rayCastingPlayground =>
-          rayCastingPlaygroundTabContent env elapsedTime rayCastingPlaygroundRef
-      | .primitiveOverlapTester =>
-          primitiveOverlapTesterTabContent env elapsedTime primitiveOverlapTesterRef
-      | .barycentricCoordinates =>
-          barycentricCoordinatesTabContent env elapsedTime barycentricCoordinatesRef
-      | .frustumCullingDemo =>
-          frustumCullingDemoTabContent env elapsedTime frustumCullingDemoRef
-      | .bezierCurveEditor =>
-          bezierCurveEditorTabContent env elapsedTime bezierCurveEditorRef
-      | .catmullRomSplineEditor =>
-          catmullRomSplineEditorTabContent env elapsedTime catmullRomSplineEditorRef catmullRomSplineTimeRef
-      | .bSplineCurveDemo =>
-          bSplineCurveDemoTabContent env elapsedTime bSplineCurveDemoRef
-      | .arcLengthParameterization =>
-          arcLengthParameterizationTabContent env elapsedTime arcLengthParameterizationRef arcLengthTimeRef
-      | .bezierPatchSurface =>
-          bezierPatchSurfaceTabContent env elapsedTime bezierPatchSurfaceRef
-      | .easingFunctionGallery =>
-          easingFunctionGalleryTabContent env elapsedTime easingFunctionGalleryRef easingTimeRef
-      | .smoothDampFollower =>
-          smoothDampFollowerTabContent env elapsedTime smoothDampFollowerRef smoothDampTimeRef
-      | .springAnimationPlayground =>
-          springAnimationPlaygroundTabContent env elapsedTime springAnimationPlaygroundRef springTimeRef
-      | .noiseExplorer2D =>
-          noiseExplorer2DTabContent env elapsedTime noiseExplorer2DRef
-      | .fbmTerrainGenerator =>
-          fbmTerrainGeneratorTabContent env elapsedTime fbmTerrainGeneratorRef
-      | .domainWarpingDemo =>
-          domainWarpingDemoTabContent env elapsedTime domainWarpingDemoRef domainWarpingTimeRef
-      | .worleyCellularNoise =>
-          worleyCellularNoiseTabContent env elapsedTime worleyCellularNoiseRef
-  }
+  let tabs : Array TabDef := #[
+    { label := "Overview", content := overviewTabContent env elapsedTime },
+    { label := "Circles", content := circlesTabContent env elapsedTime circlesRef circlesTimeRef },
+    { label := "Sprites", content := spritesTabContent env elapsedTime spritesRef spritesTimeRef },
+    { label := "Layout", content := layoutTabContent env elapsedTime },
+    { label := "CSS Grid", content := cssGridTabContent env elapsedTime },
+    { label := "Reactive", content := reactiveShowcaseTabContent reactiveShowcaseApp },
+    { label := "Widget Perf", content := widgetPerfTabContent widgetPerfApp },
+    { label := "Seascape", content :=
+        seascapeTabContent env elapsedTime seascapeRef seascapeTimeRef
+          seascapeKeysRef seascapeLockRef seascapeDeltaRef },
+    { label := "Shapes", content := shapeGalleryTabContent env elapsedTime shapeGalleryIndexRef },
+    { label := "Map", content := worldmapTabContent env elapsedTime worldmapStateRef worldmapManager },
+    { label := "Line Caps", content := lineCapsTabContent env elapsedTime },
+    { label := "Dashed", content := dashedLinesTabContent env elapsedTime },
+    { label := "Lines", content := linesPerfTabContent env elapsedTime },
+    { label := "Textures", content := textureMatrixTabContent env elapsedTime },
+    { label := "Orbital", content := orbitalInstancedTabContent env elapsedTime },
+    { label := "Fonts", content := fontShowcaseTabContent env elapsedTime },
+    { label := "Chat", content := chatDemoTabContent chatDemoApp },
+    { label := "Lerp", content :=
+        vectorInterpolationTabContent env elapsedTime vectorInterpolationRef vectorInterpolationTimeRef },
+    { label := "Arithmetic", content := vectorArithmeticTabContent env elapsedTime vectorArithmeticRef },
+    { label := "Projection", content := vectorProjectionTabContent env elapsedTime vectorProjectionRef },
+    { label := "Field", content := vectorFieldTabContent env elapsedTime vectorFieldRef },
+    { label := "Cross 3D", content := crossProduct3DTabContent env elapsedTime crossProduct3DRef },
+    { label := "Mat2D", content :=
+        matrix2DTransformTabContent env elapsedTime matrix2DTransformRef matrix2DTransformTimeRef },
+    { label := "Mat3D", content := matrix3DTransformTabContent env elapsedTime matrix3DTransformRef },
+    { label := "Proj", content := projectionExplorerTabContent env elapsedTime projectionExplorerRef },
+    { label := "Decomp", content := matrixDecompositionTabContent env elapsedTime matrixDecompositionRef },
+    { label := "Quat", content := quaternionVisualizerTabContent env elapsedTime quaternionVisualizerRef },
+    { label := "Slerp", content :=
+        slerpInterpolationTabContent env elapsedTime slerpInterpolationRef slerpInterpolationTimeRef },
+    { label := "Gimbal", content := eulerGimbalLockTabContent env elapsedTime eulerGimbalLockRef },
+    { label := "DualQuat", content := dualQuaternionBlendingTabContent env elapsedTime dualQuaternionBlendingRef },
+    { label := "Ray", content := rayCastingPlaygroundTabContent env elapsedTime rayCastingPlaygroundRef },
+    { label := "Overlap", content := primitiveOverlapTesterTabContent env elapsedTime primitiveOverlapTesterRef },
+    { label := "Bary", content := barycentricCoordinatesTabContent env elapsedTime barycentricCoordinatesRef },
+    { label := "Frustum", content := frustumCullingDemoTabContent env elapsedTime frustumCullingDemoRef },
+    { label := "Bezier", content := bezierCurveEditorTabContent env elapsedTime bezierCurveEditorRef },
+    { label := "Catmull", content :=
+        catmullRomSplineEditorTabContent env elapsedTime catmullRomSplineEditorRef catmullRomSplineTimeRef },
+    { label := "B-Spline", content := bSplineCurveDemoTabContent env elapsedTime bSplineCurveDemoRef },
+    { label := "ArcLen", content :=
+        arcLengthParameterizationTabContent env elapsedTime arcLengthParameterizationRef arcLengthTimeRef },
+    { label := "Patch", content := bezierPatchSurfaceTabContent env elapsedTime bezierPatchSurfaceRef },
+    { label := "Easing", content := easingFunctionGalleryTabContent env elapsedTime easingFunctionGalleryRef easingTimeRef },
+    { label := "SmoothD", content := smoothDampFollowerTabContent env elapsedTime smoothDampFollowerRef smoothDampTimeRef },
+    { label := "Spring", content :=
+        springAnimationPlaygroundTabContent env elapsedTime springAnimationPlaygroundRef springTimeRef },
+    { label := "Noise2D", content := noiseExplorer2DTabContent env elapsedTime noiseExplorer2DRef },
+    { label := "Terrain", content := fbmTerrainGeneratorTabContent env elapsedTime fbmTerrainGeneratorRef },
+    { label := "Warp", content :=
+        domainWarpingDemoTabContent env elapsedTime domainWarpingDemoRef domainWarpingTimeRef },
+    { label := "Worley", content := worleyCellularNoiseTabContent env elapsedTime worleyCellularNoiseRef }
+  ]
 
   let (_, render) ← runWidget do
     let rootStyle : BoxStyle := {

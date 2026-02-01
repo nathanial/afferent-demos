@@ -28,7 +28,7 @@ Demos/
 ├── Layout/        # Layout demos (flexbox)
 ├── Visuals/       # Visual galleries (shape gallery, line caps, dashed lines)
 ├── Chat/          # Chat app demo
-├── Core/          # Demo runner infrastructure (registry, tab bar, unified runner)
+├── Core/          # Demo runner infrastructure (Canopy app + unified runner)
 └── Reactive/      # FRP demos
 ```
 
@@ -45,8 +45,9 @@ Demos/
 
 1. Create a new file in the appropriate `Demos/` subdirectory
 2. Define a `WidgetBuilder` function that returns your demo widget
-3. Register it in `Demos/Core/DemoRegistry.lean`
-4. Add the import to `Demos.lean`
+3. Add a tab content function under `Demos/Core/Runner/CanopyApp/Tabs/`
+4. Add the tab entry to `Demos/Core/Runner/CanopyApp.lean`
+5. Add the import to `Demos.lean`
 
 ## Requirements
 

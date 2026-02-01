@@ -6,7 +6,6 @@ import Afferent
 import Afferent.Canopy
 import Afferent.Canopy.Reactive
 import Demos.Core.Demo
-import Demos.Core.DemoRegistry
 import Trellis
 
 open Reactive Reactive.Host
@@ -57,15 +56,5 @@ def statsFooter (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM U
         caption' line
       pure ()
     pure ()
-
-/-- Placeholder content for demos that have not been migrated to Canopy yet. -/
-def demoStubContent (id : DemoId) : WidgetM Unit := do
-  let inst := demoInstance id
-  filledPanel' 24 do
-    heading2' inst.name
-    caption' s!"{inst.shortName} • stub"
-    spacer' 0 8
-    bodyText' "This demo has not been migrated to Canopy yet."
-    bodyText' "Replace this panel with the real demo widget."
 
 end Demos

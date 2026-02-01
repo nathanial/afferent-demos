@@ -4,7 +4,6 @@
 import Afferent
 import Afferent.Arbor
 import Afferent.Canopy.Reactive
-import Demos.Core.TabBar
 import Std.Data.HashMap
 import Init.Data.FloatArray
 
@@ -72,15 +71,6 @@ structure LoadedAssets where
   layoutOffsetX : Float
   layoutOffsetY : Float
   layoutScale : Float
-
-/-- Fixed tabbar height in logical pixels. -/
-def tabBarHeight : Float := tabBarTotalHeight ({} : TabBarStyle)
-def footerBarHeight : Float := 90
-
-structure RootBuild where
-  widget : Afferent.Arbor.Widget
-  tabBar : TabBarResult
-  contentId : Afferent.Arbor.WidgetId
 
 structure FrameCache where
   measuredWidget : Afferent.Arbor.Widget
