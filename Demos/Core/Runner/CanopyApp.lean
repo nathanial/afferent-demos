@@ -14,10 +14,17 @@ import Demos.Layout.Flexbox
 import Demos.Layout.CssGrid
 import Demos.Reactive.Showcase.App
 import Demos.Perf.Circles
+import Demos.Perf.Lines
 import Demos.Perf.Sprites
 import Demos.Perf.Widget.App
 import Demos.Visuals.Seascape
 import Demos.Visuals.ShapeGallery
+import Demos.Visuals.DashedLines
+import Demos.Visuals.LineCaps
+import Demos.Visuals.TextureMatrix
+import Demos.Visuals.Orbital
+import Demos.Overview.Fonts
+import Demos.Chat.App
 import Demos.Visuals.Worldmap
 import Tileset
 import Worldmap
@@ -110,6 +117,12 @@ private def spritesTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Floa
     emit (pure (spritesPerfWidget env.screenScale env.fontMedium env.spriteTexture particles env.spriteHalfSize))
   pure ()
 
+private def linesPerfTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+  let _ ← dynWidget elapsedTime fun t => do
+    emit (pure (linesPerfWidget t env.lineBuffer env.lineCount env.lineWidth
+      env.fontMedium env.windowWidthF env.windowHeightF))
+  pure ()
+
 private def layoutTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
   let _ ← dynWidget elapsedTime fun _ => do
     emit (pure (layoutWidgetFlex env.fontMediumId env.fontSmallId env.screenScale))
@@ -125,6 +138,26 @@ private def reactiveShowcaseTabContent (appState : ReactiveShowcase.AppState) : 
 
 private def widgetPerfTabContent (appState : WidgetPerf.AppState) : WidgetM Unit := do
   emit appState.render
+
+private def fontShowcaseTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+  let _ ← dynWidget elapsedTime fun _ => do
+    emit (pure (fontShowcaseWidget env.showcaseFonts env.fontMediumId env.screenScale))
+  pure ()
+
+private def chatDemoTabContent (appState : ChatDemo.AppState) : WidgetM Unit := do
+  emit appState.render
+
+private def textureMatrixTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+  let _ ← dynWidget elapsedTime fun t => do
+    emit (pure (textureMatrixWidget t env.screenScale env.windowWidthF env.windowHeightF
+      env.fontMedium env.fontSmall env.spriteTexture))
+  pure ()
+
+private def orbitalInstancedTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+  let _ ← dynWidget elapsedTime fun t => do
+    emit (pure (orbitalInstancedWidget t env.screenScale env.windowWidthF env.windowHeightF
+      env.fontMedium env.orbitalCount env.orbitalParams env.orbitalBuffer))
+  pure ()
 
 private def seascapeTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float)
     (stateRef : IO.Ref SeascapeState) (lastTimeRef : IO.Ref Float)
@@ -392,6 +425,16 @@ private def worldmapTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Flo
       mapName sidebarName))
   pure ()
 
+private def lineCapsTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+  let _ ← dynWidget elapsedTime fun _ => do
+    emit (pure (lineCapsWidget env.screenScale env.fontSmall env.fontMedium))
+  pure ()
+
+private def dashedLinesTabContent (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
+  let _ ← dynWidget elapsedTime fun _ => do
+    emit (pure (dashedLinesWidget env.screenScale env.fontSmall env.fontMedium))
+  pure ()
+
 private def statsFooter (env : DemoEnv) (elapsedTime : Dynamic Spider Float) : WidgetM Unit := do
   let footerHeight := 110.0 * env.screenScale
   let footerStyle : BoxStyle := {
@@ -424,6 +467,7 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
   let elapsedTime ← useElapsedTime
   let reactiveShowcaseApp ← ReactiveShowcase.createApp env
   let widgetPerfApp ← WidgetPerf.createApp env
+  let chatDemoApp ← ChatDemo.createApp env
   let circlesRef ← SpiderM.liftIO do
     let particles := Render.Dynamic.ParticleState.create 1000000 env.physWidthF env.physHeightF 42
     IO.mkRef particles
@@ -465,6 +509,7 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
       | .demoGrid => overviewTabContent env elapsedTime
       | .circlesPerf => circlesTabContent env elapsedTime circlesRef circlesTimeRef
       | .spritesPerf => spritesTabContent env elapsedTime spritesRef spritesTimeRef
+      | .linesPerf => linesPerfTabContent env elapsedTime
       | .layout => layoutTabContent env elapsedTime
       | .cssGrid => cssGridTabContent env elapsedTime
       | .reactiveShowcase => reactiveShowcaseTabContent reactiveShowcaseApp
@@ -473,6 +518,12 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
           seascapeKeysRef seascapeLockRef seascapeDeltaRef
       | .shapeGallery => shapeGalleryTabContent env elapsedTime shapeGalleryIndexRef
       | .worldmap => worldmapTabContent env elapsedTime worldmapStateRef worldmapManager
+      | .lineCaps => lineCapsTabContent env elapsedTime
+      | .dashedLines => dashedLinesTabContent env elapsedTime
+      | .textureMatrix => textureMatrixTabContent env elapsedTime
+      | .orbitalInstanced => orbitalInstancedTabContent env elapsedTime
+      | .fontShowcase => fontShowcaseTabContent env elapsedTime
+      | .chatDemo => chatDemoTabContent chatDemoApp
       | _ => demoStubContent id
   }
 
