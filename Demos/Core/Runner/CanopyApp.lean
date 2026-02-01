@@ -68,6 +68,8 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
   let barycentricCoordinatesRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.barycentricCoordinatesInitialState)
   let frustumCullingDemoRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.frustumCullingDemoInitialState)
   let bezierCurveEditorRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.bezierCurveEditorInitialState)
+  let catmullRomSplineEditorRef ← SpiderM.liftIO (IO.mkRef Demos.Linalg.catmullRomSplineEditorInitialState)
+  let catmullRomSplineTimeRef ← SpiderM.liftIO (IO.mkRef 0.0)
   let worldmapStateRef ← SpiderM.liftIO do
     let config : Worldmap.MapStateConfig := {
       lat := 37.7749
@@ -146,6 +148,8 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
           frustumCullingDemoTabContent env elapsedTime frustumCullingDemoRef
       | .bezierCurveEditor =>
           bezierCurveEditorTabContent env elapsedTime bezierCurveEditorRef
+      | .catmullRomSplineEditor =>
+          catmullRomSplineEditorTabContent env elapsedTime catmullRomSplineEditorRef catmullRomSplineTimeRef
       | _ => demoStubContent id
   }
 
