@@ -29,8 +29,15 @@ private def updateExtents (scale : Float) (state : Demos.Linalg.OctreeViewer3DSt
 
 private def updateRotation (yawDelta pitchDelta : Float) (state : Demos.Linalg.OctreeViewer3DState)
     : Demos.Linalg.OctreeViewer3DState :=
-  let newPitch := Linalg.Float.clamp (state.pitch + pitchDelta) (-1.2) 1.2
-  { state with yaw := state.yaw + yawDelta, pitch := newPitch }
+  let newPitch := Linalg.Float.clamp (state.cameraPitch + pitchDelta) (-1.2) 1.2
+  { state with cameraYaw := state.cameraYaw + yawDelta, cameraPitch := newPitch }
+
+private def updateCameraDistance (scale : Float) (state : Demos.Linalg.OctreeViewer3DState)
+    : Demos.Linalg.OctreeViewer3DState :=
+  let minD := 4.0
+  let maxD := 25.0
+  let newDist := Linalg.Float.clamp (state.cameraDistance * scale) minD maxD
+  { state with cameraDistance := newDist }
 
 def octreeViewer3DTabContent (env : DemoEnv) : WidgetM Unit := do
   let demoName ← registerComponentW "octree-viewer-3d"
@@ -54,6 +61,8 @@ def octreeViewer3DTabContent (env : DemoEnv) : WidgetM Unit := do
         | .char 'd' => { s with queryCenter := s.queryCenter.add (Linalg.Vec3.mk 0.3 0.0 0.0) }
         | .char 'u' => { s with queryCenter := s.queryCenter.add (Linalg.Vec3.mk 0.0 0.0 0.3) }
         | .char 'j' => { s with queryCenter := s.queryCenter.add (Linalg.Vec3.mk 0.0 0.0 (-0.3)) }
+        | .char '[' => updateCameraDistance 1.1 s
+        | .char ']' => updateCameraDistance 0.9 s
         | .left => updateRotation (-0.1) 0.0 s
         | .right => updateRotation 0.1 0.0 s
         | .up => updateRotation 0.0 (-0.1) s
@@ -74,17 +83,17 @@ def octreeViewer3DTabContent (env : DemoEnv) : WidgetM Unit := do
               let rect := layout.contentRect
               let localX := data.click.x - rect.x
               let localY := data.click.y - rect.y
-              let origin := (rect.width / 2, rect.height / 2)
-              let scale := 60.0 * env.screenScale
-              let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
               fun (state : Demos.Linalg.OctreeViewer3DState) =>
-                let z := Float.sin state.spawnPhase * 2.0
-                let center := Linalg.Vec3.mk worldPos.x worldPos.y z
-                let size := 0.25 + 0.1 * Float.cos (state.spawnPhase * 0.8)
-                let item := Linalg.AABB.fromCenterExtents center (Linalg.Vec3.mk size size size)
-                { state with
-                  items := state.items.push item
-                  spawnPhase := state.spawnPhase + 0.7 }
+                match Demos.Linalg.screenToWorldOnPlane state localX localY rect.width rect.height 0.0 with
+                | some worldPos =>
+                    let z := Float.sin state.spawnPhase * 2.0
+                    let center := Linalg.Vec3.mk worldPos.x worldPos.y z
+                    let size := 0.25 + 0.1 * Float.cos (state.spawnPhase * 0.8)
+                    let item := Linalg.AABB.fromCenterExtents center (Linalg.Vec3.mk size size size)
+                    { state with
+                      items := state.items.push item
+                      spawnPhase := state.spawnPhase + 0.7 }
+                | none => state
           | none => id
       | none => id
     ) clickEvents
