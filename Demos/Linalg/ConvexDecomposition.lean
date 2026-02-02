@@ -6,10 +6,10 @@ import Afferent.Widget
 import Afferent.Arbor
 import Demos.Core.Demo
 import Demos.Linalg.Shared
-import Demos.Linalg.RotationShared
 import Trellis
 import Linalg.Core
 import Linalg.Vec3
+import Linalg.Mat4
 import Linalg.Geometry.Mesh
 import Linalg.Geometry.AABB
 import Linalg.Geometry.Triangle
@@ -183,10 +183,30 @@ private structure VoxelSample where
   hullDist : Float
   insideMesh : Bool
 
-private def drawLine3D (a b : Vec3) (yaw pitch : Float) (origin : Float × Float)
-    (scale : Float) (color : Color) (lineWidth : Float := 1.6) : CanvasM Unit := do
-  let p1 := rotProject3Dto2D a yaw pitch origin scale
-  let p2 := rotProject3Dto2D b yaw pitch origin scale
+private structure ProjectionCtx where
+  origin : Float × Float
+  halfW : Float
+  halfH : Float
+  vp : Mat4
+
+private def makeProjectionCtx (yaw pitch : Float) (w h : Float) : ProjectionCtx :=
+  let aspect := if h <= 0.0 then 1.0 else w / h
+  let fov := 60.0 * Float.pi / 180.0
+  let cameraDist := 7.0
+  let proj := Mat4.perspective fov aspect 0.1 100.0
+  let view := Mat4.lookAt (Vec3.mk 0 0 cameraDist) Vec3.zero Vec3.unitY
+  let rot := Mat4.rotationX pitch * Mat4.rotationY yaw
+  let vp := proj * view * rot
+  { origin := (w / 2, h / 2), halfW := w / 2, halfH := h / 2, vp := vp }
+
+private def projectPoint (ctx : ProjectionCtx) (p : Vec3) : Float × Float :=
+  let ndc := ctx.vp.transformPoint p
+  (ctx.origin.1 + ndc.x * ctx.halfW, ctx.origin.2 - ndc.y * ctx.halfH)
+
+private def drawLine3D (a b : Vec3) (ctx : ProjectionCtx)
+    (color : Color) (lineWidth : Float := 1.6) : CanvasM Unit := do
+  let p1 := projectPoint ctx a
+  let p2 := projectPoint ctx b
   setStrokeColor color
   setLineWidth lineWidth
   let path := Afferent.Path.empty
@@ -194,8 +214,8 @@ private def drawLine3D (a b : Vec3) (yaw pitch : Float) (origin : Float × Float
     |>.lineTo (Point.mk p2.1 p2.2)
   strokePath path
 
-private def drawAABBWireframe (aabb : AABB) (yaw pitch : Float) (origin : Float × Float)
-    (scale : Float) (color : Color) (lineWidth : Float := 1.4) : CanvasM Unit := do
+private def drawAABBWireframe (aabb : AABB) (ctx : ProjectionCtx)
+    (color : Color) (lineWidth : Float := 1.4) : CanvasM Unit := do
   let min := aabb.min
   let max := aabb.max
   let corners : Array Vec3 := #[
@@ -214,8 +234,7 @@ private def drawAABBWireframe (aabb : AABB) (yaw pitch : Float) (origin : Float 
     (0, 4), (1, 5), (2, 6), (3, 7)
   ]
   for (i, j) in edges do
-    drawLine3D (corners.getD i Vec3.zero) (corners.getD j Vec3.zero)
-      yaw pitch origin scale color lineWidth
+    drawLine3D (corners.getD i Vec3.zero) (corners.getD j Vec3.zero) ctx color lineWidth
 
 private def collectHullEdges (faces : Array (Nat × Nat × Nat)) : Array (Nat × Nat) := Id.run do
   let mut edges : Array (Nat × Nat) := #[]
@@ -235,29 +254,29 @@ private def collectHullEdges (faces : Array (Nat × Nat × Nat)) : Array (Nat ×
       edges := edges.push (c, a)
   return edges
 
-private def drawHullWireframe (hull : ConvexHull3D) (yaw pitch : Float)
-    (origin : Float × Float) (scale : Float) (color : Color) : CanvasM Unit := do
+private def drawHullWireframe (hull : ConvexHull3D) (ctx : ProjectionCtx)
+    (color : Color) : CanvasM Unit := do
   if hull.faces.isEmpty then return
   let edges := collectHullEdges hull.faces
   for (a, b) in edges do
     let p1 := hull.points.getD a Vec3.zero
     let p2 := hull.points.getD b Vec3.zero
-    drawLine3D p1 p2 yaw pitch origin scale color 1.8
+    drawLine3D p1 p2 ctx color 1.8
 
-private def drawMeshWireframe (mesh : Mesh) (yaw pitch : Float)
-    (origin : Float × Float) (scale : Float) (color : Color) : CanvasM Unit := do
+private def drawMeshWireframe (mesh : Mesh) (ctx : ProjectionCtx)
+    (color : Color) : CanvasM Unit := do
   let triCount := mesh.triangleCount
   for i in [:triCount] do
     match Mesh.triangle? mesh i with
     | none => pure ()
     | some tri =>
-    drawLine3D tri.v0 tri.v1 yaw pitch origin scale color 1.0
-    drawLine3D tri.v1 tri.v2 yaw pitch origin scale color 1.0
-    drawLine3D tri.v2 tri.v0 yaw pitch origin scale color 1.0
+        drawLine3D tri.v0 tri.v1 ctx color 1.0
+        drawLine3D tri.v1 tri.v2 ctx color 1.0
+        drawLine3D tri.v2 tri.v0 ctx color 1.0
 
-private def drawPoint3D (p : Vec3) (yaw pitch : Float) (origin : Float × Float)
-    (scale : Float) (color : Color) (radius : Float := 3.0) : CanvasM Unit := do
-  let (sx, sy) := rotProject3Dto2D p yaw pitch origin scale
+private def drawPoint3D (p : Vec3) (ctx : ProjectionCtx)
+    (color : Color) (radius : Float := 3.0) : CanvasM Unit := do
+  let (sx, sy) := projectPoint ctx p
   setFillColor color
   fillPath (Afferent.Path.circle (Point.mk sx sy) radius)
 
@@ -363,30 +382,49 @@ private def buildVoxelSamples (planes : Array (Vec3 × Float)) (tris : Array Tri
       samples := samples.push { pos := p, hullDist := dist, insideMesh := inside }
   return samples
 
-private def drawGroundGrid (yaw pitch : Float) (origin : Float × Float)
-    (scale : Float) (screenScale : Float) : CanvasM Unit := do
+private def drawGroundGrid (ctx : ProjectionCtx) (screenScale : Float) : CanvasM Unit := do
   setStrokeColor (Color.gray 0.18)
   setLineWidth (1.0 * screenScale)
   for i in [:13] do
     let offset := (i.toFloat - 6.0) * 0.6
-    let p1 := rotProject3Dto2D (Vec3.mk (-3.6) 0 offset) yaw pitch origin scale
-    let p2 := rotProject3Dto2D (Vec3.mk 3.6 0 offset) yaw pitch origin scale
+    let p1 := projectPoint ctx (Vec3.mk (-3.6) 0 offset)
+    let p2 := projectPoint ctx (Vec3.mk 3.6 0 offset)
     let path := Afferent.Path.empty
       |>.moveTo (Point.mk p1.1 p1.2)
       |>.lineTo (Point.mk p2.1 p2.2)
     strokePath path
-    let p3 := rotProject3Dto2D (Vec3.mk offset 0 (-3.6)) yaw pitch origin scale
-    let p4 := rotProject3Dto2D (Vec3.mk offset 0 3.6) yaw pitch origin scale
+    let p3 := projectPoint ctx (Vec3.mk offset 0 (-3.6))
+    let p4 := projectPoint ctx (Vec3.mk offset 0 3.6)
     let path2 := Afferent.Path.empty
       |>.moveTo (Point.mk p3.1 p3.2)
       |>.lineTo (Point.mk p4.1 p4.2)
     strokePath path2
 
+private def drawAxesPerspective (ctx : ProjectionCtx) (axisLength : Float)
+    (fontSmall : Font) : CanvasM Unit := do
+  let xEnd := Vec3.mk axisLength 0.0 0.0
+  let yEnd := Vec3.mk 0.0 axisLength 0.0
+  let zEnd := Vec3.mk 0.0 0.0 axisLength
+
+  drawLine3D Vec3.zero xEnd ctx VecColor.xAxis 2.0
+  drawLine3D Vec3.zero yEnd ctx VecColor.yAxis 2.0
+  drawLine3D Vec3.zero zEnd ctx VecColor.zAxis 2.0
+
+  let (xx, xy) := projectPoint ctx xEnd
+  let (yx, yy) := projectPoint ctx yEnd
+  let (zx, zy) := projectPoint ctx zEnd
+
+  setFillColor VecColor.xAxis
+  fillTextXY "X" (xx + 6) (xy - 6) fontSmall
+  setFillColor VecColor.yAxis
+  fillTextXY "Y" (yx + 6) (yy - 6) fontSmall
+  setFillColor VecColor.zAxis
+  fillTextXY "Z" (zx + 6) (zy - 6) fontSmall
+
 /-- Render convex decomposition demo. -/
 def renderConvexDecomposition (state : ConvexDecompositionState)
     (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
+  let projCtx := makeProjectionCtx state.cameraYaw state.cameraPitch w h
   let mesh := buildMeshForPreset state.meshPreset
   let hull := ConvexHull3D.quickHull mesh.vertices
   let planes := buildHullPlanes hull
@@ -414,39 +452,38 @@ def renderConvexDecomposition (state : ConvexDecompositionState)
           maxConcavity := dist
 
   if state.showGrid then
-    drawGroundGrid state.cameraYaw state.cameraPitch origin scale screenScale
+    drawGroundGrid projCtx screenScale
   if state.showAxes then
-    rotDraw3DAxes state.cameraYaw state.cameraPitch origin scale 2.8 fontSmall
+    drawAxesPerspective projCtx 2.8 fontSmall
 
   if state.showMesh then
-    drawMeshWireframe mesh state.cameraYaw state.cameraPitch origin scale (Color.gray 0.35)
+    drawMeshWireframe mesh projCtx (Color.gray 0.35)
 
   if state.showVoxels then
     for sample in voxelSamples do
       if sample.insideMesh then
-        drawPoint3D sample.pos state.cameraYaw state.cameraPitch origin scale
-          (Color.rgba 0.3 0.3 0.35 0.35) (2.0 * screenScale)
+        drawPoint3D sample.pos projCtx (Color.rgba 0.3 0.3 0.35 0.35) (2.0 * screenScale)
       else
         let dist := -sample.hullDist
         if dist >= state.concavityThreshold then
           let color := if state.showConcavity then concavityColor dist maxConcavity
             else Color.rgba 0.9 0.55 0.2 0.7
-          drawPoint3D sample.pos state.cameraYaw state.cameraPitch origin scale color (2.4 * screenScale)
+          drawPoint3D sample.pos projCtx color (2.4 * screenScale)
 
   for i in [:pieces.size] do
     let piece := pieces[i]!
     let color := pieceColor i
     if state.showBounds then
-      drawAABBWireframe piece.bounds state.cameraYaw state.cameraPitch origin scale (color.withAlpha 0.35) 1.3
+      drawAABBWireframe piece.bounds projCtx (color.withAlpha 0.35) 1.3
     if state.showHulls then
-      drawHullWireframe piece.hull state.cameraYaw state.cameraPitch origin scale color
+      drawHullWireframe piece.hull projCtx color
 
   if state.showSamples then
     for sample in triSamples do
       if sample.concavity >= state.concavityThreshold then
         let color := if state.showConcavity then concavityColor sample.concavity maxConcavity
           else Color.rgba 0.85 0.85 0.85 0.75
-        drawPoint3D sample.pos state.cameraYaw state.cameraPitch origin scale color (3.0 * screenScale)
+        drawPoint3D sample.pos projCtx color (3.0 * screenScale)
 
   let infoY := h - 210 * screenScale
   let maxTriText := if state.config.maxTrianglesPerPart == 0 then "none"
