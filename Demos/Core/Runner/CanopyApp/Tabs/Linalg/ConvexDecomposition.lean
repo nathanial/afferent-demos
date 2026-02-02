@@ -51,6 +51,23 @@ private def updateMinSplit (scale : Float) (state : Demos.Linalg.ConvexDecomposi
     config := { state.config with minSplitExtent := newVal }
   }
 
+private def updateVoxelResolution (delta : Int) (state : Demos.Linalg.ConvexDecompositionState)
+    : Demos.Linalg.ConvexDecompositionState :=
+  let current := Int.ofNat state.voxelResolution
+  let raw := current + delta
+  let clamped :=
+    if raw < 4 then 4
+    else if raw > 24 then 24
+    else raw
+  { state with voxelResolution := clamped.toNat }
+
+private def updateConcavityThreshold (delta : Float) (state : Demos.Linalg.ConvexDecompositionState)
+    : Demos.Linalg.ConvexDecompositionState :=
+  let minT := 0.0
+  let maxT := 0.5
+  let newVal := Linalg.Float.clamp (state.concavityThreshold + delta) minT maxT
+  { state with concavityThreshold := newVal }
+
 private def updateRotation (dx dy : Float) (state : Demos.Linalg.ConvexDecompositionState)
     : Demos.Linalg.ConvexDecompositionState :=
   let newYaw := state.cameraYaw + dx
@@ -72,6 +89,13 @@ def convexDecompositionTabContent (env : DemoEnv) : WidgetM Unit := do
         | .char 'g' => { s with showGrid := !s.showGrid }
         | .char 'x' => { s with showAxes := !s.showAxes }
         | .char 'c' => { s with meshPreset := Demos.Linalg.nextConvexMeshPreset s.meshPreset }
+        | .char 'p' => { s with showSamples := !s.showSamples }
+        | .char 'v' => { s with showVoxels := !s.showVoxels }
+        | .char 't' => { s with showConcavity := !s.showConcavity }
+        | .char 'u' => updateVoxelResolution 1 s
+        | .char 'j' => updateVoxelResolution (-1) s
+        | .char 'i' => updateConcavityThreshold 0.02 s
+        | .char 'k' => updateConcavityThreshold (-0.02) s
         | .char '[' => updateMaxTriangles (-4) s
         | .char ']' => updateMaxTriangles 4 s
         | .char ',' => updateMaxDepth (-1) s
