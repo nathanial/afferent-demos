@@ -19,6 +19,7 @@ import Linalg.Geometry.Triangle
 import Linalg.Geometry.Intersection
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -43,25 +44,26 @@ structure RayCastingPlaygroundState where
 
 def rayCastingPlaygroundInitialState : RayCastingPlaygroundState := {}
 
-private def drawLine3D (a b : Vec3) (yaw pitch : Float) (origin : Float × Float)
-    (scale : Float) (color : Color) (lineWidth : Float := 2.0) : CanvasM Unit := do
-  let p1 := rotProject3Dto2D a yaw pitch origin scale
-  let p2 := rotProject3Dto2D b yaw pitch origin scale
-  setStrokeColor color
-  setLineWidth lineWidth
-  let path := Afferent.Path.empty
-    |>.moveTo (Point.mk p1.1 p1.2)
-    |>.lineTo (Point.mk p2.1 p2.2)
-  strokePath path
+def rayCastingPlaygroundMathViewConfig (state : RayCastingPlaygroundState) (screenScale : Float)
+    : MathView3D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  camera := { yaw := state.cameraYaw, pitch := state.cameraPitch, distance := 8.0 }
+  gridExtent := 2.5
+  gridStep := 0.5
+  gridMajorStep := 1.0
+  axisLength := 2.8
+  axisLineWidth := 2.0 * screenScale
+  gridLineWidth := 1.0 * screenScale
+}
 
-private def drawSphereRingsAt (center : Vec3) (radius : Float) (yaw pitch : Float)
-    (origin : Float × Float) (scale : Float) (color : Color) : CanvasM Unit := do
-  rotDrawCircle3D center Vec3.unitX radius yaw pitch origin scale 48 color 1.5
-  rotDrawCircle3D center Vec3.unitY radius yaw pitch origin scale 48 color 1.5
-  rotDrawCircle3D center Vec3.unitZ radius yaw pitch origin scale 48 color 1.5
+private def drawSphereRingsAt (view : MathView3D.View) (center : Vec3) (radius : Float)
+    (color : Color) : CanvasM Unit := do
+  rotDrawCircle3D center Vec3.unitX radius view 48 color 1.5
+  rotDrawCircle3D center Vec3.unitY radius view 48 color 1.5
+  rotDrawCircle3D center Vec3.unitZ radius view 48 color 1.5
 
-private def drawAABBWireframe (aabb : AABB) (yaw pitch : Float) (origin : Float × Float)
-    (scale : Float) (color : Color) : CanvasM Unit := do
+private def drawAABBWireframe (view : MathView3D.View) (aabb : AABB) (color : Color)
+    (lineWidth : Float := 1.6) : CanvasM Unit := do
   let min := aabb.min
   let max := aabb.max
   let corners : Array Vec3 := #[
@@ -80,47 +82,25 @@ private def drawAABBWireframe (aabb : AABB) (yaw pitch : Float) (origin : Float 
     (0, 4), (1, 5), (2, 6), (3, 7)
   ]
   for (i, j) in edges do
-    drawLine3D (corners.getD i Vec3.zero) (corners.getD j Vec3.zero)
-      yaw pitch origin scale color 1.6
+    MathView3D.drawLine3D view (corners.getD i Vec3.zero) (corners.getD j Vec3.zero)
+      color lineWidth
 
-private def drawPlaneQuad (plane : Plane) (size : Float) (yaw pitch : Float)
-    (origin : Float × Float) (scale : Float) : CanvasM Unit := do
+private def drawPlaneQuad (view : MathView3D.View) (plane : Plane) (size : Float) : CanvasM Unit := do
   let center := plane.origin
   let (u, v) := basisFromAxis plane.normal
   let p1 := (center.add (u.scale size)).add (v.scale size)
   let p2 := (center.add (u.scale (-size))).add (v.scale size)
   let p3 := (center.add (u.scale (-size))).add (v.scale (-size))
   let p4 := (center.add (u.scale size)).add (v.scale (-size))
-  drawLine3D p1 p2 yaw pitch origin scale (Color.gray 0.4) 1.0
-  drawLine3D p2 p3 yaw pitch origin scale (Color.gray 0.4) 1.0
-  drawLine3D p3 p4 yaw pitch origin scale (Color.gray 0.4) 1.0
-  drawLine3D p4 p1 yaw pitch origin scale (Color.gray 0.4) 1.0
+  MathView3D.drawLine3D view p1 p2 (Color.gray 0.4) 1.0
+  MathView3D.drawLine3D view p2 p3 (Color.gray 0.4) 1.0
+  MathView3D.drawLine3D view p3 p4 (Color.gray 0.4) 1.0
+  MathView3D.drawLine3D view p4 p1 (Color.gray 0.4) 1.0
 
 /-- Render the ray casting playground. -/
 def renderRayCastingPlayground (state : RayCastingPlaygroundState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
-
-  -- Ground grid (XZ plane)
-  setStrokeColor (Color.gray 0.15)
-  setLineWidth 1.0
-  for i in [:11] do
-    let offset := (i.toFloat - 5.0) * 0.5
-    let p1 := rotProject3Dto2D (Vec3.mk (-2.5) 0 offset) state.cameraYaw state.cameraPitch origin scale
-    let p2 := rotProject3Dto2D (Vec3.mk 2.5 0 offset) state.cameraYaw state.cameraPitch origin scale
-    let path := Afferent.Path.empty
-      |>.moveTo (Point.mk p1.1 p1.2)
-      |>.lineTo (Point.mk p2.1 p2.2)
-    strokePath path
-    let p3 := rotProject3Dto2D (Vec3.mk offset 0 (-2.5)) state.cameraYaw state.cameraPitch origin scale
-    let p4 := rotProject3Dto2D (Vec3.mk offset 0 2.5) state.cameraYaw state.cameraPitch origin scale
-    let path2 := Afferent.Path.empty
-      |>.moveTo (Point.mk p3.1 p3.2)
-      |>.lineTo (Point.mk p4.1 p4.2)
-    strokePath path2
-
-  rotDraw3DAxes state.cameraYaw state.cameraPitch origin scale 2.8 fontSmall
+    (view : MathView3D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let h := view.height
 
   -- Scene primitives
   let sphere := Sphere.mk' (Vec3.mk 1.2 0.6 0.2) 0.6
@@ -128,24 +108,28 @@ def renderRayCastingPlayground (state : RayCastingPlaygroundState)
   let plane := Plane.fromNormalPoint Vec3.unitY (Vec3.mk 0.0 (-0.6) 0.0)
   let tri := Triangle.mk' (Vec3.mk (-1.6) 0.2 (-1.0)) (Vec3.mk (-0.2) 0.7 (-0.6)) (Vec3.mk (-0.8) 0.2 0.6)
 
-  drawPlaneQuad plane 2.2 state.cameraYaw state.cameraPitch origin scale
-  drawSphereRingsAt sphere.center sphere.radius state.cameraYaw state.cameraPitch origin scale (Color.rgba 0.3 0.7 1.0 0.7)
-  drawAABBWireframe aabb state.cameraYaw state.cameraPitch origin scale (Color.rgba 0.8 0.5 0.2 0.9)
-  drawLine3D tri.v0 tri.v1 state.cameraYaw state.cameraPitch origin scale (Color.rgba 0.8 0.7 0.2 0.9) 2.0
-  drawLine3D tri.v1 tri.v2 state.cameraYaw state.cameraPitch origin scale (Color.rgba 0.8 0.7 0.2 0.9) 2.0
-  drawLine3D tri.v2 tri.v0 state.cameraYaw state.cameraPitch origin scale (Color.rgba 0.8 0.7 0.2 0.9) 2.0
+  drawPlaneQuad view plane 2.2
+  drawSphereRingsAt view sphere.center sphere.radius (Color.rgba 0.3 0.7 1.0 0.7)
+  drawAABBWireframe view aabb (Color.rgba 0.8 0.5 0.2 0.9)
+  MathView3D.drawLine3D view tri.v0 tri.v1 (Color.rgba 0.8 0.7 0.2 0.9) (2.0 * screenScale)
+  MathView3D.drawLine3D view tri.v1 tri.v2 (Color.rgba 0.8 0.7 0.2 0.9) (2.0 * screenScale)
+  MathView3D.drawLine3D view tri.v2 tri.v0 (Color.rgba 0.8 0.7 0.2 0.9) (2.0 * screenScale)
 
   -- Ray
   let ray := Ray.mk' state.rayOrigin (state.rayTarget.sub state.rayOrigin)
   let rayEnd := ray.origin.add (ray.direction.scale 6.0)
-  drawLine3D ray.origin rayEnd state.cameraYaw state.cameraPitch origin scale (Color.rgba 1.0 0.6 0.3 0.9) 2.2
+  MathView3D.drawLine3D view ray.origin rayEnd (Color.rgba 1.0 0.6 0.3 0.9) (2.2 * screenScale)
 
-  let (rx, ry) := rotProject3Dto2D state.rayOrigin state.cameraYaw state.cameraPitch origin scale
-  let (tx, ty) := rotProject3Dto2D state.rayTarget state.cameraYaw state.cameraPitch origin scale
-  setFillColor Color.white
-  fillPath (Afferent.Path.circle (Point.mk rx ry) 6.0)
-  setFillColor (Color.rgba 1.0 0.6 0.3 1.0)
-  fillPath (Afferent.Path.circle (Point.mk tx ty) 5.0)
+  match rotProject3Dto2D view state.rayOrigin with
+  | some (rx, ry) =>
+      setFillColor Color.white
+      fillPath (Afferent.Path.circle (Point.mk rx ry) (6.0 * screenScale))
+  | none => pure ()
+  match rotProject3Dto2D view state.rayTarget with
+  | some (tx, ty) =>
+      setFillColor (Color.rgba 1.0 0.6 0.3 1.0)
+      fillPath (Afferent.Path.circle (Point.mk tx ty) (5.0 * screenScale))
+  | none => pure ()
 
   -- Intersections
   let sphereHit := Intersection.raySphere ray sphere
@@ -154,11 +138,13 @@ def renderRayCastingPlayground (state : RayCastingPlaygroundState)
   let triHit := Intersection.rayTriangle ray tri
 
   let drawHit (hit : RayHit) (color : Color) : CanvasM Unit := do
-    let (hx, hy) := rotProject3Dto2D hit.point state.cameraYaw state.cameraPitch origin scale
-    setFillColor color
-    fillPath (Afferent.Path.circle (Point.mk hx hy) 5.0)
+    match rotProject3Dto2D view hit.point with
+    | some (hx, hy) =>
+        setFillColor color
+        fillPath (Afferent.Path.circle (Point.mk hx hy) (5.0 * screenScale))
+    | none => pure ()
     let normalEnd := hit.point.add (hit.normal.scale 0.4)
-    drawLine3D hit.point normalEnd state.cameraYaw state.cameraPitch origin scale color 2.0
+    MathView3D.drawLine3D view hit.point normalEnd color (2.0 * screenScale)
 
   if let some hit := sphereHit then
     drawHit hit (Color.rgba 0.3 0.7 1.0 1.0)
@@ -189,14 +175,9 @@ def renderRayCastingPlayground (state : RayCastingPlaygroundState)
 /-- Create the ray casting playground widget. -/
 def rayCastingPlaygroundWidget (env : DemoEnv) (state : RayCastingPlaygroundState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderRayCastingPlayground state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := rayCastingPlaygroundMathViewConfig state env.screenScale
+  MathView3D.mathView3D config env.fontSmall (fun view => do
+    renderRayCastingPlayground state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

@@ -18,6 +18,7 @@ import Linalg.Geometry.Sphere
 import Linalg.Geometry.AABB
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -36,19 +37,17 @@ structure FrustumCullingDemoState where
 /-- Initial state. -/
 def frustumCullingDemoInitialState : FrustumCullingDemoState := {}
 
-private def drawLine3D (a b : Vec3) (yaw pitch : Float) (origin : Float × Float)
-    (scale : Float) (color : Color) (lineWidth : Float := 1.5) : CanvasM Unit := do
-  let p1 := rotProject3Dto2D a yaw pitch origin scale
-  let p2 := rotProject3Dto2D b yaw pitch origin scale
-  setStrokeColor color
-  setLineWidth lineWidth
-  let path := Afferent.Path.empty
-    |>.moveTo (Point.mk p1.1 p1.2)
-    |>.lineTo (Point.mk p2.1 p2.2)
-  strokePath path
+def frustumCullingMathViewConfig (state : FrustumCullingDemoState) (screenScale : Float)
+    : MathView3D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  camera := { yaw := state.viewYaw, pitch := state.viewPitch, distance := 9.0 }
+  showGrid := false
+  showAxes := false
+  axisLineWidth := 2.0 * screenScale
+}
 
-private def drawAABBWireframe (aabb : AABB) (yaw pitch : Float) (origin : Float × Float)
-    (scale : Float) (color : Color) : CanvasM Unit := do
+private def drawAABBWireframe (view : MathView3D.View) (aabb : AABB) (color : Color)
+    (lineWidth : Float := 1.5) : CanvasM Unit := do
   let min := aabb.min
   let max := aabb.max
   let corners : Array Vec3 := #[
@@ -67,29 +66,31 @@ private def drawAABBWireframe (aabb : AABB) (yaw pitch : Float) (origin : Float 
     (0, 4), (1, 5), (2, 6), (3, 7)
   ]
   for (i, j) in edges do
-    drawLine3D (corners.getD i Vec3.zero) (corners.getD j Vec3.zero)
-      yaw pitch origin scale color 1.5
+    MathView3D.drawLine3D view (corners.getD i Vec3.zero) (corners.getD j Vec3.zero)
+      color lineWidth
 
 private def containmentColor : Frustum.Containment -> Color
   | .inside => Color.rgba 0.3 0.9 0.5 0.9
   | .intersects => Color.rgba 1.0 0.85 0.3 0.9
   | .outside => Color.rgba 1.0 0.4 0.4 0.9
 
-private def drawSphereMarker (sphere : Sphere) (yaw pitch : Float) (origin : Float × Float)
-    (scale : Float) (color : Color) : CanvasM Unit := do
-  let (sx, sy) := rotProject3Dto2D sphere.center yaw pitch origin scale
-  let r := sphere.radius * scale
-  setStrokeColor color
-  setLineWidth 2.0
-  strokePath (Afferent.Path.circle (Point.mk sx sy) r)
-  setFillColor color
-  fillPath (Afferent.Path.circle (Point.mk sx sy) 4.0)
+private def drawSphereMarker (view : MathView3D.View) (sphere : Sphere)
+    (color : Color) (screenScale : Float) : CanvasM Unit := do
+  match rotProject3Dto2D view sphere.center with
+  | some (sx, sy) =>
+      let r := sphere.radius * 70.0 * screenScale
+      setStrokeColor color
+      setLineWidth 2.0
+      strokePath (Afferent.Path.circle (Point.mk sx sy) r)
+      setFillColor color
+      fillPath (Afferent.Path.circle (Point.mk sx sy) (4.0 * screenScale))
+  | none => pure ()
 
 /-- Render the frustum culling demo. -/
 def renderFrustumCullingDemo (state : FrustumCullingDemoState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
+    (view : MathView3D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
 
   -- Culling camera
   let cy := Float.cos state.camPitch
@@ -97,10 +98,10 @@ def renderFrustumCullingDemo (state : FrustumCullingDemoState)
   let eye := Vec3.mk (Float.cos state.camYaw * cy * state.camDist)
     (sy * state.camDist)
     (Float.sin state.camYaw * cy * state.camDist)
-  let view := Mat4.lookAt eye Vec3.zero Vec3.unitY
+  let viewMatrix := Mat4.lookAt eye Vec3.zero Vec3.unitY
   let aspect := if h > 0.0 then w / h else 1.0
   let proj := Mat4.perspective (60.0 * Linalg.Float.pi / 180.0) aspect 0.5 8.0
-  let vp := proj * view
+  let vp := proj * viewMatrix
   let frustum := Frustum.fromViewProjection vp
 
   let corners := match vp.inverse with
@@ -115,8 +116,8 @@ def renderFrustumCullingDemo (state : FrustumCullingDemoState)
       (0, 4), (1, 5), (2, 6), (3, 7)
     ]
     for (i, j) in edges do
-      drawLine3D (corners.getD i Vec3.zero) (corners.getD j Vec3.zero)
-        state.viewYaw state.viewPitch origin scale (Color.gray 0.6) 1.2
+      MathView3D.drawLine3D view (corners.getD i Vec3.zero) (corners.getD j Vec3.zero)
+        (Color.gray 0.6) (1.2 * screenScale)
 
   -- Objects to cull
   let spheres : Array Sphere := #[
@@ -140,18 +141,20 @@ def renderFrustumCullingDemo (state : FrustumCullingDemoState)
     let containment := frustum.testSphere s
     if containment == .inside then visibleCount := visibleCount + 1
     else if containment == .intersects then intersectCount := intersectCount + 1
-    drawSphereMarker s state.viewYaw state.viewPitch origin scale (containmentColor containment)
+    drawSphereMarker view s (containmentColor containment) screenScale
 
   for b in aabbs do
     let containment := frustum.testAABB b
     if containment == .inside then visibleCount := visibleCount + 1
     else if containment == .intersects then intersectCount := intersectCount + 1
-    drawAABBWireframe b state.viewYaw state.viewPitch origin scale (containmentColor containment)
+    drawAABBWireframe view b (containmentColor containment)
 
   -- Draw camera position
-  let (cx, cy2) := rotProject3Dto2D eye state.viewYaw state.viewPitch origin scale
-  setFillColor Color.white
-  fillPath (Afferent.Path.circle (Point.mk cx cy2) 5.0)
+  match rotProject3Dto2D view eye with
+  | some (cx, cy2) =>
+      setFillColor Color.white
+      fillPath (Afferent.Path.circle (Point.mk cx cy2) (5.0 * screenScale))
+  | none => pure ()
 
   -- Info panel
   let infoY := h - 140 * screenScale
@@ -169,14 +172,9 @@ def renderFrustumCullingDemo (state : FrustumCullingDemoState)
 /-- Create the frustum culling widget. -/
 def frustumCullingDemoWidget (env : DemoEnv) (state : FrustumCullingDemoState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderFrustumCullingDemo state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := frustumCullingMathViewConfig state env.screenScale
+  MathView3D.mathView3D config env.fontSmall (fun view => do
+    renderFrustumCullingDemo state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

@@ -15,6 +15,7 @@ import Linalg.Vec3
 import Linalg.Mat4
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -71,6 +72,19 @@ structure Matrix3DTransformState where
 
 def matrix3DTransformInitialState : Matrix3DTransformState := {}
 
+def matrix3DTransformMathViewConfig (state : Matrix3DTransformState) (screenScale : Float)
+    : MathView3D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  camera := { yaw := state.cameraYaw, pitch := state.cameraPitch, distance := 8.0 }
+  gridExtent := 2.5
+  gridStep := 0.5
+  gridMajorStep := 1.0
+  showAxes := false
+  showAxisLabels := false
+  axisLineWidth := 2.0 * screenScale
+  gridLineWidth := 1.0 * screenScale
+}
+
 /-- Compose all transforms in order -/
 def composeTransforms (transforms : Array Transform3DType) : Mat4 :=
   transforms.foldl (fun acc t => t.toMatrix * acc) Mat4.identity
@@ -91,90 +105,51 @@ def getCubeEdges : Array (Nat × Nat) := #[
 ]
 
 /-- Project 3D point to 2D with camera rotation -/
-def projectPoint (p : Vec3) (yaw pitch : Float) (origin : Float × Float) (scale : Float) : Float × Float :=
-  -- Rotate around Y (yaw)
-  let cosY := Float.cos yaw
-  let sinY := Float.sin yaw
-  let x1 := p.x * cosY + p.z * sinY
-  let z1 := -p.x * sinY + p.z * cosY
-
-  -- Rotate around X (pitch)
-  let cosP := Float.cos pitch
-  let sinP := Float.sin pitch
-  let y2 := p.y * cosP - z1 * sinP
-
-  (origin.1 + x1 * scale, origin.2 - y2 * scale)
+def projectPoint (view : MathView3D.View) (p : Vec3) : Option (Float × Float) :=
+  MathView3D.worldToScreen view p
 
 /-- Draw a wireframe cube -/
-def drawWireframeCube (matrix : Mat4) (yaw pitch : Float) (origin : Float × Float)
-    (scale : Float) (color : Color) (lineWidth : Float := 2.0) : CanvasM Unit := do
+def drawWireframeCube (view : MathView3D.View) (matrix : Mat4)
+    (color : Color) (lineWidth : Float := 2.0) : CanvasM Unit := do
   let vertices := getCubeVertices
   let edges := getCubeEdges
 
   -- Transform vertices
   let transformed := vertices.map (matrix.transformPoint ·)
-  let projected := transformed.map (projectPoint · yaw pitch origin scale)
-
-  -- Draw edges
-  setStrokeColor color
-  setLineWidth lineWidth
   for (i, j) in edges do
-    let p1 := projected.getD i (0.0, 0.0)
-    let p2 := projected.getD j (0.0, 0.0)
-    let path := Afferent.Path.empty
-      |>.moveTo (Point.mk p1.1 p1.2)
-      |>.lineTo (Point.mk p2.1 p2.2)
-    strokePath path
+    MathView3D.drawLine3D view (transformed.getD i Vec3.zero) (transformed.getD j Vec3.zero)
+      color lineWidth
 
 /-- Draw coordinate axes in 3D -/
-def draw3DCoordinateAxes (matrix : Mat4) (yaw pitch : Float) (origin : Float × Float)
-    (scale : Float) (axisLength : Float) : CanvasM Unit := do
+def draw3DCoordinateAxes (view : MathView3D.View) (matrix : Mat4) (axisLength : Float)
+    (screenScale : Float) : CanvasM Unit := do
   let origin3D := matrix.transformPoint Vec3.zero
   let xEnd := matrix.transformPoint (Vec3.mk axisLength 0 0)
   let yEnd := matrix.transformPoint (Vec3.mk 0 axisLength 0)
   let zEnd := matrix.transformPoint (Vec3.mk 0 0 axisLength)
 
-  let screenO := projectPoint origin3D yaw pitch origin scale
-  let screenX := projectPoint xEnd yaw pitch origin scale
-  let screenY := projectPoint yEnd yaw pitch origin scale
-  let screenZ := projectPoint zEnd yaw pitch origin scale
-
-  -- X axis (red)
-  drawArrow2D screenO screenX { color := VecColor.xAxis, lineWidth := 2.0 }
-  -- Y axis (green)
-  drawArrow2D screenO screenY { color := VecColor.yAxis, lineWidth := 2.0 }
-  -- Z axis (blue)
-  drawArrow2D screenO screenZ { color := VecColor.zAxis, lineWidth := 2.0 }
+  match projectPoint view origin3D, projectPoint view xEnd with
+  | some screenO, some screenX =>
+      drawArrow2D screenO screenX { color := VecColor.xAxis, lineWidth := 2.0 * screenScale }
+  | _, _ => pure ()
+  match projectPoint view origin3D, projectPoint view yEnd with
+  | some screenO, some screenY =>
+      drawArrow2D screenO screenY { color := VecColor.yAxis, lineWidth := 2.0 * screenScale }
+  | _, _ => pure ()
+  match projectPoint view origin3D, projectPoint view zEnd with
+  | some screenO, some screenZ =>
+      drawArrow2D screenO screenZ { color := VecColor.zAxis, lineWidth := 2.0 * screenScale }
+  | _, _ => pure ()
 
 /-- Render the 3D transform chain visualization -/
 def renderMatrix3DTransform (state : Matrix3DTransformState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 60.0 * screenScale
-
-  -- Draw ground grid in XZ plane
-  setStrokeColor (Color.gray 0.15)
-  setLineWidth 1.0
-  for i in [:11] do
-    let offset := (i.toFloat - 5.0) * 0.5
-    -- Lines along X
-    let p1 := projectPoint (Vec3.mk (-2.5) 0 offset) state.cameraYaw state.cameraPitch origin scale
-    let p2 := projectPoint (Vec3.mk 2.5 0 offset) state.cameraYaw state.cameraPitch origin scale
-    let path := Afferent.Path.empty
-      |>.moveTo (Point.mk p1.1 p1.2)
-      |>.lineTo (Point.mk p2.1 p2.2)
-    strokePath path
-    -- Lines along Z
-    let p3 := projectPoint (Vec3.mk offset 0 (-2.5)) state.cameraYaw state.cameraPitch origin scale
-    let p4 := projectPoint (Vec3.mk offset 0 2.5) state.cameraYaw state.cameraPitch origin scale
-    let path2 := Afferent.Path.empty
-      |>.moveTo (Point.mk p3.1 p3.2)
-      |>.lineTo (Point.mk p4.1 p4.2)
-    strokePath path2
+    (view : MathView3D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
 
   -- Draw world axes
   if state.showAxes then
-    draw3DCoordinateAxes Mat4.identity state.cameraYaw state.cameraPitch origin scale 3.0
+    draw3DCoordinateAxes view Mat4.identity 3.0 screenScale
 
   -- Draw intermediate steps if enabled
   if state.showIntermediateSteps then
@@ -182,21 +157,18 @@ def renderMatrix3DTransform (state : Matrix3DTransformState)
       let partialTransforms := state.transforms.toList.take (i + 1) |>.toArray
       let partialMatrix := composeTransforms partialTransforms
       let alpha := 0.2 + (i.toFloat / state.transforms.size.toFloat) * 0.3
-      drawWireframeCube partialMatrix state.cameraYaw state.cameraPitch origin scale
-        (Color.rgba 0.5 0.5 1.0 alpha) 1.0
+      drawWireframeCube view partialMatrix (Color.rgba 0.5 0.5 1.0 alpha) (1.0 * screenScale)
 
   -- Draw original cube (ghosted)
-  drawWireframeCube Mat4.identity state.cameraYaw state.cameraPitch origin scale
-    (Color.rgba 0.5 0.5 0.5 0.3) 1.0
+  drawWireframeCube view Mat4.identity (Color.rgba 0.5 0.5 0.5 0.3) (1.0 * screenScale)
 
   -- Draw fully transformed cube
   let finalMatrix := composeTransforms state.transforms
-  drawWireframeCube finalMatrix state.cameraYaw state.cameraPitch origin scale
-    (Color.rgba 0.3 0.8 1.0 0.9) 2.5
+  drawWireframeCube view finalMatrix (Color.rgba 0.3 0.8 1.0 0.9) (2.5 * screenScale)
 
   -- Draw local axes on transformed cube
   if state.showAxes then
-    draw3DCoordinateAxes finalMatrix state.cameraYaw state.cameraPitch origin scale 1.0
+    draw3DCoordinateAxes view finalMatrix 1.0 screenScale
 
   -- Transform list panel (left side)
   let panelX := 20.0 * screenScale
@@ -244,14 +216,9 @@ def renderMatrix3DTransform (state : Matrix3DTransformState)
 /-- Create the 3D transform chain widget -/
 def matrix3DTransformWidget (env : DemoEnv) (state : Matrix3DTransformState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderMatrix3DTransform state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := matrix3DTransformMathViewConfig state env.screenScale
+  MathView3D.mathView3D config env.fontSmall (fun view => do
+    renderMatrix3DTransform state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

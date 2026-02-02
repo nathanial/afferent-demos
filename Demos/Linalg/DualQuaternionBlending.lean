@@ -16,6 +16,7 @@ import Linalg.Quat
 import Linalg.DualQuat
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -32,25 +33,24 @@ structure DualQuaternionBlendingState where
 
 def dualQuaternionBlendingInitialState : DualQuaternionBlendingState := {}
 
+def dualQuaternionBlendingMathViewConfig (state : DualQuaternionBlendingState) (screenScale : Float)
+    : MathView3D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  camera := { yaw := state.cameraYaw, pitch := state.cameraPitch, distance := 9.0 }
+  showGrid := false
+  showAxes := false
+  axisLineWidth := 2.0 * screenScale
+}
+
 /-- Draw a polyline from sampled 3D points. -/
-private def drawPolyline3D (points : Array Vec3) (yaw pitch : Float) (origin : Float × Float)
-    (scale : Float) (color : Color) (lineWidth : Float := 2.0) : CanvasM Unit := do
-  if points.size < 2 then return
-  setStrokeColor color
-  setLineWidth lineWidth
-  let mut path := Afferent.Path.empty
-  let p0 := rotProject3Dto2D (points.getD 0 Vec3.zero) yaw pitch origin scale
-  path := path.moveTo (Point.mk p0.1 p0.2)
-  for i in [1:points.size] do
-    let p := rotProject3Dto2D (points.getD i Vec3.zero) yaw pitch origin scale
-    path := path.lineTo (Point.mk p.1 p.2)
-  strokePath path
+private def drawPolyline3D (view : MathView3D.View) (points : Array Vec3)
+    (color : Color) (lineWidth : Float := 2.0) : CanvasM Unit := do
+  MathView3D.drawPolyline3D view points color lineWidth
 
 /-- Render the dual quaternion blending visualization. -/
 def renderDualQuaternionBlending (state : DualQuaternionBlendingState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 90.0 * screenScale
+    (view : MathView3D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let h := view.height
 
   -- Bone transforms
   let qTwist0 := Quat.fromAxisAngle Vec3.unitX (-state.twist) |> Quat.normalize
@@ -71,7 +71,7 @@ def renderDualQuaternionBlending (state : DualQuaternionBlendingState)
   -- Draw skeleton
   let joint := mat0.transformPoint (Vec3.mk 1 0 0)
   let endPt := mat1.transformPoint (Vec3.mk 1 0 0)
-  drawPolyline3D #[Vec3.zero, joint, endPt] state.cameraYaw state.cameraPitch origin scale (Color.gray 0.7) 2.0
+  drawPolyline3D view #[Vec3.zero, joint, endPt] (Color.gray 0.7) (2.0 * screenScale)
 
   -- Build cross-sections along the bone
   let sections := 9
@@ -101,8 +101,8 @@ def renderDualQuaternionBlending (state : DualQuaternionBlendingState)
       lbsRing := lbsRing.push lbs
       dlbRing := dlbRing.push dlb
 
-    drawPolyline3D lbsRing state.cameraYaw state.cameraPitch origin scale (Color.rgba 1.0 0.6 0.2 0.8) 1.5
-    drawPolyline3D dlbRing state.cameraYaw state.cameraPitch origin scale (Color.rgba 0.2 0.9 0.5 0.9) 1.5
+    drawPolyline3D view lbsRing (Color.rgba 1.0 0.6 0.2 0.8) (1.5 * screenScale)
+    drawPolyline3D view dlbRing (Color.rgba 0.2 0.9 0.5 0.9) (1.5 * screenScale)
 
   -- Title and info
   let infoY := h - 140 * screenScale
@@ -123,14 +123,9 @@ def renderDualQuaternionBlending (state : DualQuaternionBlendingState)
 /-- Create the dual quaternion blending widget. -/
 def dualQuaternionBlendingWidget (env : DemoEnv) (state : DualQuaternionBlendingState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderDualQuaternionBlending state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := dualQuaternionBlendingMathViewConfig state env.screenScale
+  MathView3D.mathView3D config env.fontSmall (fun view => do
+    renderDualQuaternionBlending state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

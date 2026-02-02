@@ -15,6 +15,7 @@ import Linalg.Vec3
 import Linalg.Quat
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -33,28 +34,27 @@ structure SlerpInterpolationState where
 
 def slerpInterpolationInitialState : SlerpInterpolationState := {}
 
+def slerpInterpolationMathViewConfig (state : SlerpInterpolationState) (screenScale : Float)
+    : MathView3D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  camera := { yaw := state.cameraYaw, pitch := state.cameraPitch, distance := 8.0 }
+  showGrid := false
+  showAxes := false
+  axisLineWidth := 2.0 * screenScale
+}
+
 /-- Draw a polyline from sampled 3D points. -/
-private def drawPolyline3D (points : Array Vec3) (yaw pitch : Float) (origin : Float × Float)
-    (scale : Float) (color : Color) (lineWidth : Float := 2.0) : CanvasM Unit := do
-  if points.size < 2 then return
-  setStrokeColor color
-  setLineWidth lineWidth
-  let mut path := Afferent.Path.empty
-  let p0 := rotProject3Dto2D (points.getD 0 Vec3.zero) yaw pitch origin scale
-  path := path.moveTo (Point.mk p0.1 p0.2)
-  for i in [1:points.size] do
-    let p := rotProject3Dto2D (points.getD i Vec3.zero) yaw pitch origin scale
-    path := path.lineTo (Point.mk p.1 p.2)
-  strokePath path
+private def drawPolyline3D (view : MathView3D.View) (points : Array Vec3)
+    (color : Color) (lineWidth : Float := 2.0) : CanvasM Unit := do
+  MathView3D.drawPolyline3D view points color lineWidth
 
 /-- Render the slerp vs lerp visualization. -/
 def renderSlerpInterpolation (state : SlerpInterpolationState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 90.0 * screenScale
+    (view : MathView3D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let h := view.height
 
   -- Draw sphere rings
-  rotDrawSphereRings state.cameraYaw state.cameraPitch origin scale 1.0
+  rotDrawSphereRings view 1.0
 
   -- Endpoints (rotate forward vector)
   let forward := Vec3.unitZ
@@ -72,8 +72,8 @@ def renderSlerpInterpolation (state : SlerpInterpolationState)
     lerpPts := lerpPts.push (qL.rotateVec3 forward)
     slerpPts := slerpPts.push (qS.rotateVec3 forward)
 
-  drawPolyline3D lerpPts state.cameraYaw state.cameraPitch origin scale (Color.rgba 0.9 0.4 0.3 0.8) 2.0
-  drawPolyline3D slerpPts state.cameraYaw state.cameraPitch origin scale (Color.rgba 0.3 0.9 0.5 0.9) 2.5
+  drawPolyline3D view lerpPts (Color.rgba 0.9 0.4 0.3 0.8) (2.0 * screenScale)
+  drawPolyline3D view slerpPts (Color.rgba 0.3 0.9 0.5 0.9) (2.5 * screenScale)
 
   -- Current interpolation points
   let qL := Quat.lerp state.quatA state.quatB state.t
@@ -81,21 +81,28 @@ def renderSlerpInterpolation (state : SlerpInterpolationState)
   let pL := qL.rotateVec3 forward
   let pS := qS.rotateVec3 forward
 
-  let (lx, ly) := rotProject3Dto2D pL state.cameraYaw state.cameraPitch origin scale
-  let (sx, sy) := rotProject3Dto2D pS state.cameraYaw state.cameraPitch origin scale
-
-  setFillColor (Color.rgba 0.9 0.4 0.3 1.0)
-  fillPath (Afferent.Path.circle (Point.mk lx ly) (6.0))
-  setFillColor (Color.rgba 0.3 0.9 0.5 1.0)
-  fillPath (Afferent.Path.circle (Point.mk sx sy) (6.0))
+  match rotProject3Dto2D view pL with
+  | some (lx, ly) =>
+      setFillColor (Color.rgba 0.9 0.4 0.3 1.0)
+      fillPath (Afferent.Path.circle (Point.mk lx ly) (6.0 * screenScale))
+  | none => pure ()
+  match rotProject3Dto2D view pS with
+  | some (sx, sy) =>
+      setFillColor (Color.rgba 0.3 0.9 0.5 1.0)
+      fillPath (Afferent.Path.circle (Point.mk sx sy) (6.0 * screenScale))
+  | none => pure ()
 
   -- Draw endpoints
-  let (ax, ay) := rotProject3Dto2D aDir state.cameraYaw state.cameraPitch origin scale
-  let (bx, byy) := rotProject3Dto2D bDir state.cameraYaw state.cameraPitch origin scale
-  setFillColor VecColor.vectorA
-  fillPath (Afferent.Path.circle (Point.mk ax ay) (6.0))
-  setFillColor VecColor.vectorB
-  fillPath (Afferent.Path.circle (Point.mk bx byy) (6.0))
+  match rotProject3Dto2D view aDir with
+  | some (ax, ay) =>
+      setFillColor VecColor.vectorA
+      fillPath (Afferent.Path.circle (Point.mk ax ay) (6.0 * screenScale))
+  | none => pure ()
+  match rotProject3Dto2D view bDir with
+  | some (bx, byy) =>
+      setFillColor VecColor.vectorB
+      fillPath (Afferent.Path.circle (Point.mk bx byy) (6.0 * screenScale))
+  | none => pure ()
 
   -- Angle metrics
   let angleL := Float.acos (Float.clamp (Vec3.dot aDir pL) (-1.0) 1.0)
@@ -117,14 +124,9 @@ def renderSlerpInterpolation (state : SlerpInterpolationState)
 /-- Create the slerp interpolation widget. -/
 def slerpInterpolationWidget (env : DemoEnv) (state : SlerpInterpolationState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderSlerpInterpolation state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := slerpInterpolationMathViewConfig state env.screenScale
+  MathView3D.mathView3D config env.fontSmall (fun view => do
+    renderSlerpInterpolation state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

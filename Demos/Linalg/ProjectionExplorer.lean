@@ -16,6 +16,7 @@ import Linalg.Vec4
 import Linalg.Mat4
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -44,6 +45,14 @@ structure ProjectionExplorerState where
 
 def projectionExplorerInitialState : ProjectionExplorerState := {}
 
+def projectionExplorerMathViewConfig (state : ProjectionExplorerState) (screenScale : Float)
+    : MathView3D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  camera := { yaw := state.cameraYaw, pitch := state.cameraPitch, distance := 8.0 }
+  showGrid := false
+  showAxes := false
+  axisLineWidth := 2.0 * screenScale
+}
 /-- Test objects placed in world space for projection visualization. -/
 def projectionTestObjects : Array (Vec3 × Float × Color) := #[
   (Vec3.mk 0.0 0.0 (-1.0), 0.2, Color.cyan),
@@ -65,30 +74,14 @@ def projectionMatrix (state : ProjectionExplorerState) : Mat4 :=
 def viewMatrix : Mat4 :=
   Mat4.lookAt (Vec3.mk 0 0 0) (Vec3.mk 0 0 (-1)) (Vec3.mk 0 1 0)
 
-/-- Project 3D point to 2D screen -/
-def projectToScreen (p : Vec3) (yaw pitch : Float) (origin : Float × Float) (scale : Float) : Float × Float :=
-  let cosY := Float.cos yaw
-  let sinY := Float.sin yaw
-  let x1 := p.x * cosY + p.z * sinY
-  let z1 := -p.x * sinY + p.z * cosY
-
-  let cosP := Float.cos pitch
-  let sinP := Float.sin pitch
-  let y2 := p.y * cosP - z1 * sinP
-
-  (origin.1 + x1 * scale, origin.2 - y2 * scale)
+/-- Project 3D point to 2D screen using MathView3D. -/
+def projectToScreen (view : MathView3D.View) (p : Vec3) : Float × Float :=
+  MathView3D.worldToScreen view p |>.getD (0.0, 0.0)
 
 /-- Draw a line in 3D -/
-def drawLine3D (p1 p2 : Vec3) (yaw pitch : Float) (origin : Float × Float) (scale : Float)
+def drawLine3D (view : MathView3D.View) (p1 p2 : Vec3)
     (color : Color) (lineWidth : Float := 1.0) : CanvasM Unit := do
-  let s1 := projectToScreen p1 yaw pitch origin scale
-  let s2 := projectToScreen p2 yaw pitch origin scale
-  setStrokeColor color
-  setLineWidth lineWidth
-  let path := Afferent.Path.empty
-    |>.moveTo (Point.mk s1.1 s1.2)
-    |>.lineTo (Point.mk s2.1 s2.2)
-  strokePath path
+  MathView3D.drawLine3D view p1 p2 color lineWidth
 
 /-- Get perspective frustum corners at a given distance -/
 def getPerspectivePlaneCorners (fov aspect distance : Float) : Array Vec3 :=
@@ -113,11 +106,11 @@ def getOrthographicPlaneCorners (size aspect distance : Float) : Array Vec3 :=
   ]
 
 /-- Draw a frustum plane (rectangle) -/
-def drawFrustumPlane (corners : Array Vec3) (yaw pitch : Float) (origin : Float × Float)
-    (scale : Float) (edgeColor : Color) (fillColor : Option Color := none) : CanvasM Unit := do
+def drawFrustumPlane (view : MathView3D.View) (corners : Array Vec3)
+    (edgeColor : Color) (fillColor : Option Color := none) : CanvasM Unit := do
   if corners.size < 4 then return
 
-  let projected := corners.map (projectToScreen · yaw pitch origin scale)
+  let projected := corners.map (projectToScreen view ·)
 
   -- Build path
   let p0 := projected.getD 0 (0.0, 0.0)
@@ -138,8 +131,7 @@ def drawFrustumPlane (corners : Array Vec3) (yaw pitch : Float) (origin : Float 
   strokePath path
 
 /-- Draw a complete frustum visualization -/
-def drawFrustum (state : ProjectionExplorerState) (yaw pitch : Float)
-    (origin : Float × Float) (scale : Float) : CanvasM Unit := do
+def drawFrustum (view : MathView3D.View) (state : ProjectionExplorerState) : CanvasM Unit := do
   let (nearCorners, farCorners) := match state.projType with
     | .perspective =>
       (getPerspectivePlaneCorners state.fov state.aspect state.near,
@@ -149,11 +141,11 @@ def drawFrustum (state : ProjectionExplorerState) (yaw pitch : Float)
        getOrthographicPlaneCorners state.orthoSize state.aspect state.far)
 
   -- Draw near plane
-  drawFrustumPlane nearCorners yaw pitch origin scale
+  drawFrustumPlane view nearCorners
     (Color.rgba 0.3 1.0 0.3 0.8) (some (Color.rgba 0.3 1.0 0.3 0.15))
 
   -- Draw far plane
-  drawFrustumPlane farCorners yaw pitch origin scale
+  drawFrustumPlane view farCorners
     (Color.rgba 1.0 0.3 0.3 0.8) (some (Color.rgba 1.0 0.3 0.3 0.1))
 
   -- Draw edges connecting near to far
@@ -161,15 +153,15 @@ def drawFrustum (state : ProjectionExplorerState) (yaw pitch : Float)
   for i in [:4] do
     let nearCorner := nearCorners.getD i Vec3.zero
     let farCorner := farCorners.getD i Vec3.zero
-    drawLine3D nearCorner farCorner yaw pitch origin scale edgeColor 1.0
+    drawLine3D view nearCorner farCorner edgeColor 1.0
 
   -- Draw camera origin
-  let camPos := projectToScreen Vec3.zero yaw pitch origin scale
+  let camPos := projectToScreen view Vec3.zero
   setFillColor Color.yellow
   fillPath (Afferent.Path.circle (Point.mk camPos.1 camPos.2) 6.0)
 
   -- Draw camera direction indicator
-  let dirEnd := projectToScreen (Vec3.mk 0 0 (-0.3)) yaw pitch origin scale
+  let dirEnd := projectToScreen view (Vec3.mk 0 0 (-0.3))
   setStrokeColor Color.yellow
   setLineWidth 2.0
   let dirPath := Afferent.Path.empty
@@ -178,11 +170,11 @@ def drawFrustum (state : ProjectionExplorerState) (yaw pitch : Float)
   strokePath dirPath
 
 /-- Draw test objects in the scene -/
-def drawTestObjects (_state : ProjectionExplorerState) (yaw pitch : Float)
-    (origin : Float × Float) (scale : Float) : CanvasM Unit := do
+def drawTestObjects (view : MathView3D.View) (_state : ProjectionExplorerState)
+    (screenScale : Float) : CanvasM Unit := do
   for (pos, radius, color) in projectionTestObjects do
-    let screenPos := projectToScreen pos yaw pitch origin scale
-    let screenRadius := radius * scale * 0.8  -- Approximate screen-space radius
+    let screenPos := projectToScreen view pos
+    let screenRadius := radius * 50.0 * screenScale  -- Approximate screen-space radius
     setFillColor (Color.rgba color.r color.g color.b 0.6)
     fillPath (Afferent.Path.circle (Point.mk screenPos.1 screenPos.2) screenRadius)
     setStrokeColor color
@@ -190,8 +182,7 @@ def drawTestObjects (_state : ProjectionExplorerState) (yaw pitch : Float)
     strokePath (Afferent.Path.circle (Point.mk screenPos.1 screenPos.2) screenRadius)
 
 /-- Draw clip space visualization (NDC cube) -/
-def drawClipSpace (origin : Float × Float) (scale : Float) (yaw pitch : Float)
-    (points : Array (Vec3 × Color)) : CanvasM Unit := do
+def drawClipSpace (view : MathView3D.View) (points : Array (Vec3 × Color)) : CanvasM Unit := do
   -- Draw the normalized device coordinate cube (-1 to 1 in all axes)
   let vertices := #[
     Vec3.mk (-1) (-1) (-1), Vec3.mk 1 (-1) (-1),
@@ -206,7 +197,7 @@ def drawClipSpace (origin : Float × Float) (scale : Float) (yaw pitch : Float)
     (0, 4), (1, 5), (2, 6), (3, 7)
   ]
 
-  let projected := vertices.map (projectToScreen · yaw pitch origin scale)
+  let projected := vertices.map (projectToScreen view ·)
 
   setStrokeColor (Color.rgba 1.0 1.0 0.3 0.5)
   setLineWidth 1.0
@@ -220,18 +211,22 @@ def drawClipSpace (origin : Float × Float) (scale : Float) (yaw pitch : Float)
 
   -- Draw projected points inside clip space
   for (pos, color) in points do
-    let screenPos := projectToScreen pos yaw pitch origin scale
+    let screenPos := projectToScreen view pos
     setFillColor color
     fillPath (Afferent.Path.circle (Point.mk screenPos.1 screenPos.2) 4.0)
 
 /-- Render the projection explorer visualization -/
 def renderProjectionExplorer (state : ProjectionExplorerState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  -- Split view: left side shows world space, right side shows clip space
-  let worldOrigin := (w * 0.35, h / 2)
-  let clipOrigin := (w * 0.75, h / 2)
-  let worldScale := 50.0 * screenScale
-  let clipScale := 40.0 * screenScale
+    (view : MathView3D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let worldW := w * 0.55
+  let clipW := w - worldW
+  let worldConfig := projectionExplorerMathViewConfig state screenScale
+  let clipConfig : MathView3D.Config := {
+    (projectionExplorerMathViewConfig state screenScale) with
+    camera := { yaw := 0.4, pitch := 0.3, distance := 5.0 }
+  }
   let vp := projectionMatrix state * viewMatrix
   let clipSamples := Id.run do
     let mut arr : Array (Vec3 × Color × Vec4) := #[]
@@ -247,42 +242,42 @@ def renderProjectionExplorer (state : ProjectionExplorerState)
   setStrokeColor (Color.gray 0.3)
   setLineWidth 1.0
   let dividerPath := Afferent.Path.empty
-    |>.moveTo (Point.mk (w * 0.55) 80)
-    |>.lineTo (Point.mk (w * 0.55) (h - 40))
+    |>.moveTo (Point.mk worldW 80)
+    |>.lineTo (Point.mk worldW (h - 40))
   strokePath dividerPath
 
   -- World space view (left)
   setFillColor (Color.gray 0.7)
-  fillTextXY "World Space" (w * 0.25) (90 * screenScale) fontSmall
-
-  -- Draw ground grid
+  fillTextXY "World Space" (worldW * 0.5) (90 * screenScale) fontSmall
+  save
+  clip (Rect.mk' 0 0 worldW h)
+  let worldView := MathView3D.viewForSize worldConfig worldW h
   setStrokeColor (Color.gray 0.15)
   for i in [:11] do
     let offset := (i.toFloat - 5.0) * 0.5
-    let p1 := projectToScreen (Vec3.mk (-2.5) 0 (offset - 3)) state.cameraYaw state.cameraPitch worldOrigin worldScale
-    let p2 := projectToScreen (Vec3.mk 2.5 0 (offset - 3)) state.cameraYaw state.cameraPitch worldOrigin worldScale
-    let path := Afferent.Path.empty
-      |>.moveTo (Point.mk p1.1 p1.2)
-      |>.lineTo (Point.mk p2.1 p2.2)
-    strokePath path
-
-  -- Draw frustum
-  drawFrustum state state.cameraYaw state.cameraPitch worldOrigin worldScale
-
-  -- Draw test objects
+    MathView3D.drawLine3D worldView (Vec3.mk (-2.5) 0 (offset - 3))
+      (Vec3.mk 2.5 0 (offset - 3)) (Color.gray 0.15) 1.0
+  drawFrustum worldView state
   if state.showTestObjects then
-    drawTestObjects state state.cameraYaw state.cameraPitch worldOrigin worldScale
+    drawTestObjects worldView state screenScale
+  restore
 
   -- Clip space view (right)
   setFillColor (Color.gray 0.7)
-  fillTextXY "Clip Space (NDC)" (w * 0.68) (90 * screenScale) fontSmall
+  fillTextXY "Clip Space (NDC)" (worldW + clipW * 0.5) (90 * screenScale) fontSmall
 
   if state.showClipSpace then
     let clipPoints := if state.showTestObjects then
       clipSamples.map (fun sample => (sample.1, sample.2.1))
     else
       #[]
-    drawClipSpace clipOrigin clipScale 0.4 0.3 clipPoints
+    save
+    setBaseTransform (Transform.translate worldW 0)
+    resetTransform
+    clip (Rect.mk' 0 0 clipW h)
+    let clipView := MathView3D.viewForSize clipConfig clipW h
+    drawClipSpace clipView clipPoints
+    restore
 
   -- Info panel
   let infoY := h - 160.0 * screenScale
@@ -317,7 +312,7 @@ def renderProjectionExplorer (state : ProjectionExplorerState)
   fillTextXY "Far plane" (infoX + 118 * screenScale) (infoY + 120 * screenScale) fontSmall
 
   -- Clip coordinate readout (right side)
-  let clipInfoX := w * 0.58
+  let clipInfoX := worldW + 20.0 * screenScale
   let clipInfoY := h - 120.0 * screenScale
   setFillColor (Color.gray 0.7)
   fillTextXY "Clip coords (x,y,z,w):" clipInfoX clipInfoY fontSmall
@@ -338,14 +333,9 @@ def renderProjectionExplorer (state : ProjectionExplorerState)
 /-- Create the projection explorer widget -/
 def projectionExplorerWidget (env : DemoEnv) (state : ProjectionExplorerState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderProjectionExplorer state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := projectionExplorerMathViewConfig state env.screenScale
+  MathView3D.mathView3D config env.fontSmall (fun view => do
+    renderProjectionExplorer state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

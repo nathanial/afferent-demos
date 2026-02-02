@@ -84,7 +84,9 @@ def octreeViewer3DTabContent (env : DemoEnv) : WidgetM Unit := do
               let localX := data.click.x - rect.x
               let localY := data.click.y - rect.y
               fun (state : Demos.Linalg.OctreeViewer3DState) =>
-                match Demos.Linalg.screenToWorldOnPlane state localX localY rect.width rect.height 0.0 with
+                let config := Demos.Linalg.octreeViewer3DMathViewConfig state env.screenScale
+                let view := Afferent.Widget.MathView3D.viewForSize config rect.width rect.height
+                match Demos.Linalg.screenToWorldOnPlane view localX localY 0.0 with
                 | some worldPos =>
                     let z := Float.sin state.spawnPhase * 2.0
                     let center := Linalg.Vec3.mk worldPos.x worldPos.y z

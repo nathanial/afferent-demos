@@ -16,6 +16,7 @@ import Linalg.Euler
 import Linalg.Quat
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -77,14 +78,22 @@ structure EulerGimbalLockState where
 /-- Initial state. -/
 def eulerGimbalLockInitialState : EulerGimbalLockState := {}
 
+def eulerGimbalLockMathViewConfig (state : EulerGimbalLockState) (screenScale : Float)
+    : MathView3D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  camera := { yaw := state.cameraYaw, pitch := state.cameraPitch, distance := 7.5 }
+  showGrid := false
+  showAxes := false
+  axisLineWidth := 2.0 * screenScale
+}
+
 /-- Render the gimbal lock visualization. -/
 def renderEulerGimbalLock (state : EulerGimbalLockState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
+    (view : MathView3D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let h := view.height
 
   -- Draw base axes
-  rotDraw3DAxes state.cameraYaw state.cameraPitch origin scale 2.5 fontSmall
+  rotDraw3DAxes view 2.5 fontSmall
 
   let (a1, a2, a3) := (state.euler.a1, state.euler.a2, state.euler.a3)
   let (axis1, axis2, axis3) := orderAxes state.euler.order
@@ -100,17 +109,17 @@ def renderEulerGimbalLock (state : EulerGimbalLockState)
   let g3 := R12.transformVec3 (axisVec axis3)
 
   -- Draw gimbal rings
-  rotDrawCircle3D Vec3.zero g1 1.2 state.cameraYaw state.cameraPitch origin scale 64 (axisColor axis1) 2.0
-  rotDrawCircle3D Vec3.zero g2 1.0 state.cameraYaw state.cameraPitch origin scale 64 (axisColor axis2) 2.0
-  rotDrawCircle3D Vec3.zero g3 0.8 state.cameraYaw state.cameraPitch origin scale 64 (axisColor axis3) 2.0
+  rotDrawCircle3D Vec3.zero g1 1.2 view 64 (axisColor axis1) 2.0
+  rotDrawCircle3D Vec3.zero g2 1.0 view 64 (axisColor axis2) 2.0
+  rotDrawCircle3D Vec3.zero g3 0.8 view 64 (axisColor axis3) 2.0
 
   -- Draw rotated airplane axes using quaternion
   let q := state.euler.toQuat
   let forward := q.rotateVec3 Vec3.unitZ
   let up := q.rotateVec3 Vec3.unitY
-  rotDraw3DArrow (forward.scale 2.0) state.cameraYaw state.cameraPitch origin scale
+  rotDraw3DArrow view (forward.scale 2.0)
     { color := Color.rgba 1.0 0.6 0.2 0.9, lineWidth := 2.5 }
-  rotDraw3DArrow (up.scale 1.5) state.cameraYaw state.cameraPitch origin scale
+  rotDraw3DArrow view (up.scale 1.5)
     { color := Color.rgba 0.7 0.7 1.0 0.9, lineWidth := 2.0 }
 
   -- Gimbal lock detection (middle axis near 90 degrees)
@@ -139,14 +148,9 @@ def renderEulerGimbalLock (state : EulerGimbalLockState)
 /-- Create the gimbal lock widget. -/
 def eulerGimbalLockWidget (env : DemoEnv) (state : EulerGimbalLockState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderEulerGimbalLock state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := eulerGimbalLockMathViewConfig state env.screenScale
+  MathView3D.mathView3D config env.fontSmall (fun view => do
+    renderEulerGimbalLock state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

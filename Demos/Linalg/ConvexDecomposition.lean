@@ -19,6 +19,7 @@ import Linalg.Geometry.Ray
 import Linalg.Geometry.Intersection
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -65,6 +66,15 @@ structure ConvexDecompositionState where
 
 def convexDecompositionInitialState : ConvexDecompositionState := {}
 
+def convexDecompositionMathViewConfig (state : ConvexDecompositionState) (screenScale : Float)
+    : MathView3D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  camera := { yaw := state.cameraYaw, pitch := state.cameraPitch, distance := 7.0 }
+  fov := 60.0 * Float.pi / 180.0
+  showGrid := false
+  showAxes := false
+  axisLineWidth := 2.0 * screenScale
+}
 private def appendBox (verts : Array Vec3) (inds : Array Nat)
     (center extents : Vec3) : Array Vec3 × Array Nat := Id.run do
   let min := center.sub extents
@@ -183,36 +193,19 @@ private structure VoxelSample where
   hullDist : Float
   insideMesh : Bool
 
-private structure ProjectionCtx where
-  origin : Float × Float
-  halfW : Float
-  halfH : Float
-  vp : Mat4
+private abbrev ProjectionCtx := MathView3D.View
 
-private def makeProjectionCtx (yaw pitch : Float) (w h : Float) : ProjectionCtx :=
-  let aspect := if h <= 0.0 then 1.0 else w / h
-  let fov := 60.0 * Float.pi / 180.0
-  let cameraDist := 7.0
-  let proj := Mat4.perspective fov aspect 0.1 100.0
-  let view := Mat4.lookAt (Vec3.mk 0 0 cameraDist) Vec3.zero Vec3.unitY
-  let rot := Mat4.rotationX pitch * Mat4.rotationY yaw
-  let vp := proj * view * rot
-  { origin := (w / 2, h / 2), halfW := w / 2, halfH := h / 2, vp := vp }
+private def makeProjectionCtx (state : ConvexDecompositionState) (screenScale : Float)
+    (w h : Float) : ProjectionCtx :=
+  let config := convexDecompositionMathViewConfig state screenScale
+  MathView3D.viewForSize config w h
 
 private def projectPoint (ctx : ProjectionCtx) (p : Vec3) : Float × Float :=
-  let ndc := ctx.vp.transformPoint p
-  (ctx.origin.1 + ndc.x * ctx.halfW, ctx.origin.2 - ndc.y * ctx.halfH)
+  MathView3D.worldToScreen ctx p |>.getD (0.0, 0.0)
 
 private def drawLine3D (a b : Vec3) (ctx : ProjectionCtx)
     (color : Color) (lineWidth : Float := 1.6) : CanvasM Unit := do
-  let p1 := projectPoint ctx a
-  let p2 := projectPoint ctx b
-  setStrokeColor color
-  setLineWidth lineWidth
-  let path := Afferent.Path.empty
-    |>.moveTo (Point.mk p1.1 p1.2)
-    |>.lineTo (Point.mk p2.1 p2.2)
-  strokePath path
+  MathView3D.drawLine3D ctx a b color lineWidth
 
 private def drawAABBWireframe (aabb : AABB) (ctx : ProjectionCtx)
     (color : Color) (lineWidth : Float := 1.4) : CanvasM Unit := do
@@ -276,9 +269,11 @@ private def drawMeshWireframe (mesh : Mesh) (ctx : ProjectionCtx)
 
 private def drawPoint3D (p : Vec3) (ctx : ProjectionCtx)
     (color : Color) (radius : Float := 3.0) : CanvasM Unit := do
-  let (sx, sy) := projectPoint ctx p
-  setFillColor color
-  fillPath (Afferent.Path.circle (Point.mk sx sy) radius)
+  match MathView3D.worldToScreen ctx p with
+  | some (sx, sy) =>
+      setFillColor color
+      fillPath (Afferent.Path.circle (Point.mk sx sy) radius)
+  | none => pure ()
 
 private def hullCentroid (hull : ConvexHull3D) : Vec3 :=
   if hull.points.isEmpty then
@@ -423,8 +418,10 @@ private def drawAxesPerspective (ctx : ProjectionCtx) (axisLength : Float)
 
 /-- Render convex decomposition demo. -/
 def renderConvexDecomposition (state : ConvexDecompositionState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let projCtx := makeProjectionCtx state.cameraYaw state.cameraPitch w h
+    (view : MathView3D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let projCtx := makeProjectionCtx state screenScale w h
   let mesh := buildMeshForPreset state.meshPreset
   let hull := ConvexHull3D.quickHull mesh.vertices
   let planes := buildHullPlanes hull
@@ -520,14 +517,9 @@ def renderConvexDecomposition (state : ConvexDecompositionState)
 /-- Create the convex decomposition widget. -/
 def convexDecompositionWidget (env : DemoEnv) (state : ConvexDecompositionState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderConvexDecomposition state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := convexDecompositionMathViewConfig state env.screenScale
+  MathView3D.mathView3D config env.fontSmall (fun view => do
+    renderConvexDecomposition state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

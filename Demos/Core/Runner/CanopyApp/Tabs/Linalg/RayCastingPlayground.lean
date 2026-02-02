@@ -40,21 +40,27 @@ def rayCastingPlaygroundTabContent (env : DemoEnv) : WidgetM Unit := do
               let rect := layout.contentRect
               let localX := data.click.x - rect.x
               let localY := data.click.y - rect.y
-              let origin := (rect.width / 2, rect.height / 2)
-              let scale := 70.0 * env.screenScale
-              let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
               let button := data.click.button
               fun (state : Demos.Linalg.RayCastingPlaygroundState) =>
+                let config := Demos.Linalg.rayCastingPlaygroundMathViewConfig state env.screenScale
+                let view := Afferent.Widget.MathView3D.viewForSize config rect.width rect.height
+                let worldOpt := Afferent.Widget.MathView3D.screenToWorldOnPlane view (localX, localY)
+                  Linalg.Vec3.zero Linalg.Vec3.unitY
                 let origin2 := Linalg.Vec2.mk state.rayOrigin.x state.rayOrigin.z
                 let target2 := Linalg.Vec2.mk state.rayTarget.x state.rayTarget.z
                 if button == 1 then
                   { state with dragging := .camera, lastMouseX := data.click.x, lastMouseY := data.click.y }
-                else if Demos.Linalg.nearPoint worldPos origin2 0.5 then
-                  { state with dragging := .origin, lastMouseX := data.click.x, lastMouseY := data.click.y }
-                else if Demos.Linalg.nearPoint worldPos target2 0.5 then
-                  { state with dragging := .direction, lastMouseX := data.click.x, lastMouseY := data.click.y }
                 else
-                  state
+                  match worldOpt with
+                  | some worldPos =>
+                      let world2 := Linalg.Vec2.mk worldPos.x worldPos.z
+                      if Demos.Linalg.nearPoint world2 origin2 0.5 then
+                        { state with dragging := .origin, lastMouseX := data.click.x, lastMouseY := data.click.y }
+                      else if Demos.Linalg.nearPoint world2 target2 0.5 then
+                        { state with dragging := .direction, lastMouseX := data.click.x, lastMouseY := data.click.y }
+                      else
+                        state
+                  | none => state
           | none => id
       | none => id
     ) clickEvents
@@ -68,9 +74,6 @@ def rayCastingPlaygroundTabContent (env : DemoEnv) : WidgetM Unit := do
             let rect := layout.contentRect
             let localX := data.x - rect.x
             let localY := data.y - rect.y
-            let origin := (rect.width / 2, rect.height / 2)
-            let scale := 70.0 * env.screenScale
-            let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
             fun (state : Demos.Linalg.RayCastingPlaygroundState) =>
               match state.dragging with
               | .none => state
@@ -86,11 +89,23 @@ def rayCastingPlaygroundTabContent (env : DemoEnv) : WidgetM Unit := do
                     lastMouseY := data.y
                   }
               | .origin =>
-                  let newOrigin := Linalg.Vec3.mk worldPos.x 0.0 worldPos.y
-                  { state with rayOrigin := newOrigin, lastMouseX := data.x, lastMouseY := data.y }
+                  let config := Demos.Linalg.rayCastingPlaygroundMathViewConfig state env.screenScale
+                  let view := Afferent.Widget.MathView3D.viewForSize config rect.width rect.height
+                  match Afferent.Widget.MathView3D.screenToWorldOnPlane view (localX, localY)
+                    Linalg.Vec3.zero Linalg.Vec3.unitY with
+                  | some worldPos =>
+                      let newOrigin := Linalg.Vec3.mk worldPos.x 0.0 worldPos.z
+                      { state with rayOrigin := newOrigin, lastMouseX := data.x, lastMouseY := data.y }
+                  | none => state
               | .direction =>
-                  let newTarget := Linalg.Vec3.mk worldPos.x 0.0 worldPos.y
-                  { state with rayTarget := newTarget, lastMouseX := data.x, lastMouseY := data.y }
+                  let config := Demos.Linalg.rayCastingPlaygroundMathViewConfig state env.screenScale
+                  let view := Afferent.Widget.MathView3D.viewForSize config rect.width rect.height
+                  match Afferent.Widget.MathView3D.screenToWorldOnPlane view (localX, localY)
+                    Linalg.Vec3.zero Linalg.Vec3.unitY with
+                  | some worldPos =>
+                      let newTarget := Linalg.Vec3.mk worldPos.x 0.0 worldPos.z
+                      { state with rayTarget := newTarget, lastMouseX := data.x, lastMouseY := data.y }
+                  | none => state
         | none => id
     | none => id
     ) hoverEvents

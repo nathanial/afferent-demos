@@ -15,6 +15,7 @@ import Linalg.Vec3
 import Linalg.Noise
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -51,6 +52,15 @@ structure FBMTerrainState where
   deriving Inhabited
 
 def fbmTerrainInitialState : FBMTerrainState := {}
+
+def fbmTerrainMathViewConfig (state : FBMTerrainState) (screenScale : Float) : MathView3D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  camera := { yaw := state.cameraYaw, pitch := state.cameraPitch, distance := 10.0 }
+  originOffset := (0.0, 30.0 * screenScale)
+  showGrid := false
+  showAxes := false
+  axisLineWidth := 2.0 * screenScale
+}
 
 structure FBMTerrainSliderLayout where
   x : Float
@@ -234,13 +244,15 @@ private def fillTriangle (p1 p2 p3 : Float × Float) (color : Color) : CanvasM U
 
 /-- Render FBM terrain. -/
 def renderFBMTerrain (state : FBMTerrainState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+    (view : MathView3D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
   let panelW := panelWidth screenScale
   let plotW := w - panelW
   let plotH := h
-  let origin : Float × Float := (plotW / 2.0, plotH / 2.0 + 30.0 * screenScale)
+  let plotConfig := fbmTerrainMathViewConfig state screenScale
+  let plotView := MathView3D.viewForSize plotConfig plotW plotH
   let worldSize := 6.0
-  let scale := Float.min plotW plotH / worldSize * 0.45
 
   setFillColor (Color.gray 0.06)
   fillPath (Afferent.Path.rectangleXYWH 0 0 plotW plotH)
@@ -257,7 +269,7 @@ def renderFBMTerrain (state : FBMTerrainState)
       let z := (j.toFloat / (res - 1).toFloat - 0.5) * worldSize
       let y := heightFromNoise state x z
       hRow := hRow.push y
-      let p := rotProject3Dto2D (Vec3.mk x y z) state.cameraYaw state.cameraPitch origin scale
+      let p := MathView3D.worldToScreen plotView (Vec3.mk x y z) |>.getD (0.0, 0.0)
       pRow := pRow.push p
     heights := heights.push hRow
     projected := projected.push pRow
@@ -315,10 +327,12 @@ def renderFBMTerrain (state : FBMTerrainState)
         let x := (i.toFloat / (res - 1).toFloat - 0.5) * worldSize
         let z := (j.toFloat / (res - 1).toFloat - 0.5) * worldSize
         let y := heightAt i j
-        let start := rotProject3Dto2D (Vec3.mk x y z) state.cameraYaw state.cameraPitch origin scale
-        let endPt := rotProject3Dto2D (Vec3.mk x y z + normal.scale 0.6)
-          state.cameraYaw state.cameraPitch origin scale
-        drawArrow2D start endPt { color := Color.rgba 0.9 0.8 0.2 0.7, lineWidth := 1.2 * screenScale }
+        match MathView3D.worldToScreen plotView (Vec3.mk x y z),
+              MathView3D.worldToScreen plotView (Vec3.mk x y z + normal.scale 0.6) with
+        | some start, some endPt =>
+            drawArrow2D start endPt
+              { color := Color.rgba 0.9 0.8 0.2 0.7, lineWidth := 1.2 * screenScale }
+        | _, _ => pure ()
         j := j + 3
       i := i + 3
 
@@ -362,14 +376,9 @@ def renderFBMTerrain (state : FBMTerrainState)
 /-- Create the FBM terrain widget. -/
 def fbmTerrainWidget (env : DemoEnv) (state : FBMTerrainState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderFBMTerrain state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := fbmTerrainMathViewConfig state env.screenScale
+  MathView3D.mathView3D config env.fontSmall (fun view => do
+    renderFBMTerrain state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

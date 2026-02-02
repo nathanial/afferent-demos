@@ -14,6 +14,7 @@ import Linalg.Vec3
 import Linalg.Curves
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -53,6 +54,16 @@ structure BezierPatchSurfaceState where
 
 def bezierPatchSurfaceInitialState : BezierPatchSurfaceState := {}
 
+def bezierPatchSurfaceMathViewConfig (state : BezierPatchSurfaceState) (screenScale : Float)
+    : MathView3D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  camera := { yaw := state.cameraYaw, pitch := state.cameraPitch, distance := 9.0 }
+  originOffset := (0.0, 20.0 * screenScale)
+  showGrid := false
+  showAxes := false
+  axisLineWidth := 2.0 * screenScale
+}
+
 /-- Mini editor rect in screen space. -/
 structure MiniRect where
   x : Float
@@ -72,27 +83,18 @@ private def miniOrigin (rect : MiniRect) : Float × Float :=
 private def miniScale (rect : MiniRect) : Float :=
   rect.w / 5.8
 
-private def drawArrow3DFrom (start vec : Vec3) (yaw pitch : Float) (origin : Float × Float)
-    (scale : Float) (config : ArrowConfig := {}) : CanvasM Unit := do
-  let s := rotProject3Dto2D start yaw pitch origin scale
-  let e := rotProject3Dto2D (start + vec) yaw pitch origin scale
-  drawArrow2D s e config
+private def drawArrow3DFrom (view : MathView3D.View) (start vec : Vec3)
+    (config : ArrowConfig := {}) : CanvasM Unit := do
+  match rotProject3Dto2D view start, rotProject3Dto2D view (start + vec) with
+  | some s, some e => drawArrow2D s e config
+  | _, _ => pure ()
 
-private def drawPolyline3D (points : Array Vec3) (yaw pitch : Float) (origin : Float × Float)
-    (scale : Float) (color : Color) (lineWidth : Float := 1.5) : CanvasM Unit := do
-  if points.size < 2 then return
-  let p0 := rotProject3Dto2D (points.getD 0 Vec3.zero) yaw pitch origin scale
-  let mut path := Afferent.Path.empty
-    |>.moveTo (Point.mk p0.1 p0.2)
-  for i in [1:points.size] do
-    let p := rotProject3Dto2D (points.getD i Vec3.zero) yaw pitch origin scale
-    path := path.lineTo (Point.mk p.1 p.2)
-  setStrokeColor color
-  setLineWidth lineWidth
-  strokePath path
+private def drawPolyline3D (view : MathView3D.View) (points : Array Vec3)
+    (color : Color) (lineWidth : Float := 1.5) : CanvasM Unit := do
+  MathView3D.drawPolyline3D view points color lineWidth
 
-private def drawPatchMesh (patch : Linalg.BezierPatch) (yaw pitch : Float)
-    (origin : Float × Float) (scale : Float) (rows cols : Nat) : CanvasM Unit := do
+private def drawPatchMesh (view : MathView3D.View) (patch : Linalg.BezierPatch)
+    (rows cols : Nat) : CanvasM Unit := do
   let r := if rows < 2 then 2 else rows
   let c := if cols < 2 then 2 else cols
   let grid := Linalg.BezierPatch.sample patch r c
@@ -100,38 +102,39 @@ private def drawPatchMesh (patch : Linalg.BezierPatch) (yaw pitch : Float)
   setLineWidth 1.2
   for row in grid do
     let rowPts := row
-    drawPolyline3D rowPts yaw pitch origin scale (Color.rgba 0.2 0.85 1.0 0.6) 1.2
+    drawPolyline3D view rowPts (Color.rgba 0.2 0.85 1.0 0.6) 1.2
   for col in [:c] do
     let mut colPts : Array Vec3 := #[]
     for rowIdx in [:r] do
       let row := grid.getD rowIdx #[]
       colPts := colPts.push (row.getD col Vec3.zero)
-    drawPolyline3D colPts yaw pitch origin scale (Color.rgba 0.2 0.85 1.0 0.6) 1.2
+    drawPolyline3D view colPts (Color.rgba 0.2 0.85 1.0 0.6) 1.2
 
-private def drawControlNet (patch : Linalg.BezierPatch) (yaw pitch : Float)
-    (origin : Float × Float) (scale : Float) (selected : Option Nat) : CanvasM Unit := do
+private def drawControlNet (view : MathView3D.View) (patch : Linalg.BezierPatch)
+    (selected : Option Nat) : CanvasM Unit := do
   for row in [:4] do
     let mut rowPts : Array Vec3 := #[]
     for col in [:4] do
       rowPts := rowPts.push (patch.getPoint row col)
-    drawPolyline3D rowPts yaw pitch origin scale (Color.gray 0.4) 1.0
+    drawPolyline3D view rowPts (Color.gray 0.4) 1.0
   for col in [:4] do
     let mut colPts : Array Vec3 := #[]
     for row in [:4] do
       colPts := colPts.push (patch.getPoint row col)
-    drawPolyline3D colPts yaw pitch origin scale (Color.gray 0.4) 1.0
+    drawPolyline3D view colPts (Color.gray 0.4) 1.0
 
   for idx in [:16] do
     let row := idx / 4
     let col := idx % 4
     let p := patch.getPoint row col
-    let (x, y) := rotProject3Dto2D p yaw pitch origin scale
     let isSelected := match selected with | some i => i == idx | none => false
-    setFillColor (if isSelected then Color.yellow else Color.rgba 0.8 0.8 0.9 1.0)
-    fillPath (Afferent.Path.circle (Point.mk x y) (if isSelected then 6.0 else 4.5))
+    match rotProject3Dto2D view p with
+    | some (x, y) =>
+        setFillColor (if isSelected then Color.yellow else Color.rgba 0.8 0.8 0.9 1.0)
+        fillPath (Afferent.Path.circle (Point.mk x y) (if isSelected then 6.0 else 4.5))
+    | none => pure ()
 
-private def drawIsocurves (patch : Linalg.BezierPatch) (yaw pitch : Float)
-    (origin : Float × Float) (scale : Float) : CanvasM Unit := do
+private def drawIsocurves (view : MathView3D.View) (patch : Linalg.BezierPatch) : CanvasM Unit := do
   let values : Array Float := #[0.25, 0.5, 0.75]
   for u in values do
     let curve := Linalg.BezierPatch.isocurveU patch u
@@ -141,7 +144,7 @@ private def drawIsocurves (patch : Linalg.BezierPatch) (yaw pitch : Float)
         let t := i.toFloat / 39.0
         arr := arr.push (Linalg.Bezier3.evalVec3 curve t)
       return arr
-    drawPolyline3D pts yaw pitch origin scale (Color.rgba 0.4 0.9 0.4 0.6) 1.0
+    drawPolyline3D view pts (Color.rgba 0.4 0.9 0.4 0.6) 1.0
   for v in values do
     let curve := Linalg.BezierPatch.isocurveV patch v
     let pts := Id.run do
@@ -150,36 +153,33 @@ private def drawIsocurves (patch : Linalg.BezierPatch) (yaw pitch : Float)
         let t := i.toFloat / 39.0
         arr := arr.push (Linalg.Bezier3.evalVec3 curve t)
       return arr
-    drawPolyline3D pts yaw pitch origin scale (Color.rgba 0.9 0.5 0.4 0.6) 1.0
+    drawPolyline3D view pts (Color.rgba 0.9 0.5 0.4 0.6) 1.0
 
 /-- Render Bezier patch surface demo. -/
 def renderBezierPatchSurface (state : BezierPatchSurfaceState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin3D : Float × Float := (w / 2, h / 2 + 20 * screenScale)
-  let scale3D : Float := 60.0 * screenScale
+    (view : MathView3D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
 
-  rotDraw3DAxes state.cameraYaw state.cameraPitch origin3D scale3D 2.0 fontSmall
-  drawPatchMesh state.patch state.cameraYaw state.cameraPitch origin3D scale3D state.tessellation state.tessellation
-  drawIsocurves state.patch state.cameraYaw state.cameraPitch origin3D scale3D
-  drawControlNet state.patch state.cameraYaw state.cameraPitch origin3D scale3D state.selected
+  rotDraw3DAxes view 2.0 fontSmall
+  drawPatchMesh view state.patch state.tessellation state.tessellation
+  drawIsocurves view state.patch
+  drawControlNet view state.patch state.selected
 
   -- Surface tangent/normal at center
   let center := Linalg.BezierPatch.eval state.patch 0.5 0.5
   let du := Linalg.BezierPatch.derivativeU state.patch 0.5 0.5 |>.normalize
   let dv := Linalg.BezierPatch.derivativeV state.patch 0.5 0.5 |>.normalize
   let n := Linalg.BezierPatch.normal state.patch 0.5 0.5
-  drawArrow3DFrom center (du.scale 0.8) state.cameraYaw state.cameraPitch origin3D scale3D
-    { color := VecColor.xAxis, lineWidth := 2.0 }
-  drawArrow3DFrom center (dv.scale 0.8) state.cameraYaw state.cameraPitch origin3D scale3D
-    { color := VecColor.yAxis, lineWidth := 2.0 }
-  drawArrow3DFrom center (n.scale 0.9) state.cameraYaw state.cameraPitch origin3D scale3D
-    { color := Color.yellow, lineWidth := 2.2 }
+  drawArrow3DFrom view center (du.scale 0.8) { color := VecColor.xAxis, lineWidth := 2.0 }
+  drawArrow3DFrom view center (dv.scale 0.8) { color := VecColor.yAxis, lineWidth := 2.0 }
+  drawArrow3DFrom view center (n.scale 0.9) { color := Color.yellow, lineWidth := 2.2 }
 
   -- Normals
   if state.showNormals then
     let samples := Linalg.BezierPatch.sampleWithNormals state.patch 6 6
     for (pos, norm) in samples do
-      drawArrow3DFrom pos (norm.scale 0.4) state.cameraYaw state.cameraPitch origin3D scale3D
+      drawArrow3DFrom view pos (norm.scale 0.4)
         { color := Color.rgba 1.0 0.9 0.4 0.6, lineWidth := 1.0 }
 
   -- Mini editor view (top-down)
@@ -221,14 +221,9 @@ def renderBezierPatchSurface (state : BezierPatchSurfaceState)
 /-- Create Bezier patch surface widget. -/
 def bezierPatchSurfaceWidget (env : DemoEnv) (state : BezierPatchSurfaceState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderBezierPatchSurface state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := bezierPatchSurfaceMathViewConfig state env.screenScale
+  MathView3D.mathView3D config env.fontSmall (fun view => do
+    renderBezierPatchSurface state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

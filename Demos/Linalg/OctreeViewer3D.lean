@@ -14,6 +14,7 @@ import Linalg.Geometry.Intersection
 import Linalg.Spatial.Octree
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -53,83 +54,26 @@ def octreeViewer3DInitialState : OctreeViewer3DState := {
   queryCenter := Vec3.mk 0.5 (-0.2) 0.4
 }
 
-private structure CameraFrame where
-  pos : Vec3
-  right : Vec3
-  up : Vec3
-  forward : Vec3
-  fov : Float
-  near : Float
-deriving Repr
-
-private def cameraPosition (state : OctreeViewer3DState) : Vec3 :=
-  let cy := Float.cos state.cameraYaw
-  let sy := Float.sin state.cameraYaw
-  let cp := Float.cos state.cameraPitch
-  let sp := Float.sin state.cameraPitch
-  let x := state.cameraDistance * sy * cp
-  let y := state.cameraDistance * sp
-  let z := state.cameraDistance * cy * cp
-  state.cameraTarget.add (Vec3.mk x y z)
-
-private def cameraFrame (state : OctreeViewer3DState) : CameraFrame :=
-  let pos := cameraPosition state
-  let forward := (state.cameraTarget.sub pos).normalize
-  let rightRaw := Vec3.cross Vec3.unitY forward
-  let right :=
-    if rightRaw.lengthSquared < 0.000001 then Vec3.unitX else rightRaw.normalize
-  let up := (Vec3.cross forward right).normalize
-  {
-    pos
-    right
-    up
-    forward
-    fov := state.cameraFov
-    near := state.cameraNear
+def octreeViewer3DMathViewConfig (state : OctreeViewer3DState) (screenScale : Float)
+    : MathView3D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  camera := {
+    yaw := state.cameraYaw
+    pitch := state.cameraPitch
+    distance := state.cameraDistance
+    target := state.cameraTarget
   }
+  fov := state.cameraFov
+  near := state.cameraNear
+  gridExtent := 7.0
+  gridStep := 1.0
+  gridMajorStep := 3.0
+  showAxes := false
+  axisLineWidth := 2.0 * screenScale
+  gridLineWidth := 1.0 * screenScale
+}
 
-private def projectToScreen (frame : CameraFrame) (aspect : Float)
-    (origin : Float × Float) (halfW halfH : Float) (p : Vec3) : Option (Float × Float) :=
-  let rel := p.sub frame.pos
-  let xCam := rel.dot frame.right
-  let yCam := rel.dot frame.up
-  let zCam := rel.dot frame.forward
-  if zCam <= frame.near then none
-  else
-    let f := 1.0 / Float.tan (frame.fov * 0.5)
-    let xNdc := (xCam / zCam) * (f / aspect)
-    let yNdc := (yCam / zCam) * f
-    let (ox, oy) := origin
-    let sx := ox + xNdc * halfW
-    let sy := oy - yNdc * halfH
-    some (sx, sy)
-
-private def drawLineScreen (start finish : Float × Float) (color : Color)
-    (lineWidth : Float := 1.4) : CanvasM Unit := do
-  let (sx, sy) := start
-  let (ex, ey) := finish
-  setStrokeColor color
-  setLineWidth lineWidth
-  let path := Afferent.Path.empty
-    |>.moveTo (Point.mk sx sy)
-    |>.lineTo (Point.mk ex ey)
-  strokePath path
-
-private def drawLine3D (frame : CameraFrame) (aspect : Float)
-    (origin : Float × Float) (halfW halfH : Float) (a b : Vec3)
-    (color : Color) (lineWidth : Float := 1.2) : CanvasM Unit := do
-  match projectToScreen frame aspect origin halfW halfH a,
-        projectToScreen frame aspect origin halfW halfH b with
-  | some p1, some p2 => drawLineScreen p1 p2 color lineWidth
-  | _, _ => pure ()
-
-private def drawMarkerScreen (pos : Float × Float) (color : Color) (radius : Float) : CanvasM Unit := do
-  let (sx, sy) := pos
-  setFillColor color
-  fillPath (Afferent.Path.circle (Point.mk sx sy) radius)
-
-private def drawBox (frame : CameraFrame) (aspect : Float)
-    (origin : Float × Float) (halfW halfH : Float) (b : AABB)
+private def drawBox (view : MathView3D.View) (b : AABB)
     (color : Color) (lineWidth : Float := 1.2) : CanvasM Unit := do
   let min := b.min
   let max := b.max
@@ -145,10 +89,9 @@ private def drawBox (frame : CameraFrame) (aspect : Float)
     (0, 4), (1, 5), (2, 6), (3, 7)
   ]
   for (a, b) in edges do
-    drawLine3D frame aspect origin halfW halfH corners[a]! corners[b]! color lineWidth
+    MathView3D.drawLine3D view corners[a]! corners[b]! color lineWidth
 
-private def drawGroundGrid (frame : CameraFrame) (aspect : Float)
-    (origin : Float × Float) (halfW halfH : Float) (screenScale : Float) : CanvasM Unit := do
+private def drawGroundGrid (view : MathView3D.View) (screenScale : Float) : CanvasM Unit := do
   let gridCount : Nat := 7
   let step : Float := 1.0
   let extent := gridCount.toFloat * step
@@ -161,45 +104,28 @@ private def drawGroundGrid (frame : CameraFrame) (aspect : Float)
     let b1 := Vec3.mk extent offset 0.0
     let a2 := Vec3.mk offset (-extent) 0.0
     let b2 := Vec3.mk offset extent 0.0
-    drawLine3D frame aspect origin halfW halfH a1 b1 color width
-    drawLine3D frame aspect origin halfW halfH a2 b2 color width
+    MathView3D.drawLine3D view a1 b1 color width
+    MathView3D.drawLine3D view a2 b2 color width
 
-def screenToWorldOnPlane (state : OctreeViewer3DState)
-    (x y w h planeZ : Float) : Option Vec3 :=
-  let frame := cameraFrame state
-  let aspect := if h > 0.0 then w / h else 1.0
-  let halfW := w / 2
-  let halfH := h / 2
-  let ndcX := if halfW == 0.0 then 0.0 else (x - halfW) / halfW
-  let ndcY := if halfH == 0.0 then 0.0 else -((y - halfH) / halfH)
-  let f := 1.0 / Float.tan (frame.fov * 0.5)
-  let dirCam := Vec3.mk (ndcX * aspect / f) (ndcY / f) 1.0
-  let dirWorld :=
-    (frame.right.scale dirCam.x).add (frame.up.scale dirCam.y)
-      |>.add (frame.forward.scale dirCam.z)
-      |>.normalize
-  if Float.abs' dirWorld.z < Float.epsilon then none
-  else
-    let t := (planeZ - frame.pos.z) / dirWorld.z
-    if t <= 0.0 then none
-    else some (frame.pos.add (dirWorld.scale t))
+def screenToWorldOnPlane (view : MathView3D.View) (x y planeZ : Float) : Option Vec3 :=
+  MathView3D.screenToWorldOnPlane view (x, y) (Vec3.mk 0.0 0.0 planeZ) Vec3.unitZ
 
 private def nodeColor (depth : Nat) : Color :=
   let t := Float.min (depth.toFloat / 6.0) 1.0
   Color.rgba (0.2 + 0.4 * t) (0.7 - 0.3 * t) (0.9 - 0.5 * t) 0.6
 
-private partial def drawOctreeNode (node : OctreeNode) (frame : CameraFrame) (aspect : Float)
-    (origin : Float × Float) (halfW halfH : Float) (depth : Nat) : CanvasM Unit := do
+private partial def drawOctreeNode (node : OctreeNode) (view : MathView3D.View) (depth : Nat)
+    : CanvasM Unit := do
   let bounds := match node with
     | .internal b _ => b
     | .leaf b _ => b
-  drawBox frame aspect origin halfW halfH bounds (nodeColor depth) 1.1
+  drawBox view bounds (nodeColor depth) 1.1
   match node with
   | .leaf _ _ => pure ()
   | .internal _ children =>
       for child in children do
         match child with
-        | some c => drawOctreeNode c frame aspect origin halfW halfH (depth + 1)
+        | some c => drawOctreeNode c view (depth + 1)
         | none => pure ()
 
 private def buildOctree (items : Array AABB) (config : TreeConfig) : Octree :=
@@ -207,18 +133,15 @@ private def buildOctree (items : Array AABB) (config : TreeConfig) : Octree :=
 
 /-- Render octree viewer. -/
 def renderOctreeViewer3D (state : OctreeViewer3DState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let halfW := w / 2
-  let halfH := h / 2
-  let aspect := if h > 0.0 then w / h else 1.0
-  let frame := cameraFrame state
+    (view : MathView3D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
 
-  drawGroundGrid frame aspect origin halfW halfH screenScale
+  drawGroundGrid view screenScale
 
   let tree := buildOctree state.items state.config
   if state.showNodes then
-    drawOctreeNode tree.root frame aspect origin halfW halfH 0
+    drawOctreeNode tree.root view 0
 
   let queryBox := AABB.fromCenterExtents state.queryCenter state.queryExtents
   let broadHits := tree.queryAABB queryBox
@@ -239,11 +162,13 @@ def renderOctreeViewer3D (state : OctreeViewer3DState)
         Color.rgba 0.95 0.55 0.2 0.95
       else
         Color.rgba 0.8 0.9 1.0 0.9
-    match projectToScreen frame aspect origin halfW halfH center with
-    | some pos2 => drawMarkerScreen pos2 color (7.0 * screenScale)
+    match MathView3D.worldToScreen view center with
+    | some pos2 =>
+        setFillColor color
+        fillPath (Afferent.Path.circle (Point.mk pos2.1 pos2.2) (7.0 * screenScale))
     | none => pure ()
 
-  drawBox frame aspect origin halfW halfH queryBox (Color.rgba 0.9 0.8 0.2 0.9) (2.0 * screenScale)
+  drawBox view queryBox (Color.rgba 0.9 0.8 0.2 0.9) (2.0 * screenScale)
 
   let octant := octantFor tree.bounds.center state.queryCenter
 
@@ -270,14 +195,9 @@ def renderOctreeViewer3D (state : OctreeViewer3DState)
 /-- Create octree viewer widget. -/
 def octreeViewer3DWidget (env : DemoEnv) (state : OctreeViewer3DState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderOctreeViewer3D state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := octreeViewer3DMathViewConfig state env.screenScale
+  MathView3D.mathView3D config env.fontSmall (fun view => do
+    renderOctreeViewer3D state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

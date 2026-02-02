@@ -16,6 +16,7 @@ import Linalg.Mat4
 import Linalg.Quat
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -45,6 +46,20 @@ structure QuaternionVisualizerState where
   deriving Inhabited
 
 def quaternionVisualizerInitialState : QuaternionVisualizerState := {}
+
+def quaternionVisualizerMathViewConfig (state : QuaternionVisualizerState) (screenScale : Float)
+    : MathView3D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  camera := { yaw := state.cameraYaw, pitch := state.cameraPitch, distance := 8.0 }
+  gridExtent := 2.5
+  gridStep := 0.5
+  gridMajorStep := 1.0
+  axisLength := 3.0
+  showAxes := false
+  showAxisLabels := false
+  gridLineWidth := 1.0 * screenScale
+  axisLineWidth := 2.0 * screenScale
+}
 
 /-- Get quaternion component value. -/
 def getQuatComponent (q : Quat) : QuatComponent → Float
@@ -103,44 +118,25 @@ def renderSlider (label : String) (value : Float) (layout : SliderLayout) (fontS
 
 /-- Render the quaternion visualization. -/
 def renderQuaternionVisualizer (state : QuaternionVisualizerState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
+    (view : MathView3D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
 
-  -- Background grid (XZ plane)
-  setStrokeColor (Color.gray 0.15)
-  setLineWidth 1.0
-  for i in [:11] do
-    let offset := (i.toFloat - 5.0) * 0.5
-    let p1 := rotProject3Dto2D (Vec3.mk (-2.5) 0 offset) state.cameraYaw state.cameraPitch origin scale
-    let p2 := rotProject3Dto2D (Vec3.mk 2.5 0 offset) state.cameraYaw state.cameraPitch origin scale
-    let path := Afferent.Path.empty
-      |>.moveTo (Point.mk p1.1 p1.2)
-      |>.lineTo (Point.mk p2.1 p2.2)
-    strokePath path
-    let p3 := rotProject3Dto2D (Vec3.mk offset 0 (-2.5)) state.cameraYaw state.cameraPitch origin scale
-    let p4 := rotProject3Dto2D (Vec3.mk offset 0 2.5) state.cameraYaw state.cameraPitch origin scale
-    let path2 := Afferent.Path.empty
-      |>.moveTo (Point.mk p3.1 p3.2)
-      |>.lineTo (Point.mk p4.1 p4.2)
-    strokePath path2
-
-  rotDraw3DAxes state.cameraYaw state.cameraPitch origin scale 3.0 fontSmall
+  rotDraw3DAxes view 3.0 fontSmall
 
   -- Draw cube rotated by quaternion
   let rotMat := state.quat.toMat4
-  rotDrawWireframeCube rotMat state.cameraYaw state.cameraPitch origin scale (Color.rgba 0.3 0.8 1.0 0.9) 2.5
+  rotDrawWireframeCube rotMat view (Color.rgba 0.3 0.8 1.0 0.9) (2.5 * screenScale)
 
   -- Draw axis-angle representation
   let (axis, angle) := state.quat.toAxisAngle
   let axisLine := axis.scale 2.0
-  rotDraw3DArrow axisLine state.cameraYaw state.cameraPitch origin scale
-    { color := Color.yellow, lineWidth := 2.5 }
+  rotDraw3DArrow view axisLine { color := Color.yellow, lineWidth := 2.5 * screenScale }
 
   -- Draw rotated forward vector to demonstrate rotateVec3
   let forward := state.quat.rotateVec3 Vec3.unitZ
-  rotDraw3DArrow (forward.scale 2.0) state.cameraYaw state.cameraPitch origin scale
-    { color := VecColor.interpolated, lineWidth := 2.5 }
+  rotDraw3DArrow view (forward.scale 2.0)
+    { color := VecColor.interpolated, lineWidth := 2.5 * screenScale }
 
   -- Info panel
   let infoY := h - 160 * screenScale
@@ -179,14 +175,9 @@ def renderQuaternionVisualizer (state : QuaternionVisualizerState)
 /-- Create the quaternion visualizer widget. -/
 def quaternionVisualizerWidget (env : DemoEnv) (state : QuaternionVisualizerState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderQuaternionVisualizer state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := quaternionVisualizerMathViewConfig state env.screenScale
+  MathView3D.mathView3D config env.fontSmall (fun view => do
+    renderQuaternionVisualizer state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg
