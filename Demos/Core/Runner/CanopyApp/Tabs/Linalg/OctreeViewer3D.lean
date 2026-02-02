@@ -27,6 +27,11 @@ private def updateExtents (scale : Float) (state : Demos.Linalg.OctreeViewer3DSt
   let ez := Linalg.Float.clamp (state.queryExtents.z * scale) minE maxE
   { state with queryExtents := Linalg.Vec3.mk ex ey ez }
 
+private def updateRotation (yawDelta pitchDelta : Float) (state : Demos.Linalg.OctreeViewer3DState)
+    : Demos.Linalg.OctreeViewer3DState :=
+  let newPitch := Linalg.Float.clamp (state.pitch + pitchDelta) (-1.2) 1.2
+  { state with yaw := state.yaw + yawDelta, pitch := newPitch }
+
 def octreeViewer3DTabContent (env : DemoEnv) : WidgetM Unit := do
   let demoName ← registerComponentW "octree-viewer-3d"
 
@@ -49,6 +54,10 @@ def octreeViewer3DTabContent (env : DemoEnv) : WidgetM Unit := do
         | .char 'd' => { s with queryCenter := s.queryCenter.add (Linalg.Vec3.mk 0.3 0.0 0.0) }
         | .char 'u' => { s with queryCenter := s.queryCenter.add (Linalg.Vec3.mk 0.0 0.0 0.3) }
         | .char 'j' => { s with queryCenter := s.queryCenter.add (Linalg.Vec3.mk 0.0 0.0 (-0.3)) }
+        | .left => updateRotation (-0.1) 0.0 s
+        | .right => updateRotation 0.1 0.0 s
+        | .up => updateRotation 0.0 (-0.1) s
+        | .down => updateRotation 0.0 0.1 s
         | _ => s
       else s
     ) keyEvents

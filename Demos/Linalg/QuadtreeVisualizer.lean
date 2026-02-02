@@ -105,14 +105,34 @@ def renderQuadtreeVisualizer (state : QuadtreeVisualizerState)
   drawQuadtreeNode tree.root origin scale 0
 
   let queryRect := AABB2D.fromCenterExtents state.queryCenter state.queryExtents
-  let rectHits := tree.queryRect queryRect
-  let circleHits := tree.queryCircle state.queryCenter state.queryRadius
-  let hits := if state.queryMode == .rect then rectHits else circleHits
+  let (broadHits, exactHits) :=
+    if state.queryMode == .rect then
+      let broad := tree.queryRect queryRect
+      let exact := broad.filter fun idx =>
+        if h : idx < state.points.size then
+          queryRect.containsPoint state.points[idx]!
+        else false
+      (broad, exact)
+    else
+      let broad := tree.queryCircle state.queryCenter state.queryRadius
+      let radiusSq := state.queryRadius * state.queryRadius
+      let exact := broad.filter fun idx =>
+        if h : idx < state.points.size then
+          (state.points[idx]!).distanceSquared state.queryCenter <= radiusSq
+        else false
+      (broad, exact)
 
   for i in [:state.points.size] do
     let p := state.points[i]!
-    let isHit := hits.contains i
-    let color := if isHit then Color.rgba 1.0 0.8 0.2 1.0 else Color.white
+    let isExact := exactHits.contains i
+    let isBroad := broadHits.contains i
+    let color :=
+      if isExact then
+        Color.rgba 1.0 0.85 0.2 1.0
+      else if isBroad then
+        Color.rgba 0.95 0.55 0.2 0.95
+      else
+        Color.white
     drawMarker p origin scale color 7.0
 
   if state.queryMode == .rect then
@@ -137,7 +157,9 @@ def renderQuadtreeVisualizer (state : QuadtreeVisualizerState)
 
   let infoY := h - 150 * screenScale
   setFillColor VecColor.label
-  fillTextXY s!"points: {state.points.size}  hits: {hits.size}" (20 * screenScale) infoY fontSmall
+  fillTextXY
+    s!"points: {state.points.size}  hits: {exactHits.size}  candidates: {broadHits.size}"
+    (20 * screenScale) infoY fontSmall
   fillTextXY s!"config: depth {state.config.maxDepth}, leaf {state.config.maxLeafItems}"
     (20 * screenScale) (infoY + 20 * screenScale) fontSmall
   fillTextXY s!"query center: {formatVec2 state.queryCenter}" (20 * screenScale)
@@ -150,6 +172,9 @@ def renderQuadtreeVisualizer (state : QuadtreeVisualizerState)
   fillTextXY
     s!"Click: add point | Right click: move query | Q: {modeText} | 1-3: config | +/- size"
     (20 * screenScale) (55 * screenScale) fontSmall
+  fillTextXY
+    "Legend: exact hits = yellow, broad-phase candidates = orange"
+    (20 * screenScale) (75 * screenScale) fontSmall
 
 /-- Create quadtree visualizer widget. -/
 def quadtreeVisualizerWidget (env : DemoEnv) (state : QuadtreeVisualizerState)
