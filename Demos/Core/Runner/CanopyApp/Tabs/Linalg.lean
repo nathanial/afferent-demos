@@ -18,6 +18,7 @@ import Demos.Core.Runner.CanopyApp.Tabs.Linalg.RayCastingPlayground
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.PrimitiveOverlapTester
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.VoronoiDelaunayDual
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.ConvexHull2D
+import Demos.Core.Runner.CanopyApp.Tabs.Linalg.ConvexDecomposition
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.TransformHierarchy
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.BarycentricCoordinates
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.FrustumCullingDemo
