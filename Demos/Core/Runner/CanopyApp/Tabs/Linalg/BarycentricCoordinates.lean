@@ -41,9 +41,9 @@ def barycentricCoordinatesTabContent (env : DemoEnv) : WidgetM Unit := do
               let rect := layout.contentRect
               let localX := data.click.x - rect.x
               let localY := data.click.y - rect.y
-              let origin := (rect.width / 2, rect.height / 2)
-              let scale := 70.0 * env.screenScale
-              let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+              let config := Demos.Linalg.barycentricMathViewConfig env.screenScale
+              let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+              let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
               fun (state : Demos.Linalg.BarycentricCoordinatesState) =>
                 if Demos.Linalg.nearPoint worldPos state.point 0.4 then
                   { state with dragging := true }
@@ -62,9 +62,9 @@ def barycentricCoordinatesTabContent (env : DemoEnv) : WidgetM Unit := do
             let rect := layout.contentRect
             let localX := data.x - rect.x
             let localY := data.y - rect.y
-            let origin := (rect.width / 2, rect.height / 2)
-            let scale := 70.0 * env.screenScale
-            let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+            let config := Demos.Linalg.barycentricMathViewConfig env.screenScale
+            let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+            let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
             fun (state : Demos.Linalg.BarycentricCoordinatesState) =>
               if state.dragging then
                 { state with point := worldPos }

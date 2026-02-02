@@ -18,6 +18,7 @@ import Linalg.Geometry.Intersection
 import Linalg.Geometry.Collision2D
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -49,6 +50,18 @@ structure PrimitiveOverlapTesterState where
 
 /-- Initial state. -/
 def primitiveOverlapTesterInitialState : PrimitiveOverlapTesterState := {}
+
+def primitiveOverlapMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 70.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
+}
 
 private def drawCircleWorld (center : Vec2) (radius : Float) (origin : Float × Float)
     (scale : Float) (stroke : Color) (fill : Option Color := none) (lineWidth : Float := 2.0) : CanvasM Unit := do
@@ -90,17 +103,11 @@ private def drawArrowWorld (start finish : Vec2) (origin : Float × Float) (scal
 
 /-- Render the overlap tester. -/
 def renderPrimitiveOverlapTester (state : PrimitiveOverlapTesterState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
-
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
 
   let infoY := h - 160 * screenScale
   setFillColor VecColor.label
@@ -197,14 +204,9 @@ def renderPrimitiveOverlapTester (state : PrimitiveOverlapTesterState)
 /-- Create the overlap tester widget. -/
 def primitiveOverlapTesterWidget (env : DemoEnv) (state : PrimitiveOverlapTesterState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderPrimitiveOverlapTester state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := primitiveOverlapMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderPrimitiveOverlapTester state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

@@ -13,6 +13,7 @@ import Linalg.Geometry.AABB2D
 import Linalg.Spatial.Quadtree
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -48,6 +49,18 @@ private def samplePoints : Array Vec2 :=
 def quadtreeVisualizerInitialState : QuadtreeVisualizerState := {
   points := samplePoints
   queryCenter := Vec2.mk 0.5 (-0.2)
+}
+
+def quadtreeMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 70.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
 }
 
 private def drawRectWorld (b : AABB2D) (origin : Float × Float) (scale : Float)
@@ -89,17 +102,11 @@ private def buildQuadtree (points : Array Vec2) (config : TreeConfig) : Quadtree
 
 /-- Render quadtree visualizer. -/
 def renderQuadtreeVisualizer (state : QuadtreeVisualizerState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
-
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
 
   let tree := buildQuadtree state.points state.config
   drawQuadtreeNode tree.root origin scale 0
@@ -179,14 +186,9 @@ def renderQuadtreeVisualizer (state : QuadtreeVisualizerState)
 /-- Create quadtree visualizer widget. -/
 def quadtreeVisualizerWidget (env : DemoEnv) (state : QuadtreeVisualizerState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderQuadtreeVisualizer state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := quadtreeMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderQuadtreeVisualizer state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

@@ -33,9 +33,9 @@ def vectorInterpolationTabContent (env : DemoEnv) : WidgetM Unit := do
               let rect := layout.contentRect
               let localX := data.click.x - rect.x
               let localY := data.click.y - rect.y
-              let origin := (rect.width / 2, rect.height / 2)
-              let scale := 50.0 * env.screenScale
-              let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+              let config := Demos.Linalg.vectorInterpolationMathViewConfig env.screenScale
+              let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+              let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
               fun (state : Demos.Linalg.VectorInterpolationState) =>
                 if Demos.Linalg.nearPoint worldPos state.vectorA 0.5 then
                   { state with dragging := some .vectorA }
@@ -56,9 +56,9 @@ def vectorInterpolationTabContent (env : DemoEnv) : WidgetM Unit := do
             let rect := layout.contentRect
             let localX := data.x - rect.x
             let localY := data.y - rect.y
-            let origin := (rect.width / 2, rect.height / 2)
-            let scale := 50.0 * env.screenScale
-            let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+            let config := Demos.Linalg.vectorInterpolationMathViewConfig env.screenScale
+            let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+            let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
             fun (state : Demos.Linalg.VectorInterpolationState) =>
               match state.dragging with
               | some target =>

@@ -39,9 +39,9 @@ def smoothDampFollowerTabContent (env : DemoEnv) : WidgetM Unit := do
                 && localY >= layoutSmooth.y - 8.0 && localY <= layoutSmooth.y + layoutSmooth.height + 8.0
               let hitMax := localX >= layoutMax.x && localX <= layoutMax.x + layoutMax.width
                 && localY >= layoutMax.y - 8.0 && localY <= layoutMax.y + layoutMax.height + 8.0
-              let origin := (rect.width / 2, rect.height / 2)
-              let scale := 70.0 * env.screenScale
-              let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+              let config := Demos.Linalg.smoothDampMathViewConfig env.screenScale
+              let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+              let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
               fun (state : Demos.Linalg.SmoothDampFollowerState) =>
                 if hitSmooth then
                   let t := Linalg.Float.clamp ((localX - layoutSmooth.x) / layoutSmooth.width) 0.0 1.0
@@ -68,9 +68,9 @@ def smoothDampFollowerTabContent (env : DemoEnv) : WidgetM Unit := do
             let rect := layout.contentRect
             let localX := data.x - rect.x
             let localY := data.y - rect.y
-            let origin := (rect.width / 2, rect.height / 2)
-            let scale := 70.0 * env.screenScale
-            let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+            let config := Demos.Linalg.smoothDampMathViewConfig env.screenScale
+            let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+            let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
             fun (state : Demos.Linalg.SmoothDampFollowerState) =>
               match state.dragging with
               | .none => state

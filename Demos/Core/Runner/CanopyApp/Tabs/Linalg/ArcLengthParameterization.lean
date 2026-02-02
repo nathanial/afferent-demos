@@ -45,9 +45,9 @@ def arcLengthParameterizationTabContent (env : DemoEnv) : WidgetM Unit := do
                 fun (s : Demos.Linalg.ArcLengthParameterizationState) =>
                   { s with speed := speed, dragging := .slider }
               else
-                let origin := (rect.width / 2, rect.height / 2)
-                let scale := 70.0 * env.screenScale
-                let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+                let config := Demos.Linalg.arcLengthMathViewConfig env.screenScale
+                let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+                let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
                 fun (state : Demos.Linalg.ArcLengthParameterizationState) =>
                   let hit := (Array.range state.controlPoints.size).findSome? fun i =>
                     let p := state.controlPoints.getD i Linalg.Vec2.zero
@@ -78,9 +78,9 @@ def arcLengthParameterizationTabContent (env : DemoEnv) : WidgetM Unit := do
                   let speed := 0.2 + t * 3.8
                   { state with speed := speed }
               | .point idx =>
-                  let origin := (rect.width / 2, rect.height / 2)
-                  let scale := 70.0 * env.screenScale
-                  let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+                  let config := Demos.Linalg.arcLengthMathViewConfig env.screenScale
+                  let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+                  let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
                   if idx < state.controlPoints.size then
                     { state with controlPoints := state.controlPoints.set! idx worldPos }
                   else

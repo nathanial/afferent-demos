@@ -14,6 +14,7 @@ import Linalg.Geometry.AABB
 import Linalg.Physics
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -47,6 +48,18 @@ structure SweptCollisionDemoState where
 
 /-- Initial state. -/
 def sweptCollisionDemoInitialState : SweptCollisionDemoState := {}
+
+def sweptCollisionMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 70.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
+}
 
 private def vec2ToVec3 (v : Vec2) : Vec3 := Vec3.mk v.x v.y 0.0
 private def vec3ToVec2 (v : Vec3) : Vec2 := Vec2.mk v.x v.y
@@ -98,17 +111,11 @@ private def drawCapsule (start finish : Vec2) (radius : Float) (origin : Float �
 
 /-- Render swept collision demo. -/
 def renderSweptCollisionDemo (state : SweptCollisionDemoState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
-
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
 
   let t := if state.animating then
       0.5 + 0.5 * Float.sin state.time
@@ -204,14 +211,9 @@ def renderSweptCollisionDemo (state : SweptCollisionDemoState)
 /-- Create swept collision widget. -/
 def sweptCollisionDemoWidget (env : DemoEnv) (state : SweptCollisionDemoState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderSweptCollisionDemo state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := sweptCollisionMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderSweptCollisionDemo state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

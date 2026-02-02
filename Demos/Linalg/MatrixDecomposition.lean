@@ -14,6 +14,7 @@ import Linalg.Vec2
 import Linalg.Mat2
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -92,6 +93,14 @@ structure MatrixDecompositionState where
   deriving Inhabited
 
 def matrixDecompositionInitialState : MatrixDecompositionState := {}
+
+def matrixDecompositionMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 80.0 * screenScale
+  showGrid := false
+  showAxes := false
+  showLabels := false
+}
 
 /-- Available matrix presets for decomposition -/
 def decompositionPresets : Array (String × Mat2) := #[
@@ -182,9 +191,11 @@ def drawDecompositionComponents (matrix : Mat2) (origin : Float × Float)
 
 /-- Render the matrix decomposition visualization -/
 def renderMatrixDecomposition (state : MatrixDecompositionState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 80.0 * screenScale
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
 
   -- Draw background grid
   setStrokeColor (Color.gray 0.15)
@@ -292,14 +303,9 @@ def renderMatrixDecomposition (state : MatrixDecompositionState)
 /-- Create the matrix decomposition widget -/
 def matrixDecompositionWidget (env : DemoEnv) (state : MatrixDecompositionState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderMatrixDecomposition state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := matrixDecompositionMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderMatrixDecomposition state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

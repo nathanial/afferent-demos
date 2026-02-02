@@ -13,6 +13,7 @@ import Linalg.Vec2
 import Linalg.Noise
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -42,6 +43,14 @@ structure DomainWarpingState where
   deriving Inhabited
 
 def domainWarpingInitialState : DomainWarpingState := {}
+
+def domainWarpingMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 80.0 * screenScale
+  showGrid := false
+  showAxes := false
+  showLabels := false
+}
 
 structure DomainWarpingSliderLayout where
   x : Float
@@ -222,7 +231,9 @@ private def renderWarpVectors (x y w h : Float) (state : DomainWarpingState) (ti
 
 /-- Render domain warping demo. -/
 def renderDomainWarpingDemo (state : DomainWarpingState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
   let panelW := panelWidth screenScale
   let contentW := w - panelW
   let pad := 18.0 * screenScale
@@ -271,14 +282,9 @@ def renderDomainWarpingDemo (state : DomainWarpingState)
 /-- Create the domain warping widget. -/
 def domainWarpingDemoWidget (env : DemoEnv) (state : DomainWarpingState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderDomainWarpingDemo state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := domainWarpingMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderDomainWarpingDemo state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

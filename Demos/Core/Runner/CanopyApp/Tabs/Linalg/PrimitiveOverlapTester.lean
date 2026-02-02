@@ -45,9 +45,9 @@ def primitiveOverlapTesterTabContent (env : DemoEnv) : WidgetM Unit := do
               let rect := layout.contentRect
               let localX := data.click.x - rect.x
               let localY := data.click.y - rect.y
-              let origin := (rect.width / 2, rect.height / 2)
-              let scale := 70.0 * env.screenScale
-              let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+              let config := Demos.Linalg.primitiveOverlapMathViewConfig env.screenScale
+              let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+              let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
               fun (state : Demos.Linalg.PrimitiveOverlapTesterState) =>
                 if Demos.Linalg.nearPoint worldPos state.centerA 0.6 then
                   { state with dragging := .shapeA }
@@ -68,9 +68,9 @@ def primitiveOverlapTesterTabContent (env : DemoEnv) : WidgetM Unit := do
             let rect := layout.contentRect
             let localX := data.x - rect.x
             let localY := data.y - rect.y
-            let origin := (rect.width / 2, rect.height / 2)
-            let scale := 70.0 * env.screenScale
-            let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+            let config := Demos.Linalg.primitiveOverlapMathViewConfig env.screenScale
+            let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+            let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
             fun (state : Demos.Linalg.PrimitiveOverlapTesterState) =>
               match state.dragging with
               | .shapeA => { state with centerA := worldPos }

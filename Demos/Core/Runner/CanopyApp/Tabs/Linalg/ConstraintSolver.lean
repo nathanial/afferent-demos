@@ -60,9 +60,9 @@ def constraintSolverTabContent (env : DemoEnv) : WidgetM Unit := do
               let rect := layout.contentRect
               let localX := data.click.x - rect.x
               let localY := data.click.y - rect.y
-              let origin := (rect.width / 2, rect.height / 2)
-              let scale := 70.0 * env.screenScale
-              let world := Demos.Linalg.screenToWorld (localX, localY) origin scale
+              let config := Demos.Linalg.constraintSolverMathViewConfig env.screenScale
+              let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+              let world := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
               fun (state : Demos.Linalg.ConstraintSolverState) =>
                 match pickPoint state world with
                 | some idx => { state with dragging := some idx }
@@ -80,9 +80,9 @@ def constraintSolverTabContent (env : DemoEnv) : WidgetM Unit := do
             let rect := layout.contentRect
             let localX := data.x - rect.x
             let localY := data.y - rect.y
-            let origin := (rect.width / 2, rect.height / 2)
-            let scale := 70.0 * env.screenScale
-            let world := Demos.Linalg.screenToWorld (localX, localY) origin scale
+            let config := Demos.Linalg.constraintSolverMathViewConfig env.screenScale
+            let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+            let world := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
             fun (state : Demos.Linalg.ConstraintSolverState) =>
               match state.dragging with
               | some idx =>

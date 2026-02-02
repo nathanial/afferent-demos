@@ -15,6 +15,7 @@ import Linalg.Mat4
 import Linalg.Transform
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -29,6 +30,18 @@ structure TransformHierarchyState where
 
 /-- Initial state. -/
 def transformHierarchyInitialState : TransformHierarchyState := {}
+
+def transformHierarchyMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 80.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
+}
 
 private def upperLen : Float := 2.2
 private def lowerLen : Float := 1.6
@@ -81,17 +94,11 @@ private def drawAxes (t : Linalg.Transform) (origin : Float × Float) (scale : F
 
 /-- Render the transform hierarchy visualization. -/
 def renderTransformHierarchy (state : TransformHierarchyState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 80.0 * screenScale
-
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
 
   let localPose := lerpPose poseA poseB state.blend
   let rootLocal := localPose.getD 0 Linalg.Transform.identity
@@ -155,14 +162,9 @@ def renderTransformHierarchy (state : TransformHierarchyState)
 /-- Create the transform hierarchy widget. -/
 def transformHierarchyWidget (env : DemoEnv) (state : TransformHierarchyState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderTransformHierarchy state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := transformHierarchyMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderTransformHierarchy state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

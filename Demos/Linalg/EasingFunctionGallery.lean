@@ -12,6 +12,7 @@ import Linalg.Core
 import Linalg.Easing
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -65,6 +66,14 @@ structure EasingFunctionGalleryState where
 
 def easingFunctionGalleryInitialState : EasingFunctionGalleryState := {}
 
+def easingFunctionGalleryMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 80.0 * screenScale
+  showGrid := false
+  showAxes := false
+  showLabels := false
+}
+
 private def clamp01 (t : Float) : Float :=
   Linalg.Float.clamp t 0.0 1.0
 
@@ -105,7 +114,9 @@ private def drawMarkerInRect (rect : EasingRect) (t value : Float) (color : Colo
 
 /-- Render easing gallery. -/
 def renderEasingFunctionGallery (state : EasingFunctionGalleryState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
   let entries := easingEntries
   let count := entries.size
   if count == 0 then return
@@ -199,14 +210,9 @@ def renderEasingFunctionGallery (state : EasingFunctionGalleryState)
 /-- Create the easing gallery widget. -/
 def easingFunctionGalleryWidget (env : DemoEnv) (state : EasingFunctionGalleryState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderEasingFunctionGallery state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := easingFunctionGalleryMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderEasingFunctionGallery state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

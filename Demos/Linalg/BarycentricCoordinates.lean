@@ -13,6 +13,7 @@ import Linalg.Vec3
 import Linalg.Geometry.Triangle
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -27,6 +28,18 @@ structure BarycentricCoordinatesState where
 
 /-- Initial state. -/
 def barycentricCoordinatesInitialState : BarycentricCoordinatesState := {}
+
+def barycentricMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 70.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
+}
 
 private def drawTriangleEdges (v0 v1 v2 : Vec2) (origin : Float × Float) (scale : Float) : CanvasM Unit := do
   let (x0, y0) := worldToScreen v0 origin scale
@@ -43,17 +56,11 @@ private def drawTriangleEdges (v0 v1 v2 : Vec2) (origin : Float × Float) (scale
 
 /-- Render barycentric coordinates. -/
 def renderBarycentricCoordinates (state : BarycentricCoordinatesState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
-
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
 
   drawTriangleEdges state.v0 state.v1 state.v2 origin scale
 
@@ -112,14 +119,9 @@ def renderBarycentricCoordinates (state : BarycentricCoordinatesState)
 /-- Create the barycentric coordinates widget. -/
 def barycentricCoordinatesWidget (env : DemoEnv) (state : BarycentricCoordinatesState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderBarycentricCoordinates state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := barycentricMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderBarycentricCoordinates state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

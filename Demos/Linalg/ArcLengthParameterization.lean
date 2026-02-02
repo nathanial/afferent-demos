@@ -12,6 +12,7 @@ import Linalg.Vec2
 import Linalg.Curves
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -37,6 +38,18 @@ structure ArcLengthParameterizationState where
 
 
 def arcLengthParameterizationInitialState : ArcLengthParameterizationState := {}
+
+def arcLengthMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 70.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
+}
 
 private def clamp01 (t : Float) : Float :=
   if t < 0.0 then 0.0 else if t > 1.0 then 1.0 else t
@@ -77,22 +90,25 @@ private def speedFromSlider (t : Float) : Float :=
 private def speedToSlider (speed : Float) : Float :=
   clamp01 ((speed - 0.2) / 3.8)
 
-private def drawPolylineWorld (points : Array Vec2) (origin : Float × Float) (scale : Float)
+private def toScreen (view : MathView2D.View) (p : Vec2) : Float × Float :=
+  MathView2D.worldToScreen view p
+
+private def drawPolylineWorld (points : Array Vec2) (view : MathView2D.View)
     (color : Color) (lineWidth : Float := 2.0) : CanvasM Unit := do
   if points.size < 2 then return
-  let p0 := worldToScreen (points.getD 0 Vec2.zero) origin scale
+  let p0 := toScreen view (points.getD 0 Vec2.zero)
   let mut path := Afferent.Path.empty
     |>.moveTo (Point.mk p0.1 p0.2)
   for i in [1:points.size] do
-    let p := worldToScreen (points.getD i Vec2.zero) origin scale
+    let p := toScreen view (points.getD i Vec2.zero)
     path := path.lineTo (Point.mk p.1 p.2)
   setStrokeColor color
   setLineWidth lineWidth
   strokePath path
 
-private def drawPointWorld (p : Vec2) (origin : Float × Float) (scale : Float)
+private def drawPointWorld (p : Vec2) (view : MathView2D.View)
     (color : Color) (radius : Float := 5.5) : CanvasM Unit := do
-  let (x, y) := worldToScreen p origin scale
+  let (x, y) := toScreen view p
   setFillColor color
   fillPath (Afferent.Path.circle (Point.mk x y) radius)
 
@@ -106,17 +122,9 @@ private def sampleCurve (evalFn : Float → Vec2) (segments : Nat := 140) : Arra
 
 /-- Render arc-length parameterization demo. -/
 def renderArcLengthParameterization (state : ArcLengthParameterizationState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
-
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
 
   let p0 := state.controlPoints.getD 0 Vec2.zero
   let p1 := state.controlPoints.getD 1 Vec2.zero
@@ -127,32 +135,32 @@ def renderArcLengthParameterization (state : ArcLengthParameterizationState)
   let arcTable := Linalg.ArcLengthTable.build evalFn 120
 
   -- Control polygon
-  drawPolylineWorld state.controlPoints origin scale (Color.gray 0.4) 1.2
+  drawPolylineWorld state.controlPoints view (Color.gray 0.4) 1.2
   for i in [:state.controlPoints.size] do
     let p := state.controlPoints.getD i Vec2.zero
     let color := if i == 0 then Color.rgba 1.0 0.3 0.3 1.0
       else if i == state.controlPoints.size - 1 then Color.rgba 0.3 0.9 0.3 1.0
       else Color.rgba 0.4 0.7 1.0 1.0
-    drawPointWorld p origin scale color 6.0
+    drawPointWorld p view color 6.0
 
   -- Curve
   let curvePts := sampleCurve evalFn 140
-  drawPolylineWorld curvePts origin scale (Color.rgba 0.2 0.9 1.0 1.0) 2.4
+  drawPolylineWorld curvePts view (Color.rgba 0.2 0.9 1.0 1.0) 2.4
 
   -- Uniform vs arc-length markers
   let tUniform := clamp01 state.t
   let posUniform := evalFn tUniform
   let tArc := Linalg.ArcLengthTable.sToT arcTable state.s
   let posArc := evalFn tArc
-  drawPointWorld posUniform origin scale (Color.rgba 0.6 0.6 0.6 1.0) 5.0
-  drawPointWorld posArc origin scale Color.white 6.5
+  drawPointWorld posUniform view (Color.rgba 0.6 0.6 0.6 1.0) 5.0
+  drawPointWorld posArc view Color.white 6.5
 
   -- Show evenly spaced markers
   for i in [:10] do
     let u := i.toFloat / 9.0
     let tu := Linalg.ArcLengthTable.uToT arcTable u
     let pU := evalFn tu
-    drawPointWorld pU origin scale (Color.rgba 1.0 0.7 0.2 0.8) 3.5
+    drawPointWorld pU view (Color.rgba 1.0 0.7 0.2 0.8) 3.5
 
   -- Speed slider
   let layout := speedSliderLayout w h screenScale
@@ -172,14 +180,9 @@ def renderArcLengthParameterization (state : ArcLengthParameterizationState)
 /-- Create arc-length parameterization widget. -/
 def arcLengthParameterizationWidget (env : DemoEnv) (state : ArcLengthParameterizationState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderArcLengthParameterization state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := arcLengthMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderArcLengthParameterization state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

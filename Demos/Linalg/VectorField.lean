@@ -12,6 +12,7 @@ import Linalg.Core
 import Linalg.Vec2
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -32,6 +33,18 @@ structure VectorFieldState where
   deriving Inhabited
 
 def vectorFieldInitialState : VectorFieldState := {}
+
+def vectorFieldMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 40.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.1
+  gridMajorColor := Color.gray 0.15
+  axisColor := Color.gray 0.25
+  labelColor := Color.gray 0.4
+  labelPrecision := 0
+}
 
 /-- Compute vector at a point based on field type -/
 def computeFieldVector (fieldType : FieldType) (p : Vec2) : Vec2 :=
@@ -86,22 +99,11 @@ def magnitudeColor (magnitude : Float) (maxMag : Float) : Color :=
 
 /-- Render the vector field visualization -/
 def renderVectorField (state : VectorFieldState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 40.0 * screenScale
-
-  -- Draw subtle grid
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-    minorColor := Color.gray 0.1
-    majorColor := Color.gray 0.15
-    axisColor := Color.gray 0.25
-    labelColor := Color.gray 0.4
-  } fontSmall
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
 
   -- Calculate grid bounds
   let halfGridX := (state.gridResolution.toFloat / 2.0).floor
@@ -191,14 +193,9 @@ def renderVectorField (state : VectorFieldState)
 /-- Create the vector field widget -/
 def vectorFieldWidget (env : DemoEnv) (state : VectorFieldState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderVectorField state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := vectorFieldMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderVectorField state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

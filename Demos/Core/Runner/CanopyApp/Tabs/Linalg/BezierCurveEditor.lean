@@ -44,9 +44,9 @@ def bezierCurveEditorTabContent (env : DemoEnv) : WidgetM Unit := do
                 fun (s : Demos.Linalg.BezierCurveEditorState) =>
                   { s with t := t, dragging := .slider }
               else
-                let origin := (rect.width / 2, rect.height / 2)
-                let scale := 70.0 * env.screenScale
-                let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+                let config := Demos.Linalg.bezierCurveMathViewConfig env.screenScale
+                let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+                let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
                 fun (state : Demos.Linalg.BezierCurveEditorState) =>
                   let points := match state.mode with
                     | .quadratic => state.quadPoints
@@ -79,9 +79,9 @@ def bezierCurveEditorTabContent (env : DemoEnv) : WidgetM Unit := do
                   let t := Linalg.Float.clamp ((localX - sliderX) / sliderW) 0.0 1.0
                   { state with t := t }
               | .control idx =>
-                  let origin := (rect.width / 2, rect.height / 2)
-                  let scale := 70.0 * env.screenScale
-                  let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+                  let config := Demos.Linalg.bezierCurveMathViewConfig env.screenScale
+                  let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+                  let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
                   match state.mode with
                   | .quadratic =>
                       if idx < state.quadPoints.size then

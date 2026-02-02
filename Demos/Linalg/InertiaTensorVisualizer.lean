@@ -14,6 +14,7 @@ import Linalg.Mat3
 import Linalg.Physics
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -49,6 +50,18 @@ structure InertiaTensorVisualizerState where
 
 /-- Initial state. -/
 def inertiaTensorVisualizerInitialState : InertiaTensorVisualizerState := {}
+
+def inertiaTensorMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 70.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
+}
 
 private def shapeName : TensorShape → String
   | .sphere => "Sphere"
@@ -119,17 +132,11 @@ private def inertiaFor (shape : TensorShape) (mass : Float) (a b c : Float) : Ma
 
 /-- Render inertia tensor visualizer. -/
 def renderInertiaTensorVisualizer (state : InertiaTensorVisualizerState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
-
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
 
   let baseTensor := inertiaFor state.shape state.mass state.sizeA state.sizeB state.sizeC
   let offset := Vec3.mk state.offsetX state.offsetY 0.0
@@ -194,14 +201,9 @@ def renderInertiaTensorVisualizer (state : InertiaTensorVisualizerState)
 /-- Create inertia tensor visualizer widget. -/
 def inertiaTensorVisualizerWidget (env : DemoEnv) (state : InertiaTensorVisualizerState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderInertiaTensorVisualizer state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := inertiaTensorMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderInertiaTensorVisualizer state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

@@ -13,6 +13,7 @@ import Linalg.Vec3
 import Linalg.Physics
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -145,6 +146,18 @@ def particleIntegrationComparisonStateFor (preset : IntegrationPreset) : Particl
 def particleIntegrationComparisonInitialState : ParticleIntegrationComparisonState :=
   particleIntegrationComparisonStateFor .harmonic
 
+def particleIntegrationMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 70.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
+}
+
 private def pushEnergyHistory (state : IntegratorState) (energy : Float) : Array Float :=
   let diff := energy - state.initialEnergy
   let history := state.energyHistory.push diff
@@ -241,17 +254,11 @@ private def drawEnergyGraph (states : Array IntegratorState)
 
 /-- Render the integration comparison visualization. -/
 def renderParticleIntegrationComparison (state : ParticleIntegrationComparisonState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
-
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
 
   for s in state.states do
     let pos2 := Vec2.mk s.position.x s.position.y
@@ -286,14 +293,9 @@ def renderParticleIntegrationComparison (state : ParticleIntegrationComparisonSt
 /-- Create the integration comparison widget. -/
 def particleIntegrationComparisonWidget (env : DemoEnv) (state : ParticleIntegrationComparisonState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderParticleIntegrationComparison state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := particleIntegrationMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderParticleIntegrationComparison state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

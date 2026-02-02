@@ -62,9 +62,9 @@ def bSplineCurveDemoTabContent (env : DemoEnv) : WidgetM Unit := do
                     let knots := spline.knots.set! idx v
                     { state with knots := knots, dragging := .knot idx }
                 | none =>
-                    let origin := (rect.width / 2, rect.height / 2 - 40 * env.screenScale)
-                    let scale := 60.0 * env.screenScale
-                    let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+                    let config := Demos.Linalg.bSplineMathViewConfig env.screenScale
+                    let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+                    let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
                     let hitPt := (Array.range state.controlPoints.size).findSome? fun i =>
                       let p := state.controlPoints.getD i Linalg.Vec2.zero
                       if Demos.Linalg.nearPoint worldPos p 0.45 then some i else none
@@ -88,9 +88,9 @@ def bSplineCurveDemoTabContent (env : DemoEnv) : WidgetM Unit := do
               match state.dragging with
               | .none => state
               | .point idx =>
-                  let origin := (rect.width / 2, rect.height / 2 - 40 * env.screenScale)
-                  let scale := 60.0 * env.screenScale
-                  let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+                  let config := Demos.Linalg.bSplineMathViewConfig env.screenScale
+                  let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+                  let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
                   if idx < state.controlPoints.size then
                     { state with controlPoints := state.controlPoints.set! idx worldPos }
                   else

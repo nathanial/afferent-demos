@@ -17,6 +17,7 @@ import Linalg.Geometry.Intersection
 import Linalg.Spatial.BVH
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -58,6 +59,18 @@ private def sampleTriangles : Array Triangle :=
 def bvhRayTracerInitialState : BVHRayTracerState := {
   triangles := sampleTriangles
   rayOrigin := Vec2.mk 0.2 0.4
+}
+
+def bvhRayTracerMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 70.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
 }
 
 private def drawLineWorld (a b : Vec2) (origin : Float × Float) (scale : Float)
@@ -147,17 +160,11 @@ private def bruteForceHit (tris : Array Triangle) (ray : Ray) : Option RayHit ×
 
 /-- Render BVH ray tracer demo. -/
 def renderBVHRayTracer (state : BVHRayTracerState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
-
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
 
   let bvh := BVH.build state.triangles BVHConfig.triangles
   let rayOrigin := Vec3.mk state.rayOrigin.x state.rayOrigin.y 3.5
@@ -219,14 +226,9 @@ def renderBVHRayTracer (state : BVHRayTracerState)
 /-- Create BVH ray tracer widget. -/
 def bvhRayTracerWidget (env : DemoEnv) (state : BVHRayTracerState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderBVHRayTracer state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := bvhRayTracerMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderBVHRayTracer state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

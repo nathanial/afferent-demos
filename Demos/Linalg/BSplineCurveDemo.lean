@@ -12,6 +12,7 @@ import Linalg.Vec2
 import Linalg.Curves
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -46,25 +47,41 @@ def bSplineCurveDemoInitialState : BSplineCurveDemoState :=
     knots := makeUniformKnots defaultControlPoints degree
     dragging := .none }
 
+def bSplineMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 60.0 * screenScale
+  originOffset := (0.0, -40.0 * screenScale)
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
+}
+
 private def clamp01 (t : Float) : Float :=
   if t < 0.0 then 0.0 else if t > 1.0 then 1.0 else t
 
-private def drawPolylineWorld (points : Array Vec2) (origin : Float × Float) (scale : Float)
+private def toScreen (view : MathView2D.View) (p : Vec2) : Float × Float :=
+  MathView2D.worldToScreen view p
+
+private def drawPolylineWorld (points : Array Vec2) (view : MathView2D.View)
     (color : Color) (lineWidth : Float := 2.0) : CanvasM Unit := do
   if points.size < 2 then return
-  let p0 := worldToScreen (points.getD 0 Vec2.zero) origin scale
+  let p0 := toScreen view (points.getD 0 Vec2.zero)
   let mut path := Afferent.Path.empty
     |>.moveTo (Point.mk p0.1 p0.2)
   for i in [1:points.size] do
-    let p := worldToScreen (points.getD i Vec2.zero) origin scale
+    let p := toScreen view (points.getD i Vec2.zero)
     path := path.lineTo (Point.mk p.1 p.2)
   setStrokeColor color
   setLineWidth lineWidth
   strokePath path
 
-private def drawPointWorld (p : Vec2) (origin : Float × Float) (scale : Float)
+private def drawPointWorld (p : Vec2) (view : MathView2D.View)
     (color : Color) (radius : Float := 5.5) : CanvasM Unit := do
-  let (x, y) := worldToScreen p origin scale
+  let (x, y) := toScreen view p
   setFillColor color
   fillPath (Afferent.Path.circle (Point.mk x y) radius)
 
@@ -133,26 +150,18 @@ private def drawKnotMarkers (b : Linalg.BSpline Vec2) (rect : BasisPlotRect)
 
 /-- Render B-spline demo. -/
 def renderBSplineCurveDemo (state : BSplineCurveDemoState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2 - 40 * screenScale)
-  let scale : Float := 60.0 * screenScale
-
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
 
   -- Control polygon
-  drawPolylineWorld state.controlPoints origin scale (Color.gray 0.4) 1.2
+  drawPolylineWorld state.controlPoints view (Color.gray 0.4) 1.2
   for i in [:state.controlPoints.size] do
     let p := state.controlPoints.getD i Vec2.zero
     let color := if i == 0 then Color.rgba 1.0 0.3 0.3 1.0
       else if i == state.controlPoints.size - 1 then Color.rgba 0.3 0.9 0.3 1.0
       else Color.rgba 0.4 0.7 1.0 1.0
-    drawPointWorld p origin scale color 6.0
+    drawPointWorld p view color 6.0
 
   let spline : Linalg.BSpline Vec2 := {
     controlPoints := state.controlPoints,
@@ -160,7 +169,7 @@ def renderBSplineCurveDemo (state : BSplineCurveDemoState)
     degree := state.degree
   }
   let curve := sampleSpline (fun tt => Linalg.BSpline.evalVec2 spline tt) 140
-  drawPolylineWorld curve origin scale (Color.rgba 0.2 0.9 1.0 1.0) 2.4
+  drawPolylineWorld curve view (Color.rgba 0.2 0.9 1.0 1.0) 2.4
 
   -- Basis plot
   let rect := basisPlotRect w h screenScale
@@ -184,14 +193,9 @@ def renderBSplineCurveDemo (state : BSplineCurveDemoState)
 /-- Create B-spline demo widget. -/
 def bSplineCurveDemoWidget (env : DemoEnv) (state : BSplineCurveDemoState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderBSplineCurveDemo state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := bSplineMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderBSplineCurveDemo state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

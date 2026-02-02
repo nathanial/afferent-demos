@@ -15,6 +15,7 @@ import Linalg.Quat
 import Linalg.Physics
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -49,6 +50,18 @@ instance : Inhabited RigidBodySimulatorState where
 /-- Initial state. -/
 def rigidBodySimulatorInitialState : RigidBodySimulatorState := {
   body := RigidBody.create Vec3.zero 2.0 (InertiaTensor.solidBox 2.0 (Vec3.mk 1.1 0.6 0.4))
+}
+
+def rigidBodyMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 70.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
 }
 
 private def shapeName : RigidShape → String
@@ -149,17 +162,11 @@ def stepRigidBodySimulator (state : RigidBodySimulatorState) (dt : Float)
 
 /-- Render rigid body simulator. -/
 def renderRigidBodySimulator (state : RigidBodySimulatorState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
-
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
 
   match state.shape with
   | .box =>
@@ -204,14 +211,9 @@ def renderRigidBodySimulator (state : RigidBodySimulatorState)
 /-- Create rigid body simulator widget. -/
 def rigidBodySimulatorWidget (env : DemoEnv) (state : RigidBodySimulatorState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderRigidBodySimulator state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := rigidBodyMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderRigidBodySimulator state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

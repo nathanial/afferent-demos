@@ -86,9 +86,9 @@ def rigidBodySimulatorTabContent (env : DemoEnv) : WidgetM Unit := do
               let rect := layout.contentRect
               let localX := data.click.x - rect.x
               let localY := data.click.y - rect.y
-              let origin := (rect.width / 2, rect.height / 2)
-              let scale := 70.0 * env.screenScale
-              let world := Demos.Linalg.screenToWorld (localX, localY) origin scale
+              let config := Demos.Linalg.rigidBodyMathViewConfig env.screenScale
+              let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+              let world := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
               fun (state : Demos.Linalg.RigidBodySimulatorState) =>
                 applyClickForce state world
           | none => id

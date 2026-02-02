@@ -12,6 +12,7 @@ import Linalg.Core
 import Linalg.Vec2
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -38,20 +39,25 @@ structure VectorProjectionState where
 
 def vectorProjectionInitialState : VectorProjectionState := {}
 
+def vectorProjectionMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 50.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
+}
+
 /-- Render the vector projection visualization -/
 def renderVectorProjection (state : VectorProjectionState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 50.0 * screenScale
-
-  -- Draw grid
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
 
   -- Calculate projection and related vectors
   let proj := Vec2.project state.vectorV state.vectorU
@@ -170,14 +176,9 @@ def renderVectorProjection (state : VectorProjectionState)
 /-- Create the projection widget -/
 def vectorProjectionWidget (env : DemoEnv) (state : VectorProjectionState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderVectorProjection state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := vectorProjectionMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderVectorProjection state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

@@ -44,9 +44,9 @@ def catmullRomSplineEditorTabContent (env : DemoEnv) : WidgetM Unit := do
                 fun (s : Demos.Linalg.CatmullRomSplineEditorState) =>
                   { s with alpha := alpha, dragging := .slider }
               else
-                let origin := (rect.width / 2, rect.height / 2)
-                let scale := 70.0 * env.screenScale
-                let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+                let config := Demos.Linalg.catmullRomMathViewConfig env.screenScale
+                let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+                let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
                 fun (state : Demos.Linalg.CatmullRomSplineEditorState) =>
                   let hit := (Array.range state.points.size).findSome? fun i =>
                     let p := state.points.getD i Linalg.Vec2.zero
@@ -78,9 +78,9 @@ def catmullRomSplineEditorTabContent (env : DemoEnv) : WidgetM Unit := do
                   let alpha := Linalg.Float.clamp ((localX - sliderX) / sliderW) 0.0 1.0
                   { state with alpha := alpha }
               | .point idx =>
-                  let origin := (rect.width / 2, rect.height / 2)
-                  let scale := 70.0 * env.screenScale
-                  let worldPos := Demos.Linalg.screenToWorld (localX, localY) origin scale
+                  let config := Demos.Linalg.catmullRomMathViewConfig env.screenScale
+                  let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
+                  let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
                   if idx < state.points.size then
                     { state with points := state.points.set! idx worldPos }
                   else

@@ -12,6 +12,7 @@ import Linalg.Vec2
 import Linalg.Noise
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -38,6 +39,14 @@ structure WorleyCellularState where
   deriving Inhabited
 
 def worleyCellularInitialState : WorleyCellularState := {}
+
+def worleyCellularMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 80.0 * screenScale
+  showGrid := false
+  showAxes := false
+  showLabels := false
+}
 
 structure WorleySliderLayout where
   x : Float
@@ -198,7 +207,9 @@ structure WorleyPoint where
   pos : Vec2
 
 def renderWorleyCellular (state : WorleyCellularState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
   let panelW := panelWidth screenScale
   let plotW := w - panelW
   let plotH := h
@@ -329,14 +340,9 @@ def renderWorleyCellular (state : WorleyCellularState)
 /-- Create worley cellular widget. -/
 def worleyCellularNoiseWidget (env : DemoEnv) (state : WorleyCellularState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderWorleyCellular state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := worleyCellularMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderWorleyCellular state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

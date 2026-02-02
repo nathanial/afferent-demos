@@ -10,6 +10,7 @@ import Trellis
 import Linalg.Core
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -71,6 +72,14 @@ structure SpringAnimationPlaygroundState where
 
 
 def springAnimationPlaygroundInitialState : SpringAnimationPlaygroundState := {}
+
+def springAnimationMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 80.0 * screenScale
+  showGrid := false
+  showAxes := false
+  showLabels := false
+}
 
 private def clamp01 (t : Float) : Float :=
   Linalg.Float.clamp t 0.0 1.0
@@ -140,7 +149,9 @@ private def drawGraph (values : Array Float) (rect : SpringRect) (color : Color)
 
 /-- Render spring playground. -/
 def renderSpringAnimationPlayground (state : SpringAnimationPlaygroundState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
   let ω := 2.0 * Linalg.Float.pi * state.frequency
   let x := springResponse state.time state.dampingRatio ω
   let _v := springVelocity state.time state.dampingRatio ω
@@ -219,14 +230,9 @@ def renderSpringAnimationPlayground (state : SpringAnimationPlaygroundState)
 /-- Create spring playground widget. -/
 def springAnimationPlaygroundWidget (env : DemoEnv) (state : SpringAnimationPlaygroundState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderSpringAnimationPlayground state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := springAnimationMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderSpringAnimationPlayground state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

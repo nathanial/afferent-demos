@@ -13,6 +13,7 @@ import Linalg.Geometry.AABB2D
 import Linalg.Spatial.KDTree
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -39,6 +40,18 @@ private def samplePoints : Array Vec2 :=
 def kdTreeNearestNeighborInitialState : KDTreeNearestNeighborState := {
   points := samplePoints
   queryPoint := Vec2.mk 0.5 0.4
+}
+
+def kdTreeMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 70.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
 }
 
 private def drawLineWorld (a b : Vec2) (origin : Float × Float) (scale : Float)
@@ -162,17 +175,11 @@ private def drawVisitedSplits (visits : Array SplitVisit) (origin : Float × Flo
 
 /-- Render KD-tree nearest neighbor demo. -/
 def renderKDTreeNearestNeighbor (state : KDTreeNearestNeighborState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
-
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
 
   let tree := KDTree2D.build state.points state.maxLeaf
   drawKDNode tree.root tree.bounds origin scale 0
@@ -226,14 +233,9 @@ def renderKDTreeNearestNeighbor (state : KDTreeNearestNeighborState)
 /-- Create KD-tree nearest neighbor widget. -/
 def kdTreeNearestNeighborWidget (env : DemoEnv) (state : KDTreeNearestNeighborState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderKDTreeNearestNeighbor state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := kdTreeMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderKDTreeNearestNeighbor state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

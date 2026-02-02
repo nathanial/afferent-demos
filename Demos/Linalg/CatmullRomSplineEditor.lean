@@ -13,6 +13,7 @@ import Linalg.Vec2
 import Linalg.Curves
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -38,6 +39,18 @@ structure CatmullRomSplineEditorState where
   deriving Inhabited
 
 def catmullRomSplineEditorInitialState : CatmullRomSplineEditorState := {}
+
+def catmullRomMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 70.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
+}
 
 private def clamp01 (t : Float) : Float :=
   if t < 0.0 then 0.0 else if t > 1.0 then 1.0 else t
@@ -147,18 +160,12 @@ private def sampleSpline (evalFn : Float → Vec2) (segments : Nat := 140) : Arr
 
 /-- Render spline editor. -/
 def renderCatmullRomSplineEditor (state : CatmullRomSplineEditorState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
   let t := clamp01 state.t
-
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
 
   -- Control polygon
   if state.points.size > 1 then
@@ -208,14 +215,9 @@ def renderCatmullRomSplineEditor (state : CatmullRomSplineEditorState)
 /-- Create spline editor widget. -/
 def catmullRomSplineEditorWidget (env : DemoEnv) (state : CatmullRomSplineEditorState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderCatmullRomSplineEditor state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := catmullRomMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderCatmullRomSplineEditor state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

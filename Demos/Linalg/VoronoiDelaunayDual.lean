@@ -16,6 +16,7 @@ import Linalg.Geometry.AABB2D
 import Linalg.Geometry.Polygon2D
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -62,6 +63,18 @@ structure VoronoiDelaunayDualState where
 /-- Initial state. -/
 def voronoiDelaunayDualInitialState : VoronoiDelaunayDualState := {}
 
+def voronoiMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 70.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
+}
+
 def computeActiveCount (pointsCount : Nat) (time speed : Float) : Nat :=
   if pointsCount <= 3 then pointsCount
   else
@@ -106,17 +119,11 @@ private def drawPolygonWorld (poly : Array Vec2) (origin : Float × Float) (scal
 
 /-- Render the Voronoi/Delaunay visualization. -/
 def renderVoronoiDelaunayDual (state : VoronoiDelaunayDualState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
-
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
 
   let activeCount := Nat.min state.activeCount state.points.size
   let activePoints := state.points.take activeCount
@@ -240,14 +247,9 @@ def renderVoronoiDelaunayDual (state : VoronoiDelaunayDualState)
 /-- Create the Voronoi/Delaunay dual widget. -/
 def voronoiDelaunayDualWidget (env : DemoEnv) (state : VoronoiDelaunayDualState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderVoronoiDelaunayDual state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := voronoiMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderVoronoiDelaunayDual state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

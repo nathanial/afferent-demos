@@ -13,6 +13,7 @@ import Linalg.Vec2
 import Linalg.Curves
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -39,6 +40,18 @@ structure BezierCurveEditorState where
   deriving Inhabited
 
 def bezierCurveEditorInitialState : BezierCurveEditorState := {}
+
+def bezierCurveMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 70.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
+}
 
 private def clamp01 (t : Float) : Float :=
   if t < 0.0 then 0.0 else if t > 1.0 then 1.0 else t
@@ -134,18 +147,12 @@ private def sampleBezier3 (b : Bezier3 Vec2) (segments : Nat) : Array Vec2 := Id
 
 /-- Render Bezier curve editor. -/
 def renderBezierCurveEditor (state : BezierCurveEditorState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
   let t := clamp01 state.t
-
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
 
   let points := activePoints state
 
@@ -241,14 +248,9 @@ def renderBezierCurveEditor (state : BezierCurveEditorState)
 /-- Create the Bezier curve editor widget. -/
 def bezierCurveEditorWidget (env : DemoEnv) (state : BezierCurveEditorState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderBezierCurveEditor state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := bezierCurveMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderBezierCurveEditor state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

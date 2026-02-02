@@ -17,6 +17,7 @@ import Linalg.Mat3
 import Linalg.Affine2D
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -63,6 +64,14 @@ structure Matrix2DTransformState where
   deriving Inhabited
 
 def matrix2DTransformInitialState : Matrix2DTransformState := {}
+
+def matrix2DMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 80.0 * screenScale
+  showGrid := false
+  showAxes := false
+  showLabels := false
+}
 
 /-- Map a matrix cell to row/column indices. -/
 def matrixCellToRC : MatrixCell -> Option (Nat × Nat)
@@ -296,9 +305,11 @@ def drawMatrixDisplay (matrix : Mat2) (x y : Float) (screenScale : Float)
 
 /-- Render the 2D matrix transform visualization -/
 def renderMatrix2DTransform (state : Matrix2DTransformState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 80.0 * screenScale
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
 
   -- Get effective matrix (with animation interpolation)
   let effectiveMatrix := lerpMatrix state.matrix state.animT
@@ -419,14 +430,9 @@ def renderMatrix2DTransform (state : Matrix2DTransformState)
 /-- Create the 2D matrix transform widget -/
 def matrix2DTransformWidget (env : DemoEnv) (state : Matrix2DTransformState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderMatrix2DTransform state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := matrix2DMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderMatrix2DTransform state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

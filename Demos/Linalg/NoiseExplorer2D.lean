@@ -13,6 +13,7 @@ import Linalg.Vec2
 import Linalg.Noise
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -56,6 +57,14 @@ structure NoiseExplorerState where
   deriving Inhabited
 
 def noiseExplorer2DInitialState : NoiseExplorerState := {}
+
+def noiseExplorerMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 80.0 * screenScale
+  showGrid := false
+  showAxes := false
+  showLabels := false
+}
 
 structure NoiseExplorerSliderLayout where
   x : Float
@@ -264,7 +273,9 @@ private def noiseSample01 (state : NoiseExplorerState) (x y : Float) : Float :=
 
 /-- Render noise explorer. -/
 def renderNoiseExplorer2D (state : NoiseExplorerState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
   let panelW := panelWidth screenScale
   let plotW := w - panelW
   let plotH := h
@@ -340,14 +351,9 @@ def renderNoiseExplorer2D (state : NoiseExplorerState)
 /-- Create the noise explorer widget. -/
 def noiseExplorer2DWidget (env : DemoEnv) (state : NoiseExplorerState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderNoiseExplorer2D state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := noiseExplorerMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderNoiseExplorer2D state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

@@ -12,6 +12,7 @@ import Linalg.Vec2
 import Linalg.Geometry.Polygon2D
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -52,6 +53,18 @@ structure ConvexHull2DState where
 
 /-- Initial state. -/
 def convexHull2DInitialState : ConvexHull2DState := {}
+
+def convexHullMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 70.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
+}
 
 private def leftmostIndex (points : Array Vec2) : Nat :=
   if points.size == 0 then 0
@@ -131,17 +144,11 @@ private def drawLineWorld (a b : Vec2) (origin : Float × Float) (scale : Float)
 
 /-- Render convex hull demo. -/
 def renderConvexHull2D (state : ConvexHull2DState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 70.0 * screenScale
-
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
 
   let hullPoly := Polygon2D.convexHull state.points
   let hullIndices := giftWrapIndices state.points
@@ -198,14 +205,9 @@ def renderConvexHull2D (state : ConvexHull2DState)
 /-- Create the convex hull widget. -/
 def convexHull2DWidget (env : DemoEnv) (state : ConvexHull2DState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderConvexHull2D state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := convexHullMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderConvexHull2D state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg

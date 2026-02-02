@@ -12,6 +12,7 @@ import Linalg.Core
 import Linalg.Vec2
 
 open Afferent CanvasM Linalg
+open Afferent.Widget
 
 namespace Demos.Linalg
 
@@ -39,6 +40,18 @@ structure VectorArithmeticState where
 
 def vectorArithmeticInitialState : VectorArithmeticState := {}
 
+def vectorArithmeticMathViewConfig (screenScale : Float) : MathView2D.Config := {
+  style := { flexItem := some (Trellis.FlexItem.growing 1) }
+  scale := 50.0 * screenScale
+  minorStep := 1.0
+  majorStep := 2.0
+  gridMinorColor := Color.gray 0.2
+  gridMajorColor := Color.gray 0.4
+  axisColor := Color.gray 0.6
+  labelColor := VecColor.label
+  labelPrecision := 0
+}
+
 /-- Draw a parallelogram showing vector addition -/
 def drawParallelogram (a b : Vec2) (origin : Float × Float) (scale : Float) : CanvasM Unit := do
   let o := Vec2.zero
@@ -62,18 +75,11 @@ def drawParallelogram (a b : Vec2) (origin : Float × Float) (scale : Float) : C
 
 /-- Render the vector arithmetic visualization -/
 def renderVectorArithmetic (state : VectorArithmeticState)
-    (w h : Float) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
-  let origin : Float × Float := (w / 2, h / 2)
-  let scale : Float := 50.0 * screenScale
-
-  -- Draw grid
-  drawGrid2D {
-    origin := origin
-    scale := scale
-    width := w
-    height := h
-    majorSpacing := 2.0
-  } fontSmall
+    (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
+  let w := view.width
+  let h := view.height
+  let origin : Float × Float := (view.origin.x, view.origin.y)
+  let scale := view.scale
 
   -- Calculate result based on operation
   let (result, opName, opSymbol) := match state.operation with
@@ -164,14 +170,9 @@ def renderVectorArithmetic (state : VectorArithmeticState)
 /-- Create the arithmetic widget -/
 def vectorArithmeticWidget (env : DemoEnv) (state : VectorArithmeticState)
     : Afferent.Arbor.WidgetBuilder := do
-  Afferent.Arbor.custom (spec := {
-    measure := fun _ _ => (0, 0)
-    collect := fun _ => #[]
-    draw := some (fun layout => do
-      withContentRect layout fun w h => do
-        resetTransform
-        renderVectorArithmetic state w h env.screenScale env.fontMedium env.fontSmall
-    )
-  }) (style := { flexItem := some (Trellis.FlexItem.growing 1) })
+  let config := vectorArithmeticMathViewConfig env.screenScale
+  MathView2D.mathView2D config env.fontSmall (fun view => do
+    renderVectorArithmetic state view env.screenScale env.fontMedium env.fontSmall
+  )
 
 end Demos.Linalg
