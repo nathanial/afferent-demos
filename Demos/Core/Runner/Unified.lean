@@ -254,7 +254,6 @@ def unifiedDemo : IO Unit := do
             if click.isSome then
               FFI.Window.clearClick c.ctx.window
 
-            rs.events.resetRegistry
             rs.inputs.fireAnimationFrame dt
 
             let widgetBuilder ← rs.render
@@ -283,6 +282,9 @@ def unifiedDemo : IO Unit := do
               layouts := layouts
               hitIndex := hitIndex
             } }
+            let interactiveNames :=
+              hitIndex.nameMap.toList.foldl (fun acc entry => acc.push entry.1) #[]
+            rs.events.registry.interactiveNames.set interactiveNames
 
             let collectStart ← IO.monoNanosNow
             let (commands, cacheHits, cacheMisses) ←
