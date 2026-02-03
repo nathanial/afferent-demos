@@ -5,6 +5,7 @@ import Demos.Core.Runner.CanopyApp.Tabs.Linalg.VectorInterpolation
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.VectorArithmetic
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.VectorProjection
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.VectorField
+import Demos.Core.Runner.CanopyApp.Tabs.Linalg.VectorField3D
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.CrossProduct3D
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.Matrix2DTransform
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.Matrix3DTransform

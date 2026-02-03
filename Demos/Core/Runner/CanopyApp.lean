@@ -61,6 +61,7 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
     { label := "Arithmetic", content := vectorArithmeticTabContent env },
     { label := "Projection", content := vectorProjectionTabContent env },
     { label := "Field", content := vectorFieldTabContent env },
+    { label := "Field3D", content := vectorField3DTabContent env },
     { label := "Cross 3D", content := crossProduct3DTabContent env },
     { label := "Mat2D", content := matrix2DTransformTabContent env },
     { label := "Mat3D", content := matrix3DTransformTabContent env },

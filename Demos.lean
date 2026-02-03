@@ -20,6 +20,7 @@ import Demos.Linalg.VectorInterpolation
 import Demos.Linalg.VectorArithmetic
 import Demos.Linalg.VectorProjection
 import Demos.Linalg.VectorField
+import Demos.Linalg.VectorField3D
 import Demos.Linalg.CrossProduct3D
 import Demos.Linalg.Matrix2DTransform
 import Demos.Linalg.Matrix3DTransform

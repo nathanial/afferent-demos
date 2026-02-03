@@ -4,6 +4,7 @@
 -/
 import Afferent
 import Afferent.Widget
+import Afferent.Widget.VectorField
 import Afferent.Arbor
 import Demos.Core.Demo
 import Demos.Linalg.Shared
@@ -13,6 +14,7 @@ import Linalg.Vec2
 
 open Afferent CanvasM Linalg
 open Afferent.Widget
+open Afferent.Widget.VectorField
 
 namespace Demos.Linalg
 
@@ -74,80 +76,32 @@ def fieldTypeName (ft : FieldType) : String :=
   | .gradient => "Gradient (constant)"
   | .saddle => "Saddle Point"
 
-/-- Interpolate between two colors based on a value 0-1 -/
-def lerpColor (c1 c2 : Color) (t : Float) : Color :=
-  let t' := Float.max 0.0 (Float.min 1.0 t)
-  Color.rgba
-    (c1.r + (c2.r - c1.r) * t')
-    (c1.g + (c2.g - c1.g) * t')
-    (c1.b + (c2.b - c1.b) * t')
-    (c1.a + (c2.a - c1.a) * t')
-
-/-- Get color based on magnitude (blue -> cyan -> green -> yellow -> red) -/
-def magnitudeColor (magnitude : Float) (maxMag : Float) : Color :=
-  let t := if maxMag > 0.001 then magnitude / maxMag else 0.0
-  let t' := Float.max 0.0 (Float.min 1.0 t)
-  -- Multi-stop gradient
-  if t' < 0.25 then
-    lerpColor (Color.rgba 0.2 0.3 0.8 1.0) (Color.rgba 0.0 0.8 0.8 1.0) (t' * 4.0)
-  else if t' < 0.5 then
-    lerpColor (Color.rgba 0.0 0.8 0.8 1.0) (Color.rgba 0.2 0.9 0.2 1.0) ((t' - 0.25) * 4.0)
-  else if t' < 0.75 then
-    lerpColor (Color.rgba 0.2 0.9 0.2 1.0) (Color.rgba 0.9 0.9 0.0 1.0) ((t' - 0.5) * 4.0)
-  else
-    lerpColor (Color.rgba 0.9 0.9 0.0 1.0) (Color.rgba 0.9 0.2 0.2 1.0) ((t' - 0.75) * 4.0)
-
 /-- Render the vector field visualization -/
 def renderVectorField (state : VectorFieldState)
     (view : MathView2D.View) (screenScale : Float) (fontMedium fontSmall : Font) : CanvasM Unit := do
   let w := view.width
   let h := view.height
   let origin : Float × Float := (view.origin.x, view.origin.y)
-  let scale := view.scale
+  let sampling : Sampling2D := {
+    samplesX := state.gridResolution
+    samplesY := state.gridResolution
+    computeMax := true
+  }
+  let arrowStyle : ArrowStyle := {
+    lineWidth := 1.5 * screenScale
+    headLength := 6.0 * screenScale
+    headAngle := 0.5
+    scale := state.arrowScale
+  }
+  let colorScale := ColorScale.blueCyanGreenYellowRed
+  let coloring : Coloring := {
+    mode := if state.showMagnitude then
+      .magnitude colorScale
+    else
+      .fixed Color.cyan
+  }
 
-  -- Calculate grid bounds
-  let halfGridX := (state.gridResolution.toFloat / 2.0).floor
-  let halfGridY := (state.gridResolution.toFloat / 2.0).floor
-
-  -- First pass: find maximum magnitude for normalization
-  let mut maxMag : Float := 0.001
-  for i in [:state.gridResolution + 1] do
-    for j in [:state.gridResolution + 1] do
-      let gx := i.toFloat - halfGridX
-      let gy := j.toFloat - halfGridY
-      let p := Vec2.mk gx gy
-      let v := computeFieldVector state.fieldType p
-      let mag := v.length
-      if mag > maxMag then
-        maxMag := mag
-
-  -- Second pass: draw arrows
-  for i in [:state.gridResolution + 1] do
-    for j in [:state.gridResolution + 1] do
-      let gx := i.toFloat - halfGridX
-      let gy := j.toFloat - halfGridY
-      let p := Vec2.mk gx gy
-      let v := computeFieldVector state.fieldType p
-      let mag := v.length
-
-      if mag > 0.001 then
-        -- Scale arrow length
-        let arrowVec := v.normalize * state.arrowScale
-        let screenStart := worldToScreen p origin scale
-        let screenEnd := worldToScreen (p + arrowVec) origin scale
-
-        -- Color by magnitude
-        let color := if state.showMagnitude then
-          magnitudeColor mag maxMag
-        else
-          Color.cyan
-
-        drawArrow2D screenStart screenEnd {
-          color := color
-          lineWidth := 1.5 * screenScale
-          headLength := 6.0 * screenScale
-          headAngle := 0.5
-        }
+  let maxMag ← drawField2D view (computeFieldVector state.fieldType) sampling arrowStyle coloring
 
   -- Draw origin marker
   setFillColor (Color.white)
@@ -167,28 +121,29 @@ def renderVectorField (state : VectorFieldState)
   fillTextXY "Keys: 1=Radial, 2=Rotational, 3=Gradient, 4=Saddle | +/-: grid density" (20 * screenScale) (55 * screenScale) fontSmall
 
   -- Color legend
-  let legendX := w - 180 * screenScale
-  let legendY := 30 * screenScale
-  setFillColor (Color.gray 0.7)
-  fillTextXY "Magnitude:" legendX legendY fontSmall
+  if state.showMagnitude then
+    let legendX := w - 180 * screenScale
+    let legendY := 30 * screenScale
+    setFillColor (Color.gray 0.7)
+    fillTextXY "Magnitude:" legendX legendY fontSmall
 
-  -- Draw color bar
-  let barX := legendX
-  let barY := legendY + 15 * screenScale
-  let barW := 120 * screenScale
-  let barH := 12 * screenScale
-  let steps := 20
-  for i in [:steps] do
-    let t := i.toFloat / (steps - 1).toFloat
-    let color := magnitudeColor t 1.0
-    let x := barX + t * barW
-    setFillColor color
-    fillPath (Afferent.Path.rectangleXYWH x barY (barW / steps.toFloat + 1) barH)
+    -- Draw color bar
+    let barX := legendX
+    let barY := legendY + 15 * screenScale
+    let barW := 120 * screenScale
+    let barH := 12 * screenScale
+    let steps := 20
+    for i in [:steps] do
+      let t := i.toFloat / (steps - 1).toFloat
+      let color := colorForScale colorScale t
+      let x := barX + t * barW
+      setFillColor color
+      fillPath (Afferent.Path.rectangleXYWH x barY (barW / steps.toFloat + 1) barH)
 
-  setFillColor (Color.gray 0.5)
-  fillTextXY "low" barX (barY + barH + 12 * screenScale) fontSmall
-  let (hiW, _) ← fontSmall.measureText "high"
-  fillTextXY "high" (barX + barW - hiW) (barY + barH + 12 * screenScale) fontSmall
+    setFillColor (Color.gray 0.5)
+    fillTextXY "low" barX (barY + barH + 12 * screenScale) fontSmall
+    let (hiW, _) ← fontSmall.measureText "high"
+    fillTextXY "high" (barX + barW - hiW) (barY + barH + 12 * screenScale) fontSmall
 
 /-- Create the vector field widget -/
 def vectorFieldWidget (env : DemoEnv) (state : VectorFieldState)
