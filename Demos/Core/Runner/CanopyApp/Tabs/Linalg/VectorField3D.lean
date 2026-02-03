@@ -12,6 +12,7 @@ import Trellis
 open Reactive Reactive.Host
 open Afferent
 open Afferent.Arbor
+open Afferent.Widget
 open Afferent.Canopy
 open Afferent.Canopy.Reactive
 open Trellis
@@ -19,8 +20,6 @@ open Trellis
 namespace Demos
 
 def vectorField3DTabContent (env : DemoEnv) : WidgetM Unit := do
-  let fieldName ← registerComponentW "vector-field-3d"
-
   let keyEvents ← useKeyboard
   let keyUpdates ← Event.mapM (fun data =>
     fun (s : Demos.Linalg.VectorField3DState) =>
@@ -53,9 +52,36 @@ def vectorField3DTabContent (env : DemoEnv) : WidgetM Unit := do
       width := .percent 1.0
       height := .percent 1.0
     }
-    emit (pure (namedColumn fieldName 0 containerStyle #[
-      Demos.Linalg.vectorField3DWidget env s
-    ]))
+    column' (gap := 0) (style := containerStyle) do
+      let viewConfig := Demos.Linalg.vectorField3DMathViewConfig env.screenScale
+      let _ ← mathView3DInteractive viewConfig {} env.fontSmall (fun view => do
+        let sampling : VectorField.Sampling3D := {
+          samplesX := s.samplesXY
+          samplesY := s.samplesXY
+          samplesZ := s.samplesZ
+          extent := 3.0
+          computeMax := true
+        }
+        let arrows : VectorField.ArrowStyle := {
+          lineWidth := 1.2 * env.screenScale
+          headLength := 6.0 * env.screenScale
+          headAngle := 0.5
+          scale := s.arrowScale
+          scaleMode := .cell
+          scaleByMagnitude := s.scaleByMagnitude
+        }
+        let colorScale := VectorField.ColorScale.viridis
+        let coloring : VectorField.Coloring := {
+          mode := if s.showMagnitude then
+            .magnitude colorScale
+          else
+            .fixed Color.cyan
+        }
+        let maxMag ← VectorField.drawField3D view (Demos.Linalg.computeFieldVector3D s.fieldType)
+          sampling arrows coloring
+        Demos.Linalg.renderVectorField3DOverlay s view maxMag env.screenScale env.fontMedium env.fontSmall
+      )
+      pure ()
   pure ()
 
 end Demos

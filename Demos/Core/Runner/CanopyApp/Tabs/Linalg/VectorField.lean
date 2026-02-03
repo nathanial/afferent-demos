@@ -18,8 +18,6 @@ open Trellis
 
 namespace Demos
 def vectorFieldTabContent (env : DemoEnv) : WidgetM Unit := do
-  let fieldName ← registerComponentW "vector-field"
-
   let keyEvents ← useKeyboard
   let keyUpdates ← Event.mapM (fun data =>
     fun (s : Demos.Linalg.VectorFieldState) =>
@@ -46,9 +44,12 @@ def vectorFieldTabContent (env : DemoEnv) : WidgetM Unit := do
       width := .percent 1.0
       height := .percent 1.0
     }
-    emit (pure (namedColumn fieldName 0 containerStyle #[
-      Demos.Linalg.vectorFieldWidget env s
-    ]))
+    column' (gap := 0) (style := containerStyle) do
+      let viewConfig := Demos.Linalg.vectorFieldMathViewConfig env.screenScale
+      let _ ← mathView2DInteractive viewConfig {} env.fontSmall (fun view => do
+        Demos.Linalg.renderVectorField s view env.screenScale env.fontMedium env.fontSmall
+      )
+      pure ()
   pure ()
 
 end Demos
