@@ -8,6 +8,7 @@ import Afferent.Canopy.Reactive
 import Demos.Core.Demo
 import Demos.Core.Runner.CanopyApp.Support
 import Demos.Core.Runner.CanopyApp.Tabs.Core
+import Demos.Core.Runner.CanopyApp.Tabs.Buttons
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg
 import Demos.Core.Runner.CanopyApp.Tabs.Visuals
 import Tileset
@@ -45,6 +46,7 @@ def createCanopyApp (env : DemoEnv) : ReactiveM CanopyAppState := do
     { label := "Sprites", content := spritesTabContent env },
     { label := "Layout", content := layoutTabContent env },
     { label := "CSS Grid", content := cssGridTabContent env },
+    { label := "Buttons", content := buttonsTabContent env },
     { label := "Reactive", content := reactiveShowcaseTabContent reactiveShowcaseApp },
     { label := "Widget Perf", content := widgetPerfTabContent widgetPerfApp },
     { label := "Seascape", content := seascapeTabContent env },
