@@ -6,6 +6,7 @@ import Reactive
 import Afferent
 import Afferent.Canopy
 import Afferent.Canopy.Reactive
+import AfferentCharts.Canopy.Widget.Charts
 import Demos.Core.Demo
 
 open Reactive Reactive.Host

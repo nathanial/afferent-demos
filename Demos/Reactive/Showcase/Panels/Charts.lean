@@ -5,6 +5,7 @@ import Reactive
 import Afferent
 import Afferent.Canopy
 import Afferent.Canopy.Reactive
+import AfferentCharts.Canopy.Widget.Charts
 import Linalg.Core
 
 open Reactive Reactive.Host

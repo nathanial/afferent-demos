@@ -6,6 +6,7 @@ package afferentDemos where
 
 -- require afferent from git "https://github.com/nathanial/afferent" @ "v0.0.3"
 require afferent from "../afferent"
+require afferent_charts from "../afferent-charts"
 require linalg from "../../math/linalg"
 -- require crucible from git "https://github.com/nathanial/crucible" @ "v0.0.9"
 require crucible from "../../testing/crucible"
