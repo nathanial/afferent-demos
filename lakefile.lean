@@ -12,6 +12,7 @@ require wisp from git "https://github.com/nathanial/wisp" @ "v0.0.2"
 require cellar from git "https://github.com/nathanial/cellar" @ "v0.0.2"
 require reactive from git "https://github.com/nathanial/reactive" @ "v0.2.2"
 require tileset from git "https://github.com/nathanial/tileset" @ "v0.0.2"
+require «afferent-worldmap» from "../afferent-worldmap"
 
 -- Link arguments for Metal/macOS (inherited from Afferent)
 def commonLinkArgs : Array String := #[
@@ -37,9 +38,6 @@ lean_lib AfferentDemos where
 
 lean_lib Demos where
   roots := #[`Demos]
-
-lean_lib Worldmap where
-  roots := #[`Worldmap]
 
 lean_lib AfferentDemosTests where
   roots := #[`AfferentDemosTests]
