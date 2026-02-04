@@ -5,6 +5,7 @@ import Reactive
 import Afferent
 import Afferent.Canopy
 import Afferent.Canopy.Reactive
+import Linalg.Core
 
 open Reactive Reactive.Host
 open Afferent CanvasM
@@ -293,6 +294,61 @@ def heatmapPanel : WidgetM Unit :=
             min 1.0 (max (-1.0) (v + pulse))
     ) elapsedTime
     let _ ← correlationMatrix valuesDyn labels dims
+    pure ()
+
+/-- MathPlot panel - demonstrates function sampling with line + scatter series. -/
+def mathPlotPanel : WidgetM Unit :=
+  titledPanel' "Math Plot" .outlined do
+    caption' "Sampled functions with animated phase shift:"
+    let xMin := -2.0 * Linalg.Float.pi
+    let xMax := 2.0 * Linalg.Float.pi
+    let dims : MathPlot.Dimensions := {
+      width := mediumWidth, height := mediumHeight
+      marginLeft := standardMarginLeft, marginBottom := standardMarginBottom
+      showMarkers := false
+    }
+    let config : MathPlot.Config := {
+      xRange := { min := some xMin, max := some xMax }
+      yRange := { min := some (-1.5), max := some 1.5 }
+      xLabel := some "x"
+      yLabel := some "f(x)"
+    }
+    let elapsedTime ← useElapsedTime
+    let seriesDyn ← Dynamic.mapM (fun t =>
+      let phase := t * 0.8
+      let sinSpec : MathPlot.FunctionSpec := {
+        f := fun x => Float.sin (x + phase)
+        xMin := xMin
+        xMax := xMax
+        samples := 220
+      }
+      let cosSpec : MathPlot.FunctionSpec := {
+        f := fun x => 0.6 * Float.cos (x * 0.8 - phase)
+        xMin := xMin
+        xMax := xMax
+        samples := 220
+      }
+      let sinSeries := MathPlot.seriesFromFunction sinSpec
+        (label := some "sin(x)")
+        (style := { kind := .line, showMarkers := some false })
+      let cosSeries := MathPlot.seriesFromFunction cosSpec
+        (label := some "0.6 cos(0.8x)")
+        (style := { kind := .line, showMarkers := some false })
+      let scatterPoints := Id.run do
+        let mut pts : Array MathPlot.Point := #[]
+        for i in [0:12] do
+          let x := xMin + (xMax - xMin) * i.toFloat / 11.0
+          let y := 0.4 * Float.sin (x - phase * 0.5)
+          pts := pts.push { x, y }
+        pts
+      let scatterSeries : MathPlot.Series := {
+        points := scatterPoints
+        color := some (Color.rgba 0.95 0.7 0.2 1.0)
+        style := { kind := .scatter, pointRadius := some 4.5 }
+      }
+      #[sinSeries, cosSeries, scatterSeries]
+    ) elapsedTime
+    let _ ← mathPlot seriesDyn dims config
     pure ()
 
 /-- StackedBarChart panel - demonstrates stacked bar chart visualization. -/

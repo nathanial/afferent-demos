@@ -125,6 +125,7 @@ def chartsBasicTabContent : WidgetM Unit := do
       histogramPanel
       boxPlotPanel
       heatmapPanel
+      mathPlotPanel
 
 /-- Charts (Advanced) tab: Stacked/Grouped charts, Radar, Candlestick, Waterfall, Gauge, Funnel, Treemap, Sankey -/
 def chartsAdvancedTabContent : WidgetM Unit := do
