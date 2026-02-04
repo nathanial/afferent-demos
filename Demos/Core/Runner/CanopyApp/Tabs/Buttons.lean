@@ -81,6 +81,21 @@ def buttonsTabContent (env : DemoEnv) : WidgetM Unit := do
           let _ ← loadingButton "Submit" loadingToggle.isOn .secondary
         pure ()
 
+      heading2' "Animated"
+      column' (gap := 12) (style := {}) do
+        row' (gap := 12) (style := { flexItem := some (FlexItem.growing 0) }) do
+          let _ ← rippleButton "Ripple"
+          let _ ← pulseButton "Pulse"
+          let _ ← glowOnHoverButton "Glow"
+          let _ ← borderTraceButton "Trace"
+          let _ ← shimmerLoadingButton "Shimmer"
+        row' (gap := 12) (style := { flexItem := some (FlexItem.growing 0) }) do
+          let _ ← bounceButton "Bounce"
+          let _ ← jellyButton "Jelly"
+          let _ ← typewriterButton "Typewriter"
+          let _ ← slideRevealButton "Slide"
+          let _ ← heartbeatButton "Heartbeat"
+
   pure ()
 
 end Demos
