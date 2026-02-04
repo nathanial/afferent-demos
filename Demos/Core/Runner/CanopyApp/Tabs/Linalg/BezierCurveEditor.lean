@@ -8,6 +8,7 @@ import Afferent.Canopy.Reactive
 import Demos.Core.Demo
 import Demos.Linalg.BezierCurveEditor
 import Trellis
+import AfferentMath.Widget.MathView2D
 
 open Reactive Reactive.Host
 open Afferent
@@ -15,6 +16,7 @@ open Afferent.Arbor
 open Afferent.Canopy
 open Afferent.Canopy.Reactive
 open Trellis
+open AfferentMath.Widget
 
 namespace Demos
 def bezierCurveEditorTabContent (env : DemoEnv) : WidgetM Unit := do
@@ -45,8 +47,8 @@ def bezierCurveEditorTabContent (env : DemoEnv) : WidgetM Unit := do
                   { s with t := t, dragging := .slider }
               else
                 let config := Demos.Linalg.bezierCurveMathViewConfig env.screenScale
-                let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
-                let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
+                let view := AfferentMath.Widget.MathView2D.viewForSize config rect.width rect.height
+                let worldPos := AfferentMath.Widget.MathView2D.screenToWorld view (localX, localY)
                 fun (state : Demos.Linalg.BezierCurveEditorState) =>
                   let points := match state.mode with
                     | .quadratic => state.quadPoints
@@ -80,8 +82,8 @@ def bezierCurveEditorTabContent (env : DemoEnv) : WidgetM Unit := do
                   { state with t := t }
               | .control idx =>
                   let config := Demos.Linalg.bezierCurveMathViewConfig env.screenScale
-                  let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
-                  let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
+                  let view := AfferentMath.Widget.MathView2D.viewForSize config rect.width rect.height
+                  let worldPos := AfferentMath.Widget.MathView2D.screenToWorld view (localX, localY)
                   match state.mode with
                   | .quadratic =>
                       if idx < state.quadPoints.size then

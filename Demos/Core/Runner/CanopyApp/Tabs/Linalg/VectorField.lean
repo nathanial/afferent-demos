@@ -5,9 +5,11 @@ import Reactive
 import Afferent
 import Afferent.Canopy
 import Afferent.Canopy.Reactive
+import AfferentMath.Canopy.Widget.MathView
 import Demos.Core.Demo
 import Demos.Linalg.VectorField
 import Trellis
+import AfferentMath.Widget.VectorField
 
 open Reactive Reactive.Host
 open Afferent
@@ -15,6 +17,8 @@ open Afferent.Arbor
 open Afferent.Canopy
 open Afferent.Canopy.Reactive
 open Trellis
+open AfferentMath.Widget
+open AfferentMath.Canopy
 
 namespace Demos
 def vectorFieldTabContent (env : DemoEnv) : WidgetM Unit := do

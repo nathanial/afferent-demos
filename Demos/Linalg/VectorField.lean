@@ -4,17 +4,19 @@
 -/
 import Afferent
 import Afferent.Widget
-import Afferent.Widget.VectorField
+import AfferentMath.Widget.VectorField
 import Afferent.Arbor
 import Demos.Core.Demo
 import Demos.Linalg.Shared
 import Trellis
 import Linalg.Core
 import Linalg.Vec2
+import AfferentMath.Widget.MathView2D
 
 open Afferent CanvasM Linalg
 open Afferent.Widget
-open Afferent.Widget.VectorField
+open AfferentMath.Widget
+open AfferentMath.Widget.VectorField
 
 namespace Demos.Linalg
 

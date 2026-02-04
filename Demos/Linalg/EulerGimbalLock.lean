@@ -14,9 +14,11 @@ import Linalg.Vec3
 import Linalg.Mat3
 import Linalg.Euler
 import Linalg.Quat
+import AfferentMath.Widget.MathView3D
 
 open Afferent CanvasM Linalg
 open Afferent.Widget
+open AfferentMath.Widget
 
 namespace Demos.Linalg
 

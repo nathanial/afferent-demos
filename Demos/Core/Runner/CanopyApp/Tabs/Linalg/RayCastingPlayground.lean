@@ -8,6 +8,7 @@ import Afferent.Canopy.Reactive
 import Demos.Core.Demo
 import Demos.Linalg.RayCastingPlayground
 import Trellis
+import AfferentMath.Widget.MathView3D
 
 open Reactive Reactive.Host
 open Afferent
@@ -15,6 +16,7 @@ open Afferent.Arbor
 open Afferent.Canopy
 open Afferent.Canopy.Reactive
 open Trellis
+open AfferentMath.Widget
 
 namespace Demos
 def rayCastingPlaygroundTabContent (env : DemoEnv) : WidgetM Unit := do
@@ -43,8 +45,8 @@ def rayCastingPlaygroundTabContent (env : DemoEnv) : WidgetM Unit := do
               let button := data.click.button
               fun (state : Demos.Linalg.RayCastingPlaygroundState) =>
                 let config := Demos.Linalg.rayCastingPlaygroundMathViewConfig state env.screenScale
-                let view := Afferent.Widget.MathView3D.viewForSize config rect.width rect.height
-                let worldOpt := Afferent.Widget.MathView3D.screenToWorldOnPlane view (localX, localY)
+                let view := AfferentMath.Widget.MathView3D.viewForSize config rect.width rect.height
+                let worldOpt := AfferentMath.Widget.MathView3D.screenToWorldOnPlane view (localX, localY)
                   Linalg.Vec3.zero Linalg.Vec3.unitY
                 let origin2 := Linalg.Vec2.mk state.rayOrigin.x state.rayOrigin.z
                 let target2 := Linalg.Vec2.mk state.rayTarget.x state.rayTarget.z
@@ -90,8 +92,8 @@ def rayCastingPlaygroundTabContent (env : DemoEnv) : WidgetM Unit := do
                   }
               | .origin =>
                   let config := Demos.Linalg.rayCastingPlaygroundMathViewConfig state env.screenScale
-                  let view := Afferent.Widget.MathView3D.viewForSize config rect.width rect.height
-                  match Afferent.Widget.MathView3D.screenToWorldOnPlane view (localX, localY)
+                  let view := AfferentMath.Widget.MathView3D.viewForSize config rect.width rect.height
+                  match AfferentMath.Widget.MathView3D.screenToWorldOnPlane view (localX, localY)
                     Linalg.Vec3.zero Linalg.Vec3.unitY with
                   | some worldPos =>
                       let newOrigin := Linalg.Vec3.mk worldPos.x 0.0 worldPos.z
@@ -99,8 +101,8 @@ def rayCastingPlaygroundTabContent (env : DemoEnv) : WidgetM Unit := do
                   | none => state
               | .direction =>
                   let config := Demos.Linalg.rayCastingPlaygroundMathViewConfig state env.screenScale
-                  let view := Afferent.Widget.MathView3D.viewForSize config rect.width rect.height
-                  match Afferent.Widget.MathView3D.screenToWorldOnPlane view (localX, localY)
+                  let view := AfferentMath.Widget.MathView3D.viewForSize config rect.width rect.height
+                  match AfferentMath.Widget.MathView3D.screenToWorldOnPlane view (localX, localY)
                     Linalg.Vec3.zero Linalg.Vec3.unitY with
                   | some worldPos =>
                       let newTarget := Linalg.Vec3.mk worldPos.x 0.0 worldPos.z

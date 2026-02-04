@@ -17,9 +17,11 @@ import Linalg.Geometry.ConvexHull3D
 import Linalg.Geometry.ConvexDecomposition
 import Linalg.Geometry.Ray
 import Linalg.Geometry.Intersection
+import AfferentMath.Widget.MathView3D
 
 open Afferent CanvasM Linalg
 open Afferent.Widget
+open AfferentMath.Widget
 
 namespace Demos.Linalg
 

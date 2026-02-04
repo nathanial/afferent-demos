@@ -5,9 +5,11 @@ import Reactive
 import Afferent
 import Afferent.Canopy
 import Afferent.Canopy.Reactive
+import AfferentMath.Canopy.Widget.MathView
 import Demos.Core.Demo
 import Demos.Linalg.VectorField3D
 import Trellis
+import AfferentMath.Widget.VectorField
 
 open Reactive Reactive.Host
 open Afferent
@@ -16,6 +18,8 @@ open Afferent.Widget
 open Afferent.Canopy
 open Afferent.Canopy.Reactive
 open Trellis
+open AfferentMath.Widget
+open AfferentMath.Canopy
 
 namespace Demos
 

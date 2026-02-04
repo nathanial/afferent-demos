@@ -12,6 +12,7 @@ import Linalg.Vec3
 import Linalg.Geometry.AABB
 import Linalg.Geometry.Intersection
 import Linalg.Spatial.Octree
+import AfferentMath.Widget.MathView3D
 
 open Afferent CanvasM Linalg
 open Afferent.Widget
@@ -19,6 +20,7 @@ open Afferent.Widget
 namespace Demos.Linalg
 
 open Linalg.Spatial
+open AfferentMath.Widget
 
 /-- State for octree viewer. -/
 structure OctreeViewer3DState where

@@ -8,9 +8,11 @@ import Demos.Core.Demo
 import Demos.Linalg.Shared
 import Linalg.Vec3
 import Linalg.Mat4
+import AfferentMath.Widget.MathView3D
 
 open Afferent CanvasM Linalg
 open Afferent.Widget
+open AfferentMath.Widget
 
 namespace Demos.Linalg
 

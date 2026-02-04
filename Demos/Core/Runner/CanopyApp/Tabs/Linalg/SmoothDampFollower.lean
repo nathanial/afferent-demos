@@ -8,6 +8,7 @@ import Afferent.Canopy.Reactive
 import Demos.Core.Demo
 import Demos.Linalg.SmoothDampFollower
 import Trellis
+import AfferentMath.Widget.MathView2D
 
 open Reactive Reactive.Host
 open Afferent
@@ -15,6 +16,7 @@ open Afferent.Arbor
 open Afferent.Canopy
 open Afferent.Canopy.Reactive
 open Trellis
+open AfferentMath.Widget
 
 namespace Demos
 def smoothDampFollowerTabContent (env : DemoEnv) : WidgetM Unit := do
@@ -40,8 +42,8 @@ def smoothDampFollowerTabContent (env : DemoEnv) : WidgetM Unit := do
               let hitMax := localX >= layoutMax.x && localX <= layoutMax.x + layoutMax.width
                 && localY >= layoutMax.y - 8.0 && localY <= layoutMax.y + layoutMax.height + 8.0
               let config := Demos.Linalg.smoothDampMathViewConfig env.screenScale
-              let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
-              let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
+              let view := AfferentMath.Widget.MathView2D.viewForSize config rect.width rect.height
+              let worldPos := AfferentMath.Widget.MathView2D.screenToWorld view (localX, localY)
               fun (state : Demos.Linalg.SmoothDampFollowerState) =>
                 if hitSmooth then
                   let t := Linalg.Float.clamp ((localX - layoutSmooth.x) / layoutSmooth.width) 0.0 1.0
@@ -69,8 +71,8 @@ def smoothDampFollowerTabContent (env : DemoEnv) : WidgetM Unit := do
             let localX := data.x - rect.x
             let localY := data.y - rect.y
             let config := Demos.Linalg.smoothDampMathViewConfig env.screenScale
-            let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
-            let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
+            let view := AfferentMath.Widget.MathView2D.viewForSize config rect.width rect.height
+            let worldPos := AfferentMath.Widget.MathView2D.screenToWorld view (localX, localY)
             fun (state : Demos.Linalg.SmoothDampFollowerState) =>
               match state.dragging with
               | .none => state

@@ -11,6 +11,7 @@ import Linalg.Core
 import Linalg.Vec2
 import Linalg.Geometry.AABB2D
 import Linalg.Spatial.Quadtree
+import AfferentMath.Widget.MathView2D
 
 open Afferent CanvasM Linalg
 open Afferent.Widget
@@ -18,6 +19,7 @@ open Afferent.Widget
 namespace Demos.Linalg
 
 open Linalg.Spatial
+open AfferentMath.Widget
 
 /-- Query modes for quadtree visualization. -/
 inductive QuadtreeQueryMode where

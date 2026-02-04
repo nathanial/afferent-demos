@@ -8,6 +8,7 @@ import Afferent.Canopy.Reactive
 import Demos.Core.Demo
 import Demos.Linalg.CatmullRomSplineEditor
 import Trellis
+import AfferentMath.Widget.MathView2D
 
 open Reactive Reactive.Host
 open Afferent
@@ -15,6 +16,7 @@ open Afferent.Arbor
 open Afferent.Canopy
 open Afferent.Canopy.Reactive
 open Trellis
+open AfferentMath.Widget
 
 namespace Demos
 def catmullRomSplineEditorTabContent (env : DemoEnv) : WidgetM Unit := do
@@ -45,8 +47,8 @@ def catmullRomSplineEditorTabContent (env : DemoEnv) : WidgetM Unit := do
                   { s with alpha := alpha, dragging := .slider }
               else
                 let config := Demos.Linalg.catmullRomMathViewConfig env.screenScale
-                let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
-                let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
+                let view := AfferentMath.Widget.MathView2D.viewForSize config rect.width rect.height
+                let worldPos := AfferentMath.Widget.MathView2D.screenToWorld view (localX, localY)
                 fun (state : Demos.Linalg.CatmullRomSplineEditorState) =>
                   let hit := (Array.range state.points.size).findSome? fun i =>
                     let p := state.points.getD i Linalg.Vec2.zero
@@ -79,8 +81,8 @@ def catmullRomSplineEditorTabContent (env : DemoEnv) : WidgetM Unit := do
                   { state with alpha := alpha }
               | .point idx =>
                   let config := Demos.Linalg.catmullRomMathViewConfig env.screenScale
-                  let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
-                  let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
+                  let view := AfferentMath.Widget.MathView2D.viewForSize config rect.width rect.height
+                  let worldPos := AfferentMath.Widget.MathView2D.screenToWorld view (localX, localY)
                   if idx < state.points.size then
                     { state with points := state.points.set! idx worldPos }
                   else

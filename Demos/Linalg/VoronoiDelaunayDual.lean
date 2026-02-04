@@ -14,9 +14,11 @@ import Linalg.Geometry.Delaunay
 import Linalg.Geometry.Voronoi
 import Linalg.Geometry.AABB2D
 import Linalg.Geometry.Polygon2D
+import AfferentMath.Widget.MathView2D
 
 open Afferent CanvasM Linalg
 open Afferent.Widget
+open AfferentMath.Widget
 
 namespace Demos.Linalg
 

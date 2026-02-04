@@ -12,9 +12,11 @@ import Linalg.Vec2
 import Linalg.Vec3
 import Linalg.Mat3
 import Linalg.Physics
+import AfferentMath.Widget.MathView2D
 
 open Afferent CanvasM Linalg
 open Afferent.Widget
+open AfferentMath.Widget
 
 namespace Demos.Linalg
 

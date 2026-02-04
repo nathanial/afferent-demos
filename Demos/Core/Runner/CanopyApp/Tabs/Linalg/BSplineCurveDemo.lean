@@ -8,6 +8,7 @@ import Afferent.Canopy.Reactive
 import Demos.Core.Demo
 import Demos.Linalg.BSplineCurveDemo
 import Trellis
+import AfferentMath.Widget.MathView2D
 
 open Reactive Reactive.Host
 open Afferent
@@ -15,6 +16,7 @@ open Afferent.Arbor
 open Afferent.Canopy
 open Afferent.Canopy.Reactive
 open Trellis
+open AfferentMath.Widget
 
 namespace Demos
 def bSplineCurveDemoTabContent (env : DemoEnv) : WidgetM Unit := do
@@ -63,8 +65,8 @@ def bSplineCurveDemoTabContent (env : DemoEnv) : WidgetM Unit := do
                     { state with knots := knots, dragging := .knot idx }
                 | none =>
                     let config := Demos.Linalg.bSplineMathViewConfig env.screenScale
-                    let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
-                    let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
+                    let view := AfferentMath.Widget.MathView2D.viewForSize config rect.width rect.height
+                    let worldPos := AfferentMath.Widget.MathView2D.screenToWorld view (localX, localY)
                     let hitPt := (Array.range state.controlPoints.size).findSome? fun i =>
                       let p := state.controlPoints.getD i Linalg.Vec2.zero
                       if Demos.Linalg.nearPoint worldPos p 0.45 then some i else none
@@ -89,8 +91,8 @@ def bSplineCurveDemoTabContent (env : DemoEnv) : WidgetM Unit := do
               | .none => state
               | .point idx =>
                   let config := Demos.Linalg.bSplineMathViewConfig env.screenScale
-                  let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
-                  let worldPos := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
+                  let view := AfferentMath.Widget.MathView2D.viewForSize config rect.width rect.height
+                  let worldPos := AfferentMath.Widget.MathView2D.screenToWorld view (localX, localY)
                   if idx < state.controlPoints.size then
                     { state with controlPoints := state.controlPoints.set! idx worldPos }
                   else

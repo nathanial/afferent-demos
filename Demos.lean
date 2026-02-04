@@ -57,3 +57,5 @@ import Demos.Linalg.EasingFunctionGallery
 import Demos.Linalg.SmoothDampFollower
 import Demos.Linalg.SpringAnimationPlayground
 import Demos.Core.Runner
+import AfferentMath.Widget.VectorField
+open AfferentMath.Widget

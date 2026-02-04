@@ -12,9 +12,11 @@ import Linalg.Core
 import Linalg.Vec2
 import Linalg.Vec3
 import Linalg.Curves
+import AfferentMath.Widget.MathView3D
 
 open Afferent CanvasM Linalg
 open Afferent.Widget
+open AfferentMath.Widget
 
 namespace Demos.Linalg
 

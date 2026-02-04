@@ -8,6 +8,7 @@ import Afferent.Canopy.Reactive
 import Demos.Core.Demo
 import Demos.Linalg.OctreeViewer3D
 import Trellis
+import AfferentMath.Widget.MathView3D
 
 open Reactive Reactive.Host
 open Afferent
@@ -15,6 +16,7 @@ open Afferent.Arbor
 open Afferent.Canopy
 open Afferent.Canopy.Reactive
 open Trellis
+open AfferentMath.Widget
 
 namespace Demos
 
@@ -85,7 +87,7 @@ def octreeViewer3DTabContent (env : DemoEnv) : WidgetM Unit := do
               let localY := data.click.y - rect.y
               fun (state : Demos.Linalg.OctreeViewer3DState) =>
                 let config := Demos.Linalg.octreeViewer3DMathViewConfig state env.screenScale
-                let view := Afferent.Widget.MathView3D.viewForSize config rect.width rect.height
+                let view := AfferentMath.Widget.MathView3D.viewForSize config rect.width rect.height
                 match Demos.Linalg.screenToWorldOnPlane view localX localY 0.0 with
                 | some worldPos =>
                     let z := Float.sin state.spawnPhase * 2.0

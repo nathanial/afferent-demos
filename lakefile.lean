@@ -4,7 +4,8 @@ open Lake DSL
 package afferentDemos where
   version := v!"0.1.0"
 
-require afferent from git "https://github.com/nathanial/afferent" @ "v0.0.15"
+require afferent from "../afferent"
+require «afferent-math» from "../afferent-math"
 require afferent_charts from git "https://github.com/nathanial/afferent-charts" @ "v0.0.1"
 require linalg from git "https://github.com/nathanial/linalg" @ "v0.0.5"
 require crucible from git "https://github.com/nathanial/crucible" @ "v0.0.10"

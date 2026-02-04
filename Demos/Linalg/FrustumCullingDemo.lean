@@ -16,9 +16,11 @@ import Linalg.Mat4
 import Linalg.Geometry.Frustum
 import Linalg.Geometry.Sphere
 import Linalg.Geometry.AABB
+import AfferentMath.Widget.MathView3D
 
 open Afferent CanvasM Linalg
 open Afferent.Widget
+open AfferentMath.Widget
 
 namespace Demos.Linalg
 

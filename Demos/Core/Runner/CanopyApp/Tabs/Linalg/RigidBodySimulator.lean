@@ -8,6 +8,7 @@ import Afferent.Canopy.Reactive
 import Demos.Core.Demo
 import Demos.Linalg.RigidBodySimulator
 import Trellis
+import AfferentMath.Widget.MathView2D
 
 open Reactive Reactive.Host
 open Afferent
@@ -15,6 +16,7 @@ open Afferent.Arbor
 open Afferent.Canopy
 open Afferent.Canopy.Reactive
 open Trellis
+open AfferentMath.Widget
 
 namespace Demos
 
@@ -87,8 +89,8 @@ def rigidBodySimulatorTabContent (env : DemoEnv) : WidgetM Unit := do
               let localX := data.click.x - rect.x
               let localY := data.click.y - rect.y
               let config := Demos.Linalg.rigidBodyMathViewConfig env.screenScale
-              let view := Afferent.Widget.MathView2D.viewForSize config rect.width rect.height
-              let world := Afferent.Widget.MathView2D.screenToWorld view (localX, localY)
+              let view := AfferentMath.Widget.MathView2D.viewForSize config rect.width rect.height
+              let world := AfferentMath.Widget.MathView2D.screenToWorld view (localX, localY)
               fun (state : Demos.Linalg.RigidBodySimulatorState) =>
                 applyClickForce state world
           | none => id

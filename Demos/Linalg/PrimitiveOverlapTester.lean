@@ -16,9 +16,11 @@ import Linalg.Geometry.AABB2D
 import Linalg.Geometry.Sphere
 import Linalg.Geometry.Intersection
 import Linalg.Geometry.Collision2D
+import AfferentMath.Widget.MathView2D
 
 open Afferent CanvasM Linalg
 open Afferent.Widget
+open AfferentMath.Widget
 
 namespace Demos.Linalg
 

@@ -15,6 +15,7 @@ import Linalg.Geometry.Triangle
 import Linalg.Geometry.Ray
 import Linalg.Geometry.Intersection
 import Linalg.Spatial.BVH
+import AfferentMath.Widget.MathView2D
 
 open Afferent CanvasM Linalg
 open Afferent.Widget
@@ -22,6 +23,7 @@ open Afferent.Widget
 namespace Demos.Linalg
 
 open Linalg.Spatial
+open AfferentMath.Widget
 
 instance : Inhabited Triangle where
   default := { v0 := Vec3.zero, v1 := Vec3.zero, v2 := Vec3.zero }

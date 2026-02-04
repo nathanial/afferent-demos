@@ -45,3 +45,5 @@ import Demos.Core.Runner.CanopyApp.Tabs.Linalg.NoiseExplorer2D
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.FBMTerrainGenerator
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.DomainWarpingDemo
 import Demos.Core.Runner.CanopyApp.Tabs.Linalg.WorleyCellularNoise
+import AfferentMath.Widget.VectorField
+open AfferentMath.Widget
