@@ -4,20 +4,14 @@ open Lake DSL
 package afferentDemos where
   version := v!"0.1.0"
 
--- require afferent from git "https://github.com/nathanial/afferent" @ "v0.0.3"
-require afferent from "../afferent"
-require afferent_charts from "../afferent-charts"
-require linalg from "../../math/linalg"
--- require crucible from git "https://github.com/nathanial/crucible" @ "v0.0.9"
-require crucible from "../../testing/crucible"
--- require wisp from git "https://github.com/nathanial/wisp" @ "v0.0.1"
-require wisp from "../../network/wisp"
--- require cellar from git "https://github.com/nathanial/cellar" @ "v0.0.1"
-require cellar from "../../data/cellar"
--- require reactive from git "https://github.com/nathanial/reactive" @ "v0.0.4"
-require reactive from "../../data/reactive"
--- require tileset from git "https://github.com/nathanial/tileset" @ "v0.0.1"
-require tileset from "../../data/tileset"
+require afferent from git "https://github.com/nathanial/afferent" @ "v0.0.15"
+require afferent_charts from git "https://github.com/nathanial/afferent-charts" @ "v0.0.1"
+require linalg from git "https://github.com/nathanial/linalg" @ "v0.0.5"
+require crucible from git "https://github.com/nathanial/crucible" @ "v0.0.10"
+require wisp from git "https://github.com/nathanial/wisp" @ "v0.0.2"
+require cellar from git "https://github.com/nathanial/cellar" @ "v0.0.2"
+require reactive from git "https://github.com/nathanial/reactive" @ "v0.2.2"
+require tileset from git "https://github.com/nathanial/tileset" @ "v0.0.2"
 
 -- Link arguments for Metal/macOS (inherited from Afferent)
 def commonLinkArgs : Array String := #[
