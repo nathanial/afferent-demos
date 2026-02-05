@@ -6,7 +6,7 @@ package afferentDemos where
 
 require afferent from git "https://github.com/nathanial/afferent" @ "v0.0.16"
 require «afferent-math» from git "https://github.com/nathanial/afferent-math" @ "v0.0.1"
-require «afferent-chat» from git "https://github.com/nathanial/afferent-chat" @ "v0.0.1"
+require «afferent-chat» from git "https://github.com/nathanial/afferent-chat" @ "v0.0.2"
 require afferent_charts from git "https://github.com/nathanial/afferent-charts" @ "v0.0.1"
 require «afferent-worldmap» from git "https://github.com/nathanial/afferent-worldmap" @ "v0.0.1"
 require linalg from git "https://github.com/nathanial/linalg" @ "v0.0.5"
