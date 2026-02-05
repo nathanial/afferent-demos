@@ -6,7 +6,7 @@ import Oracle.Reactive.Client
 import Afferent
 import Afferent.Canopy
 import Afferent.Canopy.Reactive
-import Afferent.Canopy.Widget.Chat
+import AfferentChat.Canopy.Widget.Chat
 import Demos.Core.Demo
 
 open Reactive Reactive.Host
@@ -14,7 +14,7 @@ open Afferent CanvasM
 open Afferent.Arbor
 open Afferent.Canopy
 open Afferent.Canopy.Reactive
-open Afferent.Canopy.Chat
+open AfferentChat.Canopy.Chat
 open Oracle.Reactive
 open Trellis
 
