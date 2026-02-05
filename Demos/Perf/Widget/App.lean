@@ -6,6 +6,7 @@ import Reactive
 import Afferent
 import Afferent.Canopy
 import Afferent.Canopy.Reactive
+import AfferentSpinners.Canopy.Widget.Display.Spinner
 import AfferentCharts.Canopy.Widget.Charts
 import Demos.Core.Demo
 
@@ -216,51 +217,51 @@ def renderWidget (wtype : WidgetType) (index : Nat) : WidgetM Unit := do
 
   -- Spinners (standard)
   | .spinnerCircleDots =>
-    let _ ← spinner { variant := .circleDots, dims := { size := 50 } }
+    let _ ← AfferentSpinners.Canopy.spinner { variant := .circleDots, dims := { size := 50 } }
     pure ()
   | .spinnerRing =>
-    let _ ← spinner { variant := .ring, dims := { size := 50 } }
+    let _ ← AfferentSpinners.Canopy.spinner { variant := .ring, dims := { size := 50 } }
     pure ()
   | .spinnerBouncingDots =>
-    let _ ← spinner { variant := .bouncingDots, dims := { size := 50 } }
+    let _ ← AfferentSpinners.Canopy.spinner { variant := .bouncingDots, dims := { size := 50 } }
     pure ()
   | .spinnerBars =>
-    let _ ← spinner { variant := .bars, dims := { size := 50 } }
+    let _ ← AfferentSpinners.Canopy.spinner { variant := .bars, dims := { size := 50 } }
     pure ()
   | .spinnerDualRing =>
-    let _ ← spinner { variant := .dualRing, dims := { size := 50 } }
+    let _ ← AfferentSpinners.Canopy.spinner { variant := .dualRing, dims := { size := 50 } }
     pure ()
 
   -- Spinners (creative)
   | .spinnerOrbit =>
-    let _ ← spinner { variant := .orbit, dims := { size := 50 } }
+    let _ ← AfferentSpinners.Canopy.spinner { variant := .orbit, dims := { size := 50 } }
     pure ()
   | .spinnerPulse =>
-    let _ ← spinner { variant := .pulse, dims := { size := 50 } }
+    let _ ← AfferentSpinners.Canopy.spinner { variant := .pulse, dims := { size := 50 } }
     pure ()
   | .spinnerHelix =>
-    let _ ← spinner { variant := .helix, dims := { size := 50 } }
+    let _ ← AfferentSpinners.Canopy.spinner { variant := .helix, dims := { size := 50 } }
     pure ()
   | .spinnerWave =>
-    let _ ← spinner { variant := .wave, dims := { size := 50 } }
+    let _ ← AfferentSpinners.Canopy.spinner { variant := .wave, dims := { size := 50 } }
     pure ()
   | .spinnerSpiral =>
-    let _ ← spinner { variant := .spiral, dims := { size := 50 } }
+    let _ ← AfferentSpinners.Canopy.spinner { variant := .spiral, dims := { size := 50 } }
     pure ()
   | .spinnerClock =>
-    let _ ← spinner { variant := .clock, dims := { size := 50 } }
+    let _ ← AfferentSpinners.Canopy.spinner { variant := .clock, dims := { size := 50 } }
     pure ()
   | .spinnerPendulum =>
-    let _ ← spinner { variant := .pendulum, dims := { size := 50 } }
+    let _ ← AfferentSpinners.Canopy.spinner { variant := .pendulum, dims := { size := 50 } }
     pure ()
   | .spinnerRipple =>
-    let _ ← spinner { variant := .ripple, dims := { size := 50 } }
+    let _ ← AfferentSpinners.Canopy.spinner { variant := .ripple, dims := { size := 50 } }
     pure ()
   | .spinnerHeartbeat =>
-    let _ ← spinner { variant := .heartbeat, dims := { size := 50 } }
+    let _ ← AfferentSpinners.Canopy.spinner { variant := .heartbeat, dims := { size := 50 } }
     pure ()
   | .spinnerGears =>
-    let _ ← spinner { variant := .gears, dims := { size := 50 } }
+    let _ ← AfferentSpinners.Canopy.spinner { variant := .gears, dims := { size := 50 } }
     pure ()
 
   -- Charts

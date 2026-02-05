@@ -5,6 +5,7 @@ import Reactive
 import Afferent
 import Afferent.Canopy
 import Afferent.Canopy.Reactive
+import AfferentSpinners.Canopy.Widget.Display.Spinner
 
 open Reactive Reactive.Host
 open Afferent CanvasM
@@ -16,9 +17,9 @@ open Trellis
 namespace Demos.ReactiveShowcase
 
 /-- Helper to create a spinner demo with label. -/
-private def spinnerDemo (label : String) (variant : SpinnerVariant) : WidgetM Unit := do
+private def spinnerDemo (label : String) (variant : AfferentSpinners.Canopy.SpinnerVariant) : WidgetM Unit := do
   flexColumn' { FlexContainer.column 8 with alignItems := .center } (style := {}) do
-    spinner { variant, dims := { size := 48 } }
+    AfferentSpinners.Canopy.spinner { variant, dims := { size := 48 } }
     caption' label
 
 /-- Standard Spinners panel - common loading indicators. -/
@@ -60,16 +61,16 @@ def spinnerSizesPanel : WidgetM Unit :=
     caption' "Different sizes using ring spinner:"
     flexRow' { FlexContainer.row 32 with alignItems := .center } (style := { padding := EdgeInsets.uniform 16 }) do
       flexColumn' { FlexContainer.column 8 with alignItems := .center } (style := {}) do
-        spinner { variant := .ring, dims := { size := 24 } }
+        AfferentSpinners.Canopy.spinner { variant := .ring, dims := { size := 24 } }
         caption' "24px"
       flexColumn' { FlexContainer.column 8 with alignItems := .center } (style := {}) do
-        spinner { variant := .ring, dims := { size := 40 } }
+        AfferentSpinners.Canopy.spinner { variant := .ring, dims := { size := 40 } }
         caption' "40px"
       flexColumn' { FlexContainer.column 8 with alignItems := .center } (style := {}) do
-        spinner { variant := .ring, dims := { size := 64 } }
+        AfferentSpinners.Canopy.spinner { variant := .ring, dims := { size := 64 } }
         caption' "64px"
       flexColumn' { FlexContainer.column 8 with alignItems := .center } (style := {}) do
-        spinner { variant := .ring, dims := { size := 96 } }
+        AfferentSpinners.Canopy.spinner { variant := .ring, dims := { size := 96 } }
         caption' "96px"
 
 /-- Spinner Colors panel - demonstrates color variations. -/
@@ -78,19 +79,19 @@ def spinnerColorsPanel : WidgetM Unit :=
     caption' "Custom colors:"
     row' (gap := 32) (style := { padding := EdgeInsets.uniform 16 }) do
       flexColumn' { FlexContainer.column 8 with alignItems := .center } (style := {}) do
-        spinner { variant := .ring, color := some (Color.rgba 0.2 0.6 1.0 1.0), dims := { size := 48 } }
+        AfferentSpinners.Canopy.spinner { variant := .ring, color := some (Color.rgba 0.2 0.6 1.0 1.0), dims := { size := 48 } }
         caption' "Blue"
       flexColumn' { FlexContainer.column 8 with alignItems := .center } (style := {}) do
-        spinner { variant := .ring, color := some (Color.rgba 0.2 0.8 0.4 1.0), dims := { size := 48 } }
+        AfferentSpinners.Canopy.spinner { variant := .ring, color := some (Color.rgba 0.2 0.8 0.4 1.0), dims := { size := 48 } }
         caption' "Green"
       flexColumn' { FlexContainer.column 8 with alignItems := .center } (style := {}) do
-        spinner { variant := .ring, color := some (Color.rgba 1.0 0.5 0.2 1.0), dims := { size := 48 } }
+        AfferentSpinners.Canopy.spinner { variant := .ring, color := some (Color.rgba 1.0 0.5 0.2 1.0), dims := { size := 48 } }
         caption' "Orange"
       flexColumn' { FlexContainer.column 8 with alignItems := .center } (style := {}) do
-        spinner { variant := .ring, color := some (Color.rgba 0.9 0.2 0.4 1.0), dims := { size := 48 } }
+        AfferentSpinners.Canopy.spinner { variant := .ring, color := some (Color.rgba 0.9 0.2 0.4 1.0), dims := { size := 48 } }
         caption' "Red"
       flexColumn' { FlexContainer.column 8 with alignItems := .center } (style := {}) do
-        spinner { variant := .ring, color := some (Color.rgba 0.7 0.4 0.9 1.0), dims := { size := 48 } }
+        AfferentSpinners.Canopy.spinner { variant := .ring, color := some (Color.rgba 0.7 0.4 0.9 1.0), dims := { size := 48 } }
         caption' "Purple"
 
 /-- Spinner Speeds panel - demonstrates speed variations. -/
@@ -99,16 +100,16 @@ def spinnerSpeedsPanel : WidgetM Unit :=
     caption' "Different animation speeds:"
     row' (gap := 32) (style := { padding := EdgeInsets.uniform 16 }) do
       flexColumn' { FlexContainer.column 8 with alignItems := .center } (style := {}) do
-        spinner { variant := .ring, speed := 0.5, dims := { size := 48 } }
+        AfferentSpinners.Canopy.spinner { variant := .ring, speed := 0.5, dims := { size := 48 } }
         caption' "0.5x"
       flexColumn' { FlexContainer.column 8 with alignItems := .center } (style := {}) do
-        spinner { variant := .ring, speed := 1.0, dims := { size := 48 } }
+        AfferentSpinners.Canopy.spinner { variant := .ring, speed := 1.0, dims := { size := 48 } }
         caption' "1.0x"
       flexColumn' { FlexContainer.column 8 with alignItems := .center } (style := {}) do
-        spinner { variant := .ring, speed := 1.5, dims := { size := 48 } }
+        AfferentSpinners.Canopy.spinner { variant := .ring, speed := 1.5, dims := { size := 48 } }
         caption' "1.5x"
       flexColumn' { FlexContainer.column 8 with alignItems := .center } (style := {}) do
-        spinner { variant := .ring, speed := 2.0, dims := { size := 48 } }
+        AfferentSpinners.Canopy.spinner { variant := .ring, speed := 2.0, dims := { size := 48 } }
         caption' "2.0x"
 
 end Demos.ReactiveShowcase
