@@ -6,6 +6,7 @@ import Reactive
 import Afferent
 import Afferent.Canopy
 import Afferent.Canopy.Reactive
+import AfferentProgressBars.Canopy.Widget.Display.ProgressBar
 import AfferentSpinners.Canopy.Widget.Display.Spinner
 import AfferentCharts.Canopy.Widget.Charts
 import Demos.Core.Demo
@@ -205,10 +206,10 @@ def renderWidget (wtype : WidgetType) (index : Nat) : WidgetM Unit := do
     let _ ← stepper 5 config
     pure ()
   | .progressBar =>
-    let _ ← progressBar 0.65 .primary none false
+    let _ ← AfferentProgressBars.Canopy.progressBar 0.65 .primary none false
     pure ()
   | .progressIndeterminate =>
-    let _ ← progressBarIndeterminate .primary none
+    let _ ← AfferentProgressBars.Canopy.progressBarIndeterminate .primary none
     pure ()
   | .dropdown =>
     let opts := #["Apple", "Banana", "Cherry"]

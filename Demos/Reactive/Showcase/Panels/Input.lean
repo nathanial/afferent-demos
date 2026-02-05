@@ -5,6 +5,7 @@ import Reactive
 import Afferent
 import Afferent.Canopy
 import Afferent.Canopy.Reactive
+import AfferentProgressBars.Canopy.Widget.Display.ProgressBar
 
 open Reactive Reactive.Host
 open Afferent CanvasM
@@ -49,10 +50,10 @@ def progressBarsPanel : WidgetM Unit :=
   titledPanel' "Progress Bars" .outlined do
     caption' "Determinate and indeterminate progress:"
     column' (gap := 12) (style := {}) do
-      let _ ← progressBar 0.65 .primary (some "Download") true
-      let _ ← progressBar 0.3 .success (some "Upload") true
-      let _ ← progressBar 0.85 .warning none true
-      let _ ← progressBarIndeterminate .primary (some "Loading...")
+      let _ ← AfferentProgressBars.Canopy.progressBar 0.65 .primary (some "Download") true
+      let _ ← AfferentProgressBars.Canopy.progressBar 0.3 .success (some "Upload") true
+      let _ ← AfferentProgressBars.Canopy.progressBar 0.85 .warning none true
+      let _ ← AfferentProgressBars.Canopy.progressBarIndeterminate .primary (some "Loading...")
       pure ()
 
 /-- Dropdown panel - demonstrates dropdown selection. -/
